@@ -40,24 +40,24 @@ function GA4ConnectPrompt() {
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-700/60 bg-[#0D0D10] overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-800/60">
-        <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-          <BarChart3 className="w-4 h-4 text-emerald-400" />
+    <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-(--nd-border)">
+        <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+          <BarChart3 className="w-4 h-4 text-emerald-600" />
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-white">GA4 Traffic Analysis</h3>
-          <p className="text-xs text-zinc-400">Connect your Google Analytics 4 to view real traffic data</p>
+          <h3 className="text-sm font-semibold text-(--nd-text-primary)">GA4 Traffic Analysis</h3>
+          <p className="text-xs text-(--nd-text-muted)">Connect your Google Analytics 4 to view real traffic data</p>
         </div>
       </div>
 
       <div className="px-5 py-6 flex flex-col items-center text-center gap-4">
-        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-          <AlertCircle className="w-7 h-7 text-amber-400" />
+        <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center">
+          <AlertCircle className="w-7 h-7 text-amber-600" />
         </div>
         <div>
-          <p className="text-white font-semibold text-sm mb-1">Google Analytics 4 not connected</p>
-          <p className="text-zinc-400 text-xs max-w-xs">
+          <p className="text-(--nd-text-primary) font-semibold text-sm mb-1">Google Analytics 4 not connected</p>
+          <p className="text-(--nd-text-muted) text-xs max-w-xs">
             Connect your GA4 account to see real 30-day sessions data for every page in your Performance Metrics.
           </p>
         </div>
@@ -71,7 +71,7 @@ function GA4ConnectPrompt() {
           ].map((f) => (
             <div key={f} className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-              <span className="text-zinc-300 text-xs">{f}</span>
+              <span className="text-(--nd-text-secondary) text-xs">{f}</span>
             </div>
           ))}
         </div>
@@ -124,14 +124,14 @@ function GA4SetupInstructions({ selectedPropertyName }: { selectedPropertyName?:
   ]
 
   return (
-    <div className="rounded-2xl border border-zinc-700/60 bg-[#0D0D10] overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-800/60">
-        <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
-          <Info className="w-4 h-4 text-blue-400" />
+    <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-(--nd-border)">
+        <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0">
+          <Info className="w-4 h-4 text-blue-600" />
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-white">GA4 Setup Guide</h3>
-          <p className="text-xs text-zinc-400">
+          <h3 className="text-sm font-semibold text-(--nd-text-primary)">GA4 Setup Guide</h3>
+          <p className="text-xs text-(--nd-text-muted)">
             {selectedPropertyName
               ? `Ensure "${selectedPropertyName}" is collecting data for your website`
               : 'How to set up GA4 to collect data for your website'}
@@ -143,19 +143,19 @@ function GA4SetupInstructions({ selectedPropertyName }: { selectedPropertyName?:
         {steps.map((step, i) => (
           <div key={i} className="flex gap-3">
             <div className="shrink-0 mt-0.5">
-              <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center">
-                <span className="text-xs font-bold text-zinc-300">{i + 1}</span>
+              <div className="w-6 h-6 rounded-full bg-(--nd-bg) border border-(--nd-border) flex items-center justify-center">
+                <span className="text-xs font-bold text-(--nd-text-secondary)">{i + 1}</span>
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white mb-1">{step.title}</p>
-              <p className="text-xs text-zinc-400 leading-relaxed">{step.description}</p>
+              <p className="text-sm font-medium text-(--nd-text-primary) mb-1">{step.title}</p>
+              <p className="text-xs text-(--nd-text-muted) leading-relaxed">{step.description}</p>
               {step.action && (
                 <a
                   href={step.action.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 mt-2 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                  className="inline-flex items-center gap-1.5 mt-2 text-xs text-blue-600 hover:text-blue-700 transition-colors"
                 >
                   {step.action.label}
                   <ExternalLink className="w-3 h-3" />
@@ -163,18 +163,18 @@ function GA4SetupInstructions({ selectedPropertyName }: { selectedPropertyName?:
               )}
               {step.copyable && (
                 <div className="mt-2 relative">
-                  <pre className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-[11px] text-zinc-300 overflow-x-auto whitespace-pre font-mono">
+                  <pre className="bg-(--nd-bg) border border-(--nd-border) rounded-lg p-3 text-[11px] text-(--nd-text-secondary) overflow-x-auto whitespace-pre font-mono">
                     {step.copyable}
                   </pre>
                   <button
                     onClick={() => copyText(step.copyable!, i)}
-                    className="absolute top-2 right-2 p-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 transition-colors cursor-pointer"
+                    className="absolute top-2 right-2 p-1.5 rounded-md bg-(--nd-bg) hover:bg-(--nd-border) transition-colors cursor-pointer"
                     title="Copy snippet"
                   >
                     {copiedStep === i ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
                     ) : (
-                      <Copy className="w-3.5 h-3.5 text-zinc-400" />
+                      <Copy className="w-3.5 h-3.5 text-(--nd-text-muted)" />
                     )}
                   </button>
                 </div>
@@ -183,8 +183,8 @@ function GA4SetupInstructions({ selectedPropertyName }: { selectedPropertyName?:
           </div>
         ))}
 
-        <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
-          <p className="text-xs text-amber-300 leading-relaxed">
+        <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200">
+          <p className="text-xs text-amber-700 leading-relaxed">
             <strong>Important:</strong> The GA4 property you select here must have a data stream for the same website
             you&apos;re analyzing. If the website doesn&apos;t have the GA4 tag installed, the traffic data will show 0 sessions.
           </p>
@@ -211,32 +211,32 @@ function PropertySelector({
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-800/60 border border-zinc-700/60 text-sm text-zinc-200 hover:bg-zinc-700/60 transition-colors cursor-pointer"
+        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-(--nd-bg) border border-(--nd-border) text-sm text-(--nd-text-secondary) hover:bg-(--nd-border) transition-colors cursor-pointer"
       >
-        <BarChart3 className="w-4 h-4 text-emerald-400 shrink-0" />
+        <BarChart3 className="w-4 h-4 text-emerald-600 shrink-0" />
         <span className="truncate max-w-60">
           {selected ? selected.displayName : 'Select GA4 property…'}
         </span>
-        <ChevronDown className="w-3.5 h-3.5 shrink-0 text-zinc-400 ml-1" />
+          <ChevronDown className="w-3.5 h-3.5 shrink-0 text-(--nd-text-muted) ml-1" />
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full mt-1 left-0 min-w-70 max-w-sm rounded-xl bg-zinc-900 border border-zinc-700 shadow-xl overflow-hidden">
+        <div className="absolute z-50 top-full mt-1 left-0 min-w-70 max-w-sm rounded-xl bg-white border border-(--nd-border) shadow-xl overflow-hidden">
           {properties.map((prop) => (
             <button
               key={prop.id}
-              className="w-full flex flex-col items-start px-4 py-3 hover:bg-zinc-800 transition-colors cursor-pointer border-b border-zinc-800/60 last:border-0"
+              className="w-full flex flex-col items-start px-4 py-3 hover:bg-(--nd-bg) transition-colors cursor-pointer border-b border-(--nd-border) last:border-0"
               onClick={() => {
                 onSelect(prop.id)
                 setOpen(false)
               }}
             >
-              <span className="text-sm text-white font-medium">{prop.displayName}</span>
-              <span className="text-[11px] text-zinc-400">{prop.accountName} · {prop.id}</span>
+              <span className="text-sm text-(--nd-text-primary) font-medium">{prop.displayName}</span>
+              <span className="text-[11px] text-(--nd-text-muted)">{prop.accountName} · {prop.id}</span>
             </button>
           ))}
           {properties.length === 0 && (
-            <div className="px-4 py-3 text-xs text-zinc-500">No properties found</div>
+            <div className="px-4 py-3 text-xs text-(--nd-text-muted)">No properties found</div>
           )}
         </div>
       )}
@@ -323,22 +323,22 @@ function TrafficTable({
       {/* Search */}
       <div className="flex items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-(--nd-text-muted)" />
           <Input
             placeholder="Search by page title or URL path…"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-            className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500 text-sm rounded-xl"
+            className="pl-10 bg-(--nd-bg) border-(--nd-border) text-(--nd-text-primary) placeholder:text-(--nd-text-muted) text-sm rounded-xl"
           />
         </div>
-        <span className="text-xs text-zinc-500 shrink-0">{filtered.length} pages</span>
+        <span className="text-xs text-(--nd-text-muted) shrink-0">{filtered.length} pages</span>
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-zinc-800 bg-[#111113] overflow-hidden">
+      <div className="rounded-xl border border-(--nd-border) bg-white overflow-hidden">
         <div className="overflow-x-auto overflow-y-auto max-w-full custom-scrollbar" style={{ maxHeight: '60vh' }}>
           <table className="w-full text-sm">
-            <thead className="bg-zinc-900/80 border-b border-zinc-800 sticky top-0 z-10">
+            <thead className="bg-(--nd-bg) border-b border-(--nd-border) sticky top-0 z-10">
               <tr>
                 {TABLE_COLS.map((col) => {
                   const isSortable = col.key !== 'fullUrl' && sortableKeys.has(col.key as SortKey)
@@ -347,8 +347,8 @@ function TrafficTable({
                     <th
                       key={col.key}
                       onClick={isSortable ? () => handleSort(col.key as SortKey) : undefined}
-                      className={`px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap ${
-                        isSortable ? 'cursor-pointer hover:bg-zinc-800/50' : ''
+                      className={`px-3 py-2 text-center text-xs font-semibold text-(--nd-text-secondary) whitespace-nowrap ${
+                        isSortable ? 'cursor-pointer hover:bg-(--nd-bg)' : ''
                       }`}
                     >
                       <div className="flex items-center justify-center gap-1">
@@ -364,10 +364,10 @@ function TrafficTable({
                 })}
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-800">
+            <tbody className="divide-y divide-(--nd-border)">
               {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={TABLE_COLS.length} className="px-4 py-12 text-center text-zinc-400">
+                  <td colSpan={TABLE_COLS.length} className="px-4 py-12 text-center text-(--nd-text-muted)">
                     No pages match your search.
                   </td>
                 </tr>
@@ -377,10 +377,10 @@ function TrafficTable({
                     ? `${sessionUrl.replace(/\/$/, '')}${page.pagePath}`
                     : page.pagePath
                   return (
-                    <tr key={i} className="hover:bg-zinc-800/50 transition-colors">
+                    <tr key={i} className="hover:bg-(--nd-bg) transition-colors">
                       {/* Page Title */}
-                      <td className="px-3 py-2 text-zinc-200 whitespace-normal">
-                        <span className="text-zinc-100 font-medium">
+                      <td className="px-3 py-2 text-(--nd-text-secondary) whitespace-normal">
+                        <span className="text-(--nd-text-primary) font-medium">
                           {page.pageTitle || '(not set)'}
                         </span>
                       </td>
@@ -390,50 +390,50 @@ function TrafficTable({
                           href={fullUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-400 hover:text-blue-300 flex items-center gap-1 group"
+                          className="text-blue-600 hover:text-blue-700 flex items-center gap-1 group"
                         >
                           <span>{fullUrl}</span>
                           <ExternalLink className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </a>
                       </td>
                       {/* Sessions */}
-                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                      <td className="px-3 py-2 text-center text-(--nd-text-secondary) tabular-nums">
                         {page.sessions.toLocaleString()}
                       </td>
                       {/* Views */}
-                      <td className="px-3 py-2 text-center text-zinc-200 font-medium tabular-nums">
+                      <td className="px-3 py-2 text-center text-(--nd-text-secondary) font-medium tabular-nums">
                         {page.views.toLocaleString()}
                       </td>
                       {/* Active Users */}
-                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                      <td className="px-3 py-2 text-center text-(--nd-text-secondary) tabular-nums">
                         {page.activeUsers.toLocaleString()}
                       </td>
                       {/* New Users */}
-                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                      <td className="px-3 py-2 text-center text-(--nd-text-secondary) tabular-nums">
                         {page.newUsers.toLocaleString()}
                       </td>
                       {/* Views / Active User */}
-                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                      <td className="px-3 py-2 text-center text-(--nd-text-secondary) tabular-nums">
                         {page.viewsPerActiveUser.toFixed(2)}
                       </td>
                       {/* Avg Engagement Time */}
-                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                      <td className="px-3 py-2 text-center text-(--nd-text-secondary) tabular-nums">
                         {fmtDuration(page.avgEngagementTime)}
                       </td>
                       {/* Bounce Rate */}
-                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                      <td className="px-3 py-2 text-center text-(--nd-text-secondary) tabular-nums">
                         {page.bounceRate.toFixed(1)}%
                       </td>
                       {/* Engagement Rate */}
-                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                      <td className="px-3 py-2 text-center text-(--nd-text-secondary) tabular-nums">
                         {page.engagementRate.toFixed(1)}%
                       </td>
                       {/* Event Count */}
-                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                      <td className="px-3 py-2 text-center text-(--nd-text-secondary) tabular-nums">
                         {page.eventCount.toLocaleString()}
                       </td>
                       {/* Key Events */}
-                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                      <td className="px-3 py-2 text-center text-(--nd-text-secondary) tabular-nums">
                         {page.keyEvents.toLocaleString()}
                       </td>
                     </tr>
@@ -448,7 +448,7 @@ function TrafficTable({
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-zinc-500">
+          <span className="text-sm text-(--nd-text-muted)">
             Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, sorted.length)} of {sorted.length}
           </span>
           <div className="flex gap-2">
@@ -456,7 +456,7 @@ function TrafficTable({
               variant="outline" size="sm"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 rounded-xl"
+              className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) disabled:opacity-40 rounded-xl"
             >
               Previous
             </Button>
@@ -473,8 +473,8 @@ function TrafficTable({
                     onClick={() => setPage(pageNum)}
                     className={`rounded-xl ${
                       currentPage === pageNum
-                        ? 'bg-white text-black border-white'
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white'
+                        ? 'bg-(--nd-purple) text-white border-(--nd-purple)'
+                        : 'bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary)'
                     }`}
                   >
                     {pageNum}
@@ -486,7 +486,7 @@ function TrafficTable({
               variant="outline" size="sm"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 rounded-xl"
+              className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) disabled:opacity-40 rounded-xl"
             >
               Next
             </Button>
@@ -563,8 +563,8 @@ export function GA4TrafficSection({ sessionUrl, jobId }: GA4TrafficSectionProps)
   // Loading state
   if (statusLoading) {
     return (
-      <div className="rounded-2xl border border-zinc-700/60 bg-[#0D0D10] p-8 flex items-center justify-center">
-        <Loader2 className="w-5 h-5 text-zinc-400 animate-spin" />
+      <div className="rounded-2xl border border-(--nd-border) bg-white p-8 flex items-center justify-center">
+        <Loader2 className="w-5 h-5 text-(--nd-text-muted) animate-spin" />
       </div>
     )
   }
@@ -577,17 +577,17 @@ export function GA4TrafficSection({ sessionUrl, jobId }: GA4TrafficSectionProps)
   return (
     <div className="space-y-4">
       {/* Main panel */}
-      <div className="rounded-2xl border border-zinc-700/60 bg-[#0D0D10]">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-zinc-800/60 rounded-t-2xl overflow-visible relative z-10">
+      <div className="rounded-2xl border border-(--nd-border) bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-(--nd-border) rounded-t-2xl overflow-visible relative z-10">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-              <BarChart3 className="w-4 h-4 text-emerald-400" />
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+              <BarChart3 className="w-4 h-4 text-emerald-600" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">GA4 Traffic — 30 Days</h3>
+              <h3 className="text-sm font-semibold text-(--nd-text-primary)">GA4 Traffic — 30 Days</h3>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span className="text-[11px] text-emerald-400">Connected</span>
+                <span className="text-[11px] text-emerald-600">Connected</span>
               </div>
             </div>
           </div>
@@ -602,7 +602,7 @@ export function GA4TrafficSection({ sessionUrl, jobId }: GA4TrafficSectionProps)
               />
             )}
             {properties.length === 0 && !propsLoading && (
-              <span className="text-xs text-zinc-500">No GA4 properties found</span>
+              <span className="text-xs text-(--nd-text-muted)">No GA4 properties found</span>
             )}
 
             {/* Setup guide toggle */}
@@ -610,8 +610,8 @@ export function GA4TrafficSection({ sessionUrl, jobId }: GA4TrafficSectionProps)
               onClick={() => setShowSetupGuide((v) => !v)}
               className={`p-2 rounded-xl border transition-colors cursor-pointer ${
                 showSetupGuide
-                  ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
-                  : 'bg-zinc-800/40 border-zinc-700/60 text-zinc-400 hover:text-white'
+                  ? 'bg-blue-50 border-blue-200 text-blue-600'
+                  : 'bg-(--nd-bg) border-(--nd-border) text-(--nd-text-muted) hover:text-(--nd-text-primary)'
               }`}
               title="GA4 Setup Instructions"
             >
@@ -622,7 +622,7 @@ export function GA4TrafficSection({ sessionUrl, jobId }: GA4TrafficSectionProps)
             <button
               onClick={() => refetchTraffic()}
               disabled={isDataLoading || !selectedPropertyId}
-              className="p-2 rounded-xl bg-zinc-800/40 border border-zinc-700/60 text-zinc-400 hover:text-white transition-colors disabled:opacity-40 cursor-pointer"
+              className="p-2 rounded-xl bg-(--nd-bg) border border-(--nd-border) text-(--nd-text-muted) hover:text-(--nd-text-primary) transition-colors disabled:opacity-40 cursor-pointer"
               title="Refresh"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isDataLoading ? 'animate-spin' : ''}`} />
@@ -632,7 +632,7 @@ export function GA4TrafficSection({ sessionUrl, jobId }: GA4TrafficSectionProps)
             <button
               onClick={handleDisconnect}
               disabled={isDisconnecting}
-              className="p-2 rounded-xl bg-zinc-800/40 border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-40"
+              className="p-2 rounded-xl bg-(--nd-bg) border border-red-200 text-red-500 hover:bg-red-50 transition-colors cursor-pointer disabled:opacity-40"
               title="Disconnect GA4"
             >
               <Unplug className="w-3.5 h-3.5" />
@@ -642,7 +642,7 @@ export function GA4TrafficSection({ sessionUrl, jobId }: GA4TrafficSectionProps)
 
         {/* Prompt to select a property */}
         {!selectedPropertyId && (
-          <div className="px-5 py-6 text-center text-sm text-zinc-400">
+          <div className="px-5 py-6 text-center text-sm text-(--nd-text-muted)">
             Select a GA4 property above to load 30-day traffic data.
           </div>
         )}
@@ -650,14 +650,14 @@ export function GA4TrafficSection({ sessionUrl, jobId }: GA4TrafficSectionProps)
         {/* Loading */}
         {selectedPropertyId && isDataLoading && (
           <div className="px-5 py-8 flex items-center justify-center gap-2">
-            <Loader2 className="w-4 h-4 text-zinc-400 animate-spin" />
-            <span className="text-sm text-zinc-400">Loading traffic data…</span>
+            <Loader2 className="w-4 h-4 text-(--nd-text-muted) animate-spin" />
+            <span className="text-sm text-(--nd-text-muted)">Loading traffic data…</span>
           </div>
         )}
 
         {/* Error */}
         {trafficError && !isDataLoading && (
-          <div className="px-5 py-6 flex items-center gap-3 text-red-400 text-sm">
+          <div className="px-5 py-6 flex items-center gap-3 text-red-600 text-sm">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>Failed to load traffic data. Check your GA4 property and try again.</span>
           </div>
@@ -667,69 +667,69 @@ export function GA4TrafficSection({ sessionUrl, jobId }: GA4TrafficSectionProps)
         {trafficData && !isDataLoading && (
           <div className="p-5">
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-9 gap-3 mb-4">
-              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 flex items-center gap-3">
-                <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 flex items-center gap-3">
+                <TrendingUp className="w-4 h-4 text-emerald-600 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-base font-bold text-white leading-none tabular-nums">{trafficData.totalSessions.toLocaleString()}</p>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">Sessions</p>
+                  <p className="text-base font-bold text-(--nd-text-primary) leading-none tabular-nums">{trafficData.totalSessions.toLocaleString()}</p>
+                  <p className="text-[11px] text-(--nd-text-muted) mt-0.5">Sessions</p>
                 </div>
               </div>
-              <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3.5 flex items-center gap-3">
-                <BarChart3 className="w-4 h-4 text-blue-400 shrink-0" />
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-3.5 flex items-center gap-3">
+                <BarChart3 className="w-4 h-4 text-blue-600 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-base font-bold text-white leading-none tabular-nums">{trafficData.totalViews.toLocaleString()}</p>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">Views</p>
+                  <p className="text-base font-bold text-(--nd-text-primary) leading-none tabular-nums">{trafficData.totalViews.toLocaleString()}</p>
+                  <p className="text-[11px] text-(--nd-text-muted) mt-0.5">Views</p>
                 </div>
               </div>
-              <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-3.5 flex items-center gap-3">
-                <CheckCircle2 className="w-4 h-4 text-purple-400 shrink-0" />
+              <div className="rounded-xl border border-purple-200 bg-purple-50 p-3.5 flex items-center gap-3">
+                <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-base font-bold text-white leading-none tabular-nums">{trafficData.totalActiveUsers.toLocaleString()}</p>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">Active Users</p>
+                  <p className="text-base font-bold text-(--nd-text-primary) leading-none tabular-nums">{trafficData.totalActiveUsers.toLocaleString()}</p>
+                  <p className="text-[11px] text-(--nd-text-muted) mt-0.5">Active Users</p>
                 </div>
               </div>
-              <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-3.5 flex items-center gap-3">
-                <TrendingUp className="w-4 h-4 text-sky-400 shrink-0" />
+              <div className="rounded-xl border border-sky-200 bg-sky-50 p-3.5 flex items-center gap-3">
+                <TrendingUp className="w-4 h-4 text-sky-600 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-base font-bold text-white leading-none tabular-nums">{trafficData.totalNewUsers.toLocaleString()}</p>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">New Users</p>
+                  <p className="text-base font-bold text-(--nd-text-primary) leading-none tabular-nums">{trafficData.totalNewUsers.toLocaleString()}</p>
+                  <p className="text-[11px] text-(--nd-text-muted) mt-0.5">New Users</p>
                 </div>
               </div>
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5 flex items-center gap-3">
-                <TrendingUp className="w-4 h-4 text-amber-400 shrink-0" />
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 flex items-center gap-3">
+                <TrendingUp className="w-4 h-4 text-amber-600 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-base font-bold text-white leading-none tabular-nums">{trafficData.totalEventCount.toLocaleString()}</p>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">Event Count</p>
+                  <p className="text-base font-bold text-(--nd-text-primary) leading-none tabular-nums">{trafficData.totalEventCount.toLocaleString()}</p>
+                  <p className="text-[11px] text-(--nd-text-muted) mt-0.5">Event Count</p>
                 </div>
               </div>
-              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 flex items-center gap-3">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 flex items-center gap-3">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-base font-bold text-white leading-none tabular-nums">{trafficData.totalKeyEvents.toLocaleString()}</p>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">Key Events</p>
+                  <p className="text-base font-bold text-(--nd-text-primary) leading-none tabular-nums">{trafficData.totalKeyEvents.toLocaleString()}</p>
+                  <p className="text-[11px] text-(--nd-text-muted) mt-0.5">Key Events</p>
                 </div>
               </div>
-              <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3.5 flex items-center gap-3">
-                <TrendingDown className="w-4 h-4 text-red-400 shrink-0" />
+              <div className="rounded-xl border border-orange-200 bg-orange-50 p-3.5 flex items-center gap-3">
+                <TrendingDown className="w-4 h-4 text-orange-600 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-base font-bold text-white leading-none tabular-nums">{trafficData.totalBounceRate.toFixed(1)}%</p>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">Bounce Rate</p>
+                  <p className="text-base font-bold text-(--nd-text-primary) leading-none tabular-nums">{trafficData.totalBounceRate.toFixed(1)}%</p>
+                  <p className="text-[11px] text-(--nd-text-muted) mt-0.5">Bounce Rate</p>
                 </div>
               </div>
-              <div className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-3.5 flex items-center gap-3">
-                <TrendingUp className="w-4 h-4 text-teal-400 shrink-0" />
+              <div className="rounded-xl border border-teal-200 bg-teal-50 p-3.5 flex items-center gap-3">
+                <TrendingUp className="w-4 h-4 text-teal-600 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-base font-bold text-white leading-none tabular-nums">{trafficData.totalEngagementRate.toFixed(1)}%</p>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">Engagement Rate</p>
+                  <p className="text-base font-bold text-(--nd-text-primary) leading-none tabular-nums">{trafficData.totalEngagementRate.toFixed(1)}%</p>
+                  <p className="text-[11px] text-(--nd-text-muted) mt-0.5">Engagement Rate</p>
                 </div>
               </div>
             </div>
 
             {trafficData.pages.length === 0 && (
               <div className="py-6 text-center">
-                <AlertCircle className="w-6 h-6 text-amber-400 mx-auto mb-2" />
-                <p className="text-sm text-zinc-300 mb-1">No traffic data found</p>
-                <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+                <AlertCircle className="w-6 h-6 text-amber-600 mx-auto mb-2" />
+                <p className="text-sm text-(--nd-text-secondary) mb-1">No traffic data found</p>
+                <p className="text-xs text-(--nd-text-muted) max-w-sm mx-auto">
                   This usually means the GA4 tag is not installed on the website, or the selected property
                   doesn&apos;t track this website. Click the setup guide button above for instructions.
                 </p>
@@ -747,9 +747,9 @@ export function GA4TrafficSection({ sessionUrl, jobId }: GA4TrafficSectionProps)
       {/* Traffic table */}
       {trafficData && trafficData.pages.length > 0 && !isDataLoading && (
         <div>
-          <h4 className="text-sm font-semibold text-white mb-3 px-1">
+          <h4 className="text-sm font-semibold text-(--nd-text-primary) mb-3 px-1">
             Pages and Screens
-            <span className="ml-2 text-xs font-normal text-zinc-400">
+            <span className="ml-2 text-xs font-normal text-(--nd-text-muted)">
               ({trafficData.pages.length} pages · {trafficData.dateRange.startDate} – {trafficData.dateRange.endDate})
             </span>
           </h4>

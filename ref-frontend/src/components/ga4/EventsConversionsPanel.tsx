@@ -78,23 +78,23 @@ function ConnectPrompt() {
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-700/60 bg-[#0D0D10] overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-800/60">
-        <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-          <MousePointer className="w-4 h-4 text-emerald-400" />
+    <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-(--nd-border)">
+        <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+          <MousePointer className="w-4 h-4 text-emerald-600" />
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-white">Events & Conversions</h3>
-          <p className="text-xs text-zinc-400">Connect Google Analytics to track AI-driven business outcomes</p>
+          <h3 className="text-sm font-semibold text-(--nd-text-primary)">Events & Conversions</h3>
+          <p className="text-xs text-(--nd-text-muted)">Connect Google Analytics to track AI-driven business outcomes</p>
         </div>
       </div>
       <div className="px-5 py-10 flex flex-col items-center text-center gap-5">
-        <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-          <Bot className="w-8 h-8 text-emerald-400" />
+        <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+          <Bot className="w-8 h-8 text-emerald-600" />
         </div>
         <div>
-          <p className="text-white font-semibold text-sm mb-1">Connect your Google Analytics account</p>
-          <p className="text-zinc-400 text-xs max-w-sm leading-relaxed">
+          <p className="text-(--nd-text-primary) font-semibold text-sm mb-1">Connect your Google Analytics account</p>
+          <p className="text-(--nd-text-muted) text-xs max-w-sm leading-relaxed">
             Prove whether LLM-sourced traffic leads to real business outcomes — form submissions, sign-ups, purchases, and revenue.
           </p>
         </div>
@@ -127,26 +127,26 @@ function PropertySelector({
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-800/60 border border-zinc-700/60 text-sm text-zinc-200 hover:bg-zinc-700/60 transition-colors cursor-pointer"
+        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-(--nd-bg) border border-(--nd-border) text-sm text-(--nd-text-secondary) hover:bg-(--nd-bg) transition-colors cursor-pointer"
       >
-        <BarChart3 className="w-4 h-4 text-emerald-400 shrink-0" />
+        <BarChart3 className="w-4 h-4 text-emerald-600 shrink-0" />
         <span className="truncate max-w-60">{selected ? selected.displayName : 'Select GA4 property…'}</span>
-        <ChevronDown className="w-3.5 h-3.5 shrink-0 text-zinc-400 ml-1" />
+        <ChevronDown className="w-3.5 h-3.5 shrink-0 text-(--nd-text-muted) ml-1" />
       </button>
       {open && (
-        <div className="absolute z-50 top-full mt-1 left-0 min-w-72 max-w-sm rounded-xl bg-zinc-900 border border-zinc-700 shadow-xl overflow-hidden">
+        <div className="absolute z-50 top-full mt-1 left-0 min-w-72 max-w-sm rounded-xl bg-white border border-(--nd-border) shadow-xl overflow-hidden">
           {properties.map((prop) => (
             <button
               key={prop.id}
-              className="w-full flex flex-col items-start px-4 py-3 hover:bg-zinc-800 transition-colors cursor-pointer border-b border-zinc-800/60 last:border-0"
+              className="w-full flex flex-col items-start px-4 py-3 hover:bg-(--nd-bg) transition-colors cursor-pointer border-b border-(--nd-border) last:border-0"
               onClick={() => { onSelect(prop.id); setOpen(false) }}
             >
-              <span className="text-sm text-white font-medium">{prop.displayName}</span>
-              <span className="text-[11px] text-zinc-400">{prop.accountName} · {prop.id}</span>
+              <span className="text-sm text-(--nd-text-primary) font-medium">{prop.displayName}</span>
+              <span className="text-[11px] text-(--nd-text-muted)">{prop.accountName} · {prop.id}</span>
             </button>
           ))}
           {properties.length === 0 && (
-            <div className="px-4 py-3 text-xs text-zinc-500">No properties found</div>
+            <div className="px-4 py-3 text-xs text-(--nd-text-muted)">No properties found</div>
           )}
         </div>
       )}
@@ -219,34 +219,34 @@ function ConfigureEventsModal({
   const allEvents = ga4Events ?? []
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[#111113] border border-zinc-700 rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden shadow-2xl">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white border border-(--nd-border) rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-(--nd-border)">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-              <Settings className="w-3.5 h-3.5 text-violet-400" />
+            <div className="w-7 h-7 rounded-lg bg-violet-50 border border-violet-200 flex items-center justify-center">
+              <Settings className="w-3.5 h-3.5 text-violet-600" />
             </div>
-            <h3 className="text-sm font-semibold text-white">Configure Conversion Events</h3>
+            <h3 className="text-sm font-semibold text-(--nd-text-primary)">Configure Conversion Events</h3>
           </div>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 transition-colors cursor-pointer">
+          <button onClick={onClose} className="text-(--nd-text-muted) hover:text-(--nd-text-primary) transition-colors cursor-pointer">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          <p className="text-xs text-zinc-400 mb-4">
+          <p className="text-xs text-(--nd-text-muted) mb-4">
             Select events from your GA4 property to track as conversions from AI traffic. You can set a display label for each.
           </p>
 
           {isLoadingEvents ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-5 h-5 animate-spin text-zinc-400" />
-              <span className="ml-2 text-sm text-zinc-400">Loading GA4 events…</span>
+              <Loader2 className="w-5 h-5 animate-spin text-(--nd-text-muted)" />
+              <span className="ml-2 text-sm text-(--nd-text-muted)">Loading GA4 events…</span>
             </div>
           ) : allEvents.length === 0 ? (
-            <div className="text-center py-8 text-zinc-500 text-sm">
+            <div className="text-center py-8 text-(--nd-text-muted) text-sm">
               No events found in this property for the last 30 days.
             </div>
           ) : (
@@ -258,8 +258,8 @@ function ConfigureEventsModal({
                     key={eventName}
                     className={`rounded-xl border transition-colors ${
                       isChecked
-                        ? 'border-violet-500/40 bg-violet-500/5'
-                        : 'border-zinc-800 bg-zinc-900/40'
+                        ? 'border-violet-200 bg-violet-50'
+                        : 'border-(--nd-border) bg-(--nd-bg)'
                     }`}
                   >
                     <div
@@ -269,13 +269,13 @@ function ConfigureEventsModal({
                       <div
                         className={`w-4.5 h-4.5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
                           isChecked
-                            ? 'bg-violet-500 border-violet-500'
-                            : 'border-zinc-600 bg-zinc-800'
+                            ? 'bg-violet-600 border-violet-600'
+                            : 'border-(--nd-border) bg-white'
                         }`}
                       >
                         {isChecked && <Check className="w-3 h-3 text-white" />}
                       </div>
-                      <span className="text-sm font-mono text-zinc-200 flex-1">{eventName}</span>
+                      <span className="text-sm font-mono text-(--nd-text-secondary) flex-1">{eventName}</span>
                     </div>
                     {isChecked && (
                       <div className="px-3.5 pb-2.5">
@@ -284,7 +284,7 @@ function ConfigureEventsModal({
                           placeholder="Display label (optional)"
                           value={labels.get(eventName) ?? eventName}
                           onChange={(e) => handleLabelChange(eventName, e.target.value)}
-                          className="w-full text-xs bg-zinc-800/60 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/60"
+                          className="w-full text-xs bg-(--nd-bg) border border-(--nd-border) rounded-lg px-3 py-2 text-(--nd-text-secondary) placeholder:text-(--nd-text-muted) focus:outline-none focus:border-violet-400"
                           onClick={(e) => e.stopPropagation()}
                         />
                       </div>
@@ -303,17 +303,17 @@ function ConfigureEventsModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-4 border-t border-zinc-800">
-          <span className="text-xs text-zinc-500">{selected.size} selected</span>
+        <div className="flex items-center justify-between px-5 py-4 border-t border-(--nd-border)">
+          <span className="text-xs text-(--nd-text-muted)">{selected.size} selected</span>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={onClose} className="text-zinc-400 hover:text-white rounded-lg cursor-pointer">
+            <Button variant="ghost" size="sm" onClick={onClose} className="text-(--nd-text-muted) hover:text-(--nd-text-primary) rounded-lg cursor-pointer">
               Cancel
             </Button>
             <Button
               size="sm"
               disabled={isSaving || selected.size === 0}
               onClick={handleSave}
-              className="bg-violet-600 hover:bg-violet-500 text-white rounded-lg px-4 cursor-pointer"
+              className="bg-(--nd-purple) hover:bg-(--nd-purple-light) text-white rounded-lg px-4 cursor-pointer"
             >
               {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
               Save Events
@@ -344,22 +344,22 @@ function KPICard({
   iconColor?: string
 }) {
   const iconColorMap: Record<string, string> = {
-    violet: 'bg-violet-500/10 border-violet-500/20 text-violet-400',
-    emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
-    amber: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
+    violet: 'bg-violet-50 border-violet-200 text-violet-600',
+    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-600',
+    amber: 'bg-amber-50 border-amber-200 text-amber-600',
   }
   const ic = iconColorMap[iconColor] ?? iconColorMap.violet
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-5 flex flex-col gap-3">
+    <div className="rounded-2xl border border-(--nd-border) bg-white p-5 flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-zinc-400 font-medium">{label}</span>
+        <span className="text-xs text-(--nd-text-muted) font-medium">{label}</span>
         {tooltip ? (
           <div className="group relative">
             <div className={`w-8 h-8 rounded-xl border flex items-center justify-center cursor-help ${ic}`}>
               <Icon className="w-4 h-4" />
             </div>
-            <div className="pointer-events-none absolute right-0 top-full mt-1.5 z-10 w-56 rounded-xl bg-zinc-800 border border-zinc-700 px-3 py-2 text-xs text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity shadow-xl">
+            <div className="pointer-events-none absolute right-0 top-full mt-1.5 z-10 w-56 rounded-xl bg-white border border-(--nd-border) px-3 py-2 text-xs text-(--nd-text-secondary) opacity-0 group-hover:opacity-100 transition-opacity shadow-xl">
               {tooltip}
             </div>
           </div>
@@ -369,15 +369,15 @@ function KPICard({
           </div>
         )}
       </div>
-      <p className="text-3xl font-bold text-white leading-none">{value}</p>
+      <p className="text-3xl font-bold text-(--nd-text-primary) leading-none">{value}</p>
       {sub && (
         <p
           className={`text-xs mt-0.5 ${
             highlight === 'green'
-              ? 'text-emerald-400'
+              ? 'text-emerald-600'
               : highlight === 'amber'
-              ? 'text-amber-400'
-              : 'text-zinc-500'
+              ? 'text-amber-600'
+              : 'text-(--nd-text-muted)'
           }`}
         >
           {sub}
@@ -399,25 +399,25 @@ function PlatformConversionsChart({ breakdown }: { breakdown: ConversionPlatform
   return (
     <ResponsiveContainer width="100%" height={Math.max(breakdown.length * 56, 140)}>
       <BarChart data={data} layout="vertical" margin={{ top: 0, right: 32, left: 8, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#27272a" />
+        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E8E9EF" />
         <XAxis
           type="number"
           dataKey="conversions"
-          tick={{ fill: '#71717a', fontSize: 11 }}
+          tick={{ fill: '#737890', fontSize: 11 }}
           axisLine={false}
           tickLine={false}
         />
         <YAxis
           type="category"
           dataKey="platform"
-          tick={{ fill: '#a1a1aa', fontSize: 12 }}
+          tick={{ fill: '#4A5068', fontSize: 12 }}
           axisLine={false}
           tickLine={false}
           width={90}
         />
         <RechartsTooltip
-          cursor={{ fill: 'rgba(255,255,255,0.04)' }}
-          contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: 12, fontSize: 12 }}
+          cursor={{ fill: 'rgba(0,0,0,0.03)' }}
+          contentStyle={{ background: '#ffffff', border: '1px solid #E8E9EF', borderRadius: 12, fontSize: 12 }}
           formatter={(value: number, _name: string, entry: any) => {
             const rate = entry.payload.conversion_rate
             return [
@@ -448,20 +448,20 @@ function BenchmarkBlock({
   const diff = Math.abs(llmRate - siteRate).toFixed(1)
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-5">
-      <h3 className="text-sm font-semibold text-white mb-4">Conversion Rate Benchmark</h3>
+    <div className="rounded-2xl border border-(--nd-border) bg-white p-5">
+      <h3 className="text-sm font-semibold text-(--nd-text-primary) mb-4">Conversion Rate Benchmark</h3>
       <div className="grid grid-cols-2 gap-3">
-        <div className={`rounded-xl border p-4 ${isHigher ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-zinc-700/60 bg-zinc-900/40'}`}>
-          <p className="text-[11px] text-zinc-400 mb-1">LLM Traffic Rate</p>
-          <p className={`text-2xl font-bold ${isHigher ? 'text-emerald-400' : 'text-amber-400'}`}>
+        <div className={`rounded-xl border p-4 ${isHigher ? 'border-emerald-200 bg-emerald-50' : 'border-(--nd-border) bg-(--nd-bg)'}`}>
+          <p className="text-[11px] text-(--nd-text-muted) mb-1">LLM Traffic Rate</p>
+          <p className={`text-2xl font-bold ${isHigher ? 'text-emerald-600' : 'text-amber-600'}`}>
             {llmRate.toFixed(2)}%
           </p>
-          <p className="text-[11px] text-zinc-500 mt-0.5">Visitors from AI platforms</p>
+          <p className="text-[11px] text-(--nd-text-muted) mt-0.5">Visitors from AI platforms</p>
         </div>
-        <div className="rounded-xl border border-zinc-700/60 bg-zinc-900/40 p-4">
-          <p className="text-[11px] text-zinc-400 mb-1">Site Average</p>
-          <p className="text-2xl font-bold text-zinc-300">{siteRate.toFixed(2)}%</p>
-          <p className="text-[11px] text-zinc-500 mt-0.5">All traffic sessions</p>
+        <div className="rounded-xl border border-(--nd-border) bg-(--nd-bg) p-4">
+          <p className="text-[11px] text-(--nd-text-muted) mb-1">Site Average</p>
+          <p className="text-2xl font-bold text-(--nd-text-secondary)">{siteRate.toFixed(2)}%</p>
+          <p className="text-[11px] text-(--nd-text-muted) mt-0.5">All traffic sessions</p>
         </div>
       </div>
 
@@ -469,8 +469,8 @@ function BenchmarkBlock({
         <div
           className={`mt-3 rounded-xl px-4 py-3 text-xs font-medium flex items-center gap-2 ${
             isHigher
-              ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
-              : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              : 'bg-amber-50 text-amber-700 border border-amber-200'
           }`}
         >
           {isHigher ? (
@@ -520,79 +520,79 @@ function TopPagesTable({ pages }: { pages: ConversionTopPage[] }) {
   const hasRevenue = pages.some((p) => p.revenue !== null && p.revenue > 0)
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-zinc-800">
+    <div className="overflow-x-auto rounded-xl border border-(--nd-border)">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-zinc-800 bg-zinc-900/50">
-            <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
+          <tr className="border-b border-(--nd-border) bg-(--nd-bg)">
+            <th className="px-4 py-3 text-left text-[11px] font-medium text-(--nd-text-muted) uppercase tracking-wider">
               Page URL
             </th>
             <th
-              className="px-4 py-3 text-right text-[11px] font-medium text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-300 select-none"
+              className="px-4 py-3 text-right text-[11px] font-medium text-(--nd-text-muted) uppercase tracking-wider cursor-pointer hover:text-(--nd-text-secondary) select-none"
               onClick={() => handleSort('llm_sessions')}
             >
               LLM Sessions <SortIcon col="llm_sessions" />
             </th>
             <th
-              className="px-4 py-3 text-right text-[11px] font-medium text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-300 select-none"
+              className="px-4 py-3 text-right text-[11px] font-medium text-(--nd-text-muted) uppercase tracking-wider cursor-pointer hover:text-(--nd-text-secondary) select-none"
               onClick={() => handleSort('conversions')}
             >
               Conversions <SortIcon col="conversions" />
             </th>
             <th
-              className="px-4 py-3 text-right text-[11px] font-medium text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-300 select-none"
+              className="px-4 py-3 text-right text-[11px] font-medium text-(--nd-text-muted) uppercase tracking-wider cursor-pointer hover:text-(--nd-text-secondary) select-none"
               onClick={() => handleSort('conversion_rate')}
             >
               Conv. Rate <SortIcon col="conversion_rate" />
             </th>
-            <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
+            <th className="px-4 py-3 text-left text-[11px] font-medium text-(--nd-text-muted) uppercase tracking-wider">
               Primary Event
             </th>
             {hasRevenue && (
-              <th className="px-4 py-3 text-right text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-right text-[11px] font-medium text-(--nd-text-muted) uppercase tracking-wider">
                 Revenue
               </th>
             )}
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-800/60">
+        <tbody className="divide-y divide-(--nd-border)">
           {sorted.map((page, idx) => (
-            <tr key={idx} className="hover:bg-zinc-800/30 transition-colors">
+            <tr key={idx} className="hover:bg-(--nd-bg) transition-colors">
               <td className="px-4 py-3">
                 <span
-                  className="text-xs text-zinc-300 font-mono max-w-xs truncate block"
+                  className="text-xs text-(--nd-text-secondary) font-mono max-w-xs truncate block"
                   title={page.page_url}
                 >
                   {page.page_url.length > 55 ? page.page_url.slice(0, 55) + '…' : page.page_url}
                 </span>
               </td>
               <td className="px-4 py-3 text-right">
-                <span className="text-xs text-zinc-300">{page.llm_sessions.toLocaleString()}</span>
+                <span className="text-xs text-(--nd-text-secondary)">{page.llm_sessions.toLocaleString()}</span>
               </td>
               <td className="px-4 py-3 text-right">
-                <span className="text-xs font-semibold text-white">{page.conversions.toLocaleString()}</span>
+                <span className="text-xs font-semibold text-(--nd-text-primary)">{page.conversions.toLocaleString()}</span>
               </td>
               <td className="px-4 py-3 text-right">
                 <span
                   className={`inline-flex items-center justify-center text-xs font-bold px-2 py-0.5 rounded-lg ${
                     page.conversion_rate >= 10
-                      ? 'bg-emerald-500/20 text-emerald-300'
+                      ? 'bg-emerald-50 text-emerald-700'
                       : page.conversion_rate >= 3
-                      ? 'bg-blue-500/15 text-blue-300'
-                      : 'bg-zinc-700/40 text-zinc-400'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'bg-(--nd-bg) text-(--nd-text-muted)'
                   }`}
                 >
                   {page.conversion_rate.toFixed(1)}%
                 </span>
               </td>
               <td className="px-4 py-3">
-                <span className="text-xs bg-violet-500/10 border border-violet-500/20 text-violet-300 px-2 py-0.5 rounded-lg">
+                <span className="text-xs bg-violet-50 border border-violet-200 text-violet-700 px-2 py-0.5 rounded-lg">
                   {page.primary_event}
                 </span>
               </td>
               {hasRevenue && (
                 <td className="px-4 py-3 text-right">
-                  <span className="text-xs text-zinc-300">
+                <span className="text-xs text-(--nd-text-secondary)">
                     {page.revenue != null && page.revenue > 0
                       ? `$${page.revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                       : '—'}
@@ -603,7 +603,7 @@ function TopPagesTable({ pages }: { pages: ConversionTopPage[] }) {
           ))}
           {sorted.length === 0 && (
             <tr>
-              <td colSpan={hasRevenue ? 6 : 5} className="px-4 py-10 text-center text-zinc-500 text-sm">
+              <td colSpan={hasRevenue ? 6 : 5} className="px-4 py-10 text-center text-(--nd-text-muted) text-sm">
                 No converting pages found in this period.
               </td>
             </tr>
@@ -618,20 +618,20 @@ function TopPagesTable({ pages }: { pages: ConversionTopPage[] }) {
 function NoEventsCTA({ onConfigure }: { onConfigure: () => void }) {
   return (
     <div className="flex flex-col items-center text-center gap-5 py-16 px-6">
-      <div className="w-16 h-16 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-        <Target className="w-8 h-8 text-violet-400" />
+      <div className="w-16 h-16 rounded-2xl bg-violet-50 border border-violet-200 flex items-center justify-center">
+        <Target className="w-8 h-8 text-violet-600" />
       </div>
       <div>
-        <p className="text-white font-semibold text-base mb-2">
+        <p className="text-(--nd-text-primary) font-semibold text-base mb-2">
           Configure your conversion events
         </p>
-        <p className="text-zinc-400 text-sm max-w-sm leading-relaxed">
+        <p className="text-(--nd-text-muted) text-sm max-w-sm leading-relaxed">
           Track which business outcomes AI traffic drives — form submissions, sign-ups, purchases, and more.
         </p>
       </div>
       <Button
         onClick={onConfigure}
-        className="bg-violet-600 hover:bg-violet-500 text-white rounded-xl px-6 h-10 text-sm font-medium cursor-pointer"
+        className="bg-(--nd-purple) hover:bg-(--nd-purple-light) text-white rounded-xl px-6 h-10 text-sm font-medium cursor-pointer"
       >
         <Settings className="w-4 h-4 mr-2" />
         Configure Events
@@ -713,7 +713,7 @@ export function EventsConversionsPanel() {
   if (isLoadingStatus) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-zinc-400" />
+        <Loader2 className="w-6 h-6 animate-spin text-(--nd-text-muted)" />
       </div>
     )
   }
@@ -726,15 +726,15 @@ export function EventsConversionsPanel() {
   return (
     <div className="space-y-5">
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-zinc-700/60 bg-[#0D0D10] overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-zinc-800/60">
+      <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-(--nd-border)">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
-              <MousePointer className="w-4 h-4 text-violet-400" />
+            <div className="w-8 h-8 rounded-xl bg-violet-50 border border-violet-200 flex items-center justify-center shrink-0">
+              <MousePointer className="w-4 h-4 text-violet-600" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">Events & Conversions</h3>
-              <p className="text-xs text-zinc-400">LLM-attributed business outcomes from AI traffic</p>
+              <h3 className="text-sm font-semibold text-(--nd-text-primary)">Events & Conversions</h3>
+              <p className="text-xs text-(--nd-text-muted)">LLM-attributed business outcomes from AI traffic</p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -747,15 +747,15 @@ export function EventsConversionsPanel() {
               />
             )}
             {/* Date range pills */}
-            <div className="flex items-center gap-1 bg-zinc-800/60 rounded-xl p-1 border border-zinc-700/60">
+            <div className="flex items-center gap-1 bg-(--nd-bg) rounded-xl p-1 border border-(--nd-border)">
               {DATE_RANGES.map((dr) => (
                 <button
                   key={dr.label}
                   onClick={() => setDateRange(dr)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                     dateRange.label === dr.label
-                      ? 'bg-zinc-700 text-white'
-                      : 'text-zinc-400 hover:text-zinc-200'
+                      ? 'bg-(--nd-purple) text-white'
+                      : 'text-(--nd-text-muted) hover:text-(--nd-text-secondary)'
                   }`}
                 >
                   {dr.label}
@@ -767,7 +767,7 @@ export function EventsConversionsPanel() {
               variant="ghost"
               size="sm"
               onClick={() => setShowConfigModal(true)}
-              className="text-zinc-400 hover:text-white hover:bg-zinc-800/60 rounded-xl gap-1.5 text-xs cursor-pointer"
+              className="text-(--nd-text-muted) hover:text-(--nd-text-primary) hover:bg-(--nd-bg) rounded-xl gap-1.5 text-xs cursor-pointer"
             >
               <Settings className="w-3.5 h-3.5" />
               Configure Events
@@ -779,7 +779,7 @@ export function EventsConversionsPanel() {
                 size="sm"
                 onClick={handleSync}
                 disabled={isSyncing || isFetching}
-                className="text-zinc-400 hover:text-white hover:bg-zinc-800/60 rounded-xl gap-1.5 text-xs cursor-pointer"
+                className="text-(--nd-text-muted) hover:text-(--nd-text-primary) hover:bg-(--nd-bg) rounded-xl gap-1.5 text-xs cursor-pointer"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
                 Sync Now
@@ -790,12 +790,12 @@ export function EventsConversionsPanel() {
 
         {/* Tracked events badge strip */}
         {hasEvents && (
-          <div className="px-5 py-2.5 bg-zinc-900/40 border-b border-zinc-800/40 flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] text-zinc-500">Tracking:</span>
+          <div className="px-5 py-2.5 bg-(--nd-bg) border-b border-(--nd-border) flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] text-(--nd-text-muted)">Tracking:</span>
             {conversionEvents.map((e) => (
               <span
                 key={e.id}
-                className="text-[11px] bg-violet-500/10 border border-violet-500/20 text-violet-300 px-2 py-0.5 rounded-lg"
+                className="text-[11px] bg-violet-50 border border-violet-200 text-violet-700 px-2 py-0.5 rounded-lg"
               >
                 {e.display_label}
               </span>
@@ -805,11 +805,11 @@ export function EventsConversionsPanel() {
 
         {/* Last synced */}
         {data?.last_synced_at && (
-          <div className="px-5 py-2 flex items-center gap-1.5 text-[11px] text-zinc-500 bg-zinc-900/40">
+          <div className="px-5 py-2 flex items-center gap-1.5 text-[11px] text-(--nd-text-muted) bg-(--nd-bg)">
             <Clock className="w-3 h-3" />
             Last synced {new Date(data.last_synced_at).toLocaleString()}
             {data.from_cache && (
-              <span className="ml-1 bg-zinc-700/50 text-zinc-400 px-1.5 py-0.5 rounded-md text-[10px]">
+              <span className="ml-1 bg-(--nd-border) text-(--nd-text-muted) px-1.5 py-0.5 rounded-md text-[10px]">
                 cached
               </span>
             )}
@@ -819,23 +819,23 @@ export function EventsConversionsPanel() {
 
       {/* ── No events configured ─────────────────────────────────────────────── */}
       {!hasEvents && !isLoadingEvents && (
-        <div className="rounded-2xl border border-zinc-700/60 bg-[#0D0D10]">
+        <div className="rounded-2xl border border-(--nd-border) bg-white">
           <NoEventsCTA onConfigure={() => setShowConfigModal(true)} />
         </div>
       )}
 
-      {/* ── No property selected ─────────────────────────────────────────────── */}
+      {/* ── No property selected ─────────────────────────────────────────────────── */}
       {hasEvents && !effectivePropertyId && (
-        <div className="rounded-2xl border border-zinc-700/60 bg-[#0D0D10] p-8 text-center">
-          <p className="text-zinc-400 text-sm">Select a GA4 property above to load conversion data.</p>
+        <div className="rounded-2xl border border-(--nd-border) bg-white p-8 text-center">
+          <p className="text-(--nd-text-muted) text-sm">Select a GA4 property above to load conversion data.</p>
         </div>
       )}
 
-      {/* ── Loading data ─────────────────────────────────────────────────────── */}
+      {/* ── Loading data ────────────────────────────────────────────────────── */}
       {hasEvents && effectivePropertyId && (isLoadingData || isFetching) && !data && (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-zinc-400" />
-          <span className="ml-2 text-zinc-400 text-sm">Loading conversion data…</span>
+          <Loader2 className="w-6 h-6 animate-spin text-(--nd-text-muted)" />
+          <span className="ml-2 text-(--nd-text-muted) text-sm">Loading conversion data…</span>
         </div>
       )}
 
@@ -897,18 +897,18 @@ export function EventsConversionsPanel() {
 
             {/* Platform breakdown chart */}
             {data.platform_breakdown.length > 0 && (
-              <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-5">
-                <h3 className="text-sm font-semibold text-white mb-4">Conversions by AI Platform</h3>
+              <div className="rounded-2xl border border-(--nd-border) bg-white p-5">
+                <h3 className="text-sm font-semibold text-(--nd-text-primary) mb-4">Conversions by AI Platform</h3>
                 <PlatformConversionsChart breakdown={data.platform_breakdown} />
               </div>
             )}
           </div>
 
           {/* ── Top Converting Pages ────────────────────────────────────────── */}
-          <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden">
-            <div className="px-5 py-4 border-b border-zinc-800/60 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-white">Top Converting Pages</h3>
-              <span className="text-xs text-zinc-500">{data.top_pages.length} pages</span>
+          <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
+            <div className="px-5 py-4 border-b border-(--nd-border) flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-(--nd-text-primary)">Top Converting Pages</h3>
+              <span className="text-xs text-(--nd-text-muted)">{data.top_pages.length} pages</span>
             </div>
             <div className="p-4">
               <TopPagesTable pages={data.top_pages} />
@@ -917,14 +917,14 @@ export function EventsConversionsPanel() {
 
           {/* ── Empty conversions state ─────────────────────────────────────── */}
           {data.total_conversions === 0 && (
-            <div className="rounded-2xl border border-zinc-800 bg-[#0D0D10] p-8 text-center">
-              <div className="w-12 h-12 rounded-xl bg-zinc-800/60 flex items-center justify-center mx-auto mb-4">
-                <Minus className="w-6 h-6 text-zinc-500" />
+            <div className="rounded-2xl border border-(--nd-border) bg-white p-8 text-center">
+              <div className="w-12 h-12 rounded-xl bg-(--nd-bg) flex items-center justify-center mx-auto mb-4">
+                <Minus className="w-6 h-6 text-(--nd-text-muted)" />
               </div>
-              <p className="text-zinc-300 font-medium text-sm mb-1">
+              <p className="text-(--nd-text-secondary) font-medium text-sm mb-1">
                 No conversion events recorded from AI traffic in this period
               </p>
-              <p className="text-zinc-500 text-xs">
+              <p className="text-(--nd-text-muted) text-xs">
                 Try a longer date range or verify your tracked events match GA4 event names exactly.
               </p>
             </div>
@@ -944,16 +944,16 @@ export function EventsConversionsPanel() {
 
       {/* ── No property / modal guard ─────────────────────────────────────────── */}
       {showConfigModal && !effectivePropertyId && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#111113] border border-zinc-700 rounded-2xl p-6 max-w-sm w-full text-center">
-            <AlertCircle className="w-8 h-8 text-amber-400 mx-auto mb-3" />
-            <p className="text-white font-semibold mb-2">Select a GA4 property first</p>
-            <p className="text-zinc-400 text-xs mb-4">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-(--nd-border) rounded-2xl p-6 max-w-sm w-full text-center">
+            <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-3" />
+            <p className="text-(--nd-text-primary) font-semibold mb-2">Select a GA4 property first</p>
+            <p className="text-(--nd-text-muted) text-xs mb-4">
               A property must be selected to load available events from your GA4 account.
             </p>
             <Button
               onClick={() => setShowConfigModal(false)}
-              className="bg-zinc-700 hover:bg-zinc-600 text-white rounded-xl px-4 cursor-pointer"
+              className="bg-(--nd-bg) hover:bg-(--nd-border) text-(--nd-text-primary) rounded-xl px-4 cursor-pointer border border-(--nd-border)"
             >
               Close
             </Button>

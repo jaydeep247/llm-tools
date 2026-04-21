@@ -60,23 +60,23 @@ function ConnectPrompt() {
     window.location.href = `${API_BASE_URL}/auth/google/analytics?returnUrl=${encodeURIComponent(returnUrl)}`
   }
   return (
-    <div className="rounded-2xl border border-zinc-700/60 bg-[#0D0D10] overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-800/60">
-        <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-          <Globe className="w-4 h-4 text-amber-400" />
+    <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-(--nd-border)">
+        <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
+          <Globe className="w-4 h-4 text-amber-600" />
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-white">Top Landing Pages</h3>
-          <p className="text-xs text-zinc-400">Connect Google Analytics to reveal AI-sourced landing page traffic</p>
+          <h3 className="text-sm font-semibold text-(--nd-text-primary)">Top Landing Pages</h3>
+          <p className="text-xs text-(--nd-text-muted)">Connect Google Analytics to reveal AI-sourced landing page traffic</p>
         </div>
       </div>
       <div className="px-5 py-10 flex flex-col items-center text-center gap-5">
-        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-          <Bot className="w-8 h-8 text-amber-400" />
+        <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center">
+          <Bot className="w-8 h-8 text-amber-600" />
         </div>
         <div>
-          <p className="text-white font-semibold text-sm mb-1">Connect your Google Analytics account</p>
-          <p className="text-zinc-400 text-xs max-w-sm leading-relaxed">
+          <p className="text-(--nd-text-primary) font-semibold text-sm mb-1">Connect your Google Analytics account</p>
+          <p className="text-(--nd-text-muted) text-xs max-w-sm leading-relaxed">
             Discover which pages receive LLM-sourced visitors and cross-reference with AI citation data to find hidden quick wins.
           </p>
         </div>
@@ -89,7 +89,7 @@ function ConnectPrompt() {
           ].map((f) => (
             <div key={f} className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 mt-1.5" />
-              <span className="text-zinc-300 text-xs">{f}</span>
+              <span className="text-(--nd-text-secondary) text-xs">{f}</span>
             </div>
           ))}
         </div>
@@ -122,12 +122,12 @@ function CitationSparkline({
   )
 
   if (isLoading) {
-    return <div className="h-10 bg-zinc-800/40 rounded animate-pulse" />
+    return <div className="h-10 bg-(--nd-bg) rounded animate-pulse" />
   }
 
   const points = data?.dataPoints ?? []
   if (points.length === 0) {
-    return <p className="text-[11px] text-zinc-600 italic">No citation history in this period</p>
+    return <p className="text-[11px] text-(--nd-text-muted) italic">No citation history in this period</p>
   }
 
   const maxVal = Math.max(...points.map((p) => p.citations), 1)
@@ -165,14 +165,14 @@ function GapFlagBadge({
   if (flag === 'OPPORTUNITY_GAP') {
     return (
       <div className="relative group/badge">
-        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 cursor-help">
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 cursor-help">
           <AlertTriangle className="w-2.5 h-2.5" />
           OPPORTUNITY GAP
         </span>
         {/* Tooltip */}
-        <div className="absolute bottom-full left-0 mb-2 w-64 bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-xs text-zinc-300 shadow-xl z-50 hidden group-hover/badge:block leading-relaxed">
-          This page is cited <span className="text-white font-semibold">{citationCount}</span> times in AI
-          answers but only received <span className="text-white font-semibold">{sessions}</span> LLM
+        <div className="absolute bottom-full left-0 mb-2 w-64 bg-white border border-(--nd-border) rounded-xl p-3 text-xs text-(--nd-text-secondary) shadow-xl z-50 hidden group-hover/badge:block leading-relaxed">
+          This page is cited <span className="text-(--nd-text-primary) font-semibold">{citationCount}</span> times in AI
+          answers but only received <span className="text-(--nd-text-primary) font-semibold">{sessions}</span> LLM
           visits. Consider improving page load speed, relevance of content to the query, and clarity of
           CTA.
         </div>
@@ -181,7 +181,7 @@ function GapFlagBadge({
   }
 
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
       <TrendingUp className="w-2.5 h-2.5" />
       PERFORMING
     </span>
@@ -203,14 +203,14 @@ function KPICard({
   color: string
 }) {
   return (
-    <div className={`rounded-2xl border ${color} bg-[#0D0D10] p-4 flex items-start gap-3`}>
-      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${color.replace('border-', 'bg-').replace('/30', '/10')}`}>
+    <div className="rounded-2xl border border-(--nd-border) bg-white p-4 flex items-start gap-3">
+      <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-(--nd-bg) border border-(--nd-border)">
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-[11px] text-zinc-500 uppercase tracking-wider">{label}</p>
-        <p className="text-lg font-bold text-white leading-tight truncate">{value}</p>
-        {sub && <p className="text-[11px] text-zinc-500 mt-0.5 truncate">{sub}</p>}
+        <p className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider">{label}</p>
+        <p className="text-lg font-bold text-(--nd-text-primary) leading-tight truncate">{value}</p>
+        {sub && <p className="text-[11px] text-(--nd-text-muted) mt-0.5 truncate">{sub}</p>}
       </div>
     </div>
   )
@@ -245,32 +245,32 @@ function ExpandedRowPanel({
   }
 
   return (
-    <div className="bg-zinc-900/60 border-t border-zinc-800/60 px-4 py-4">
+    <div className="bg-(--nd-bg) border-t border-(--nd-border) px-4 py-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* URL info */}
         <div className="space-y-2">
-          <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Full URL</p>
+          <p className="text-[10px] text-(--nd-text-muted) uppercase tracking-wider font-medium">Full URL</p>
           <a
             href={page.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-blue-400 hover:text-blue-300 text-xs break-all"
+            className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 text-xs break-all"
           >
             {page.url}
             <ExternalLink className="w-3 h-3 shrink-0" />
           </a>
           <div className="flex items-center gap-4 mt-2">
             <div>
-              <p className="text-[10px] text-zinc-500">LLM Sessions</p>
-              <p className="text-sm font-bold text-white">{page.llmSessions.toLocaleString()}</p>
+              <p className="text-[10px] text-(--nd-text-muted)">LLM Sessions</p>
+              <p className="text-sm font-bold text-(--nd-text-primary)">{page.llmSessions.toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-[10px] text-zinc-500">Users</p>
-              <p className="text-sm font-bold text-white">{page.users.toLocaleString()}</p>
+              <p className="text-[10px] text-(--nd-text-muted)">Users</p>
+              <p className="text-sm font-bold text-(--nd-text-primary)">{page.users.toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-[10px] text-zinc-500">Bounce Rate</p>
-              <p className={`text-sm font-bold ${page.bounceRate > 75 ? 'text-amber-400' : 'text-white'}`}>
+              <p className="text-[10px] text-(--nd-text-muted)">Bounce Rate</p>
+              <p className={`text-sm font-bold ${page.bounceRate > 75 ? 'text-amber-600' : 'text-(--nd-text-primary)'}`}>
                 {page.bounceRate.toFixed(1)}%
               </p>
             </div>
@@ -279,15 +279,15 @@ function ExpandedRowPanel({
 
         {/* Platform breakdown mini-bars */}
         <div className="space-y-2">
-          <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Traffic by Platform</p>
+          <p className="text-[10px] text-(--nd-text-muted) uppercase tracking-wider font-medium">Traffic by Platform</p>
           {platformEntries.length === 0 ? (
-            <p className="text-xs text-zinc-600">No breakdown available</p>
+            <p className="text-xs text-(--nd-text-muted)">No breakdown available</p>
           ) : (
             <div className="space-y-1.5">
               {platformEntries.map(([platform, sessions]) => (
                 <div key={platform} className="flex items-center gap-2">
-                  <span className="text-[11px] text-zinc-400 w-20 shrink-0">{platform}</span>
-                  <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <span className="text-[11px] text-(--nd-text-muted) w-20 shrink-0">{platform}</span>
+                  <div className="flex-1 h-1.5 bg-(--nd-border) rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all"
                       style={{
@@ -296,7 +296,7 @@ function ExpandedRowPanel({
                       }}
                     />
                   </div>
-                  <span className="text-[11px] text-zinc-400 w-8 text-right shrink-0">{sessions}</span>
+                  <span className="text-[11px] text-(--nd-text-muted) w-8 text-right shrink-0">{sessions}</span>
                 </div>
               ))}
             </div>
@@ -305,22 +305,22 @@ function ExpandedRowPanel({
 
         {/* Citation info + scorecard CTA */}
         <div className="space-y-2">
-          <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">AI Citation Data</p>
+          <p className="text-[10px] text-(--nd-text-muted) uppercase tracking-wider font-medium">AI Citation Data</p>
           {page.citationCount === 0 ? (
-            <div className="flex items-start gap-2 text-xs text-zinc-500 bg-zinc-800/40 rounded-xl p-3">
-              <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-blue-400" />
+            <div className="flex items-start gap-2 text-xs text-(--nd-text-muted) bg-(--nd-bg) border border-(--nd-border) rounded-xl p-3">
+              <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-blue-600" />
               This page receives LLM traffic but is not tracked in your citation monitoring. Add it to
               prompt tracking for full visibility.
             </div>
           ) : (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-400">Total Citations</span>
-                <span className="text-xs font-semibold text-white">{page.citationCount}</span>
+                <span className="text-xs text-(--nd-text-muted)">Total Citations</span>
+                <span className="text-xs font-semibold text-(--nd-text-primary)">{page.citationCount}</span>
               </div>
               {page.primaryModel && (
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-400">Top Citing Model</span>
+                  <span className="text-xs text-(--nd-text-muted)">Top Citing Model</span>
                   <span
                     className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
                     style={{
@@ -336,13 +336,13 @@ function ExpandedRowPanel({
               )}
               {page.citationTrafficRatio !== null && (
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-400">Sessions / Citation</span>
-                  <span className="text-xs font-semibold text-white">{page.citationTrafficRatio.toFixed(2)}</span>
+                  <span className="text-xs text-(--nd-text-muted)">Sessions / Citation</span>
+                  <span className="text-xs font-semibold text-(--nd-text-primary)">{page.citationTrafficRatio.toFixed(2)}</span>
                 </div>
               )}
               {/* Citation sparkline */}
               <div className="pt-2">
-                <p className="text-[10px] text-zinc-500 mb-1">Citation Trend</p>
+                <p className="text-[10px] text-(--nd-text-muted) mb-1">Citation Trend</p>
                 <CitationSparkline
                   projectId={projectId}
                   url={page.url}
@@ -354,7 +354,7 @@ function ExpandedRowPanel({
           )}
           <button
             onClick={handleViewScorecard}
-            className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20 transition-colors cursor-pointer"
+            className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl bg-(--nd-purple-subtle) border border-(--nd-purple)/20 text-(--nd-purple) hover:bg-(--nd-purple)/10 transition-colors cursor-pointer"
           >
             View AI Visibility Scorecard for this page
             <ExternalLink className="w-3 h-3" />
@@ -477,11 +477,11 @@ export function TopLandingPagesPanel({
   }
 
   const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <ArrowUpDown className="w-3 h-3 text-zinc-600" />
+    if (sortField !== field) return <ArrowUpDown className="w-3 h-3 text-(--nd-text-muted)" />
     return sortDir === 'desc' ? (
-      <ChevronDown className="w-3 h-3 text-indigo-400" />
+      <ChevronDown className="w-3 h-3 text-(--nd-purple)" />
     ) : (
-      <ChevronUp className="w-3 h-3 text-indigo-400" />
+      <ChevronUp className="w-3 h-3 text-(--nd-purple)" />
     )
   }
 
@@ -498,16 +498,16 @@ export function TopLandingPagesPanel({
     url.length > maxLen ? url.slice(0, maxLen) + '…' : url
 
   return (
-    <div className="rounded-2xl border border-zinc-700/60 bg-[#0D0D10] overflow-hidden space-y-0">
+    <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden space-y-0">
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-4 border-b border-zinc-800/60">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-4 border-b border-(--nd-border)">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-            <Globe className="w-4 h-4 text-amber-400" />
+          <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
+            <Globe className="w-4 h-4 text-amber-600" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-white">Top Landing Pages</h3>
-            <p className="text-xs text-zinc-400">Pages receiving LLM-sourced visitors, cross-referenced with AI citation data</p>
+            <h3 className="text-sm font-semibold text-(--nd-text-primary)">Top Landing Pages</h3>
+            <p className="text-xs text-(--nd-text-muted)">Pages receiving LLM-sourced visitors, cross-referenced with AI citation data</p>
           </div>
         </div>
 
@@ -517,7 +517,7 @@ export function TopLandingPagesPanel({
             <select
               value={activePropertyId}
               onChange={(e) => handlePropertyChange(e.target.value)}
-              className="text-xs bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-xl px-3 py-1.5 cursor-pointer appearance-none focus:outline-none"
+              className="text-xs bg-(--nd-bg) border border-(--nd-border) text-(--nd-text-secondary) rounded-xl px-3 py-1.5 cursor-pointer appearance-none focus:outline-none"
             >
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -528,15 +528,15 @@ export function TopLandingPagesPanel({
           )}
 
           {/* Date range pills */}
-          <div className="flex items-center bg-zinc-800/60 rounded-xl p-0.5 border border-zinc-700/40">
+          <div className="flex items-center bg-(--nd-bg) rounded-xl p-0.5 border border-(--nd-border)">
             {DATE_RANGES.map((dr, i) => (
               <button
                 key={dr.label}
                 onClick={() => setDateRangeIdx(i)}
                 className={`px-3 py-1 text-xs font-medium rounded-xl transition-colors cursor-pointer ${
                   dateRangeIdx === i
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                    : 'text-zinc-500 hover:text-zinc-300'
+                    ? 'bg-(--nd-purple) text-white'
+                    : 'text-(--nd-text-muted) hover:text-(--nd-text-secondary)'
                 }`}
               >
                 {dr.label}
@@ -547,15 +547,15 @@ export function TopLandingPagesPanel({
       </div>
 
       {/* ── Platform filter pills ─────────────────────────────────────────── */}
-      <div className="flex items-center gap-1.5 px-5 py-3 border-b border-zinc-800/40 overflow-x-auto">
+      <div className="flex items-center gap-1.5 px-5 py-3 border-b border-(--nd-border) overflow-x-auto">
         {PLATFORM_FILTERS.map((pf) => (
           <button
             key={pf}
             onClick={() => setActivePlatform(pf)}
             className={`px-3 py-1 text-[11px] font-semibold rounded-full border transition-colors cursor-pointer whitespace-nowrap ${
               activePlatform === pf
-                ? 'bg-amber-500/20 border-amber-500/30 text-amber-300'
-                : 'bg-zinc-800/40 border-zinc-700/40 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600'
+                ? 'bg-(--nd-purple-subtle) border-(--nd-purple)/30 text-(--nd-purple)'
+                : 'bg-(--nd-bg) border-(--nd-border) text-(--nd-text-muted) hover:text-(--nd-text-secondary) hover:border-(--nd-border-hover)'
             }`}
           >
             {pf}
@@ -568,12 +568,12 @@ export function TopLandingPagesPanel({
         <div className="px-5 py-8">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-20 bg-zinc-800/40 rounded-2xl animate-pulse" />
+              <div key={i} className="h-20 bg-(--nd-bg) rounded-2xl animate-pulse" />
             ))}
           </div>
           <div className="space-y-2">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-12 bg-zinc-800/40 rounded-xl animate-pulse" />
+              <div key={i} className="h-12 bg-(--nd-bg) rounded-xl animate-pulse" />
             ))}
           </div>
         </div>
@@ -582,16 +582,16 @@ export function TopLandingPagesPanel({
       {/* ── No data loaded yet ───────────────────────────────────────────── */}
       {!isLoading && !activePropertyId && ga4Connected && (
         <div className="px-5 py-16 flex flex-col items-center text-center gap-3">
-          <Info className="w-8 h-8 text-zinc-600" />
-          <p className="text-sm text-zinc-400">Select a GA4 property above to load landing page data.</p>
+          <Info className="w-8 h-8 text-(--nd-text-muted)" />
+          <p className="text-sm text-(--nd-text-muted)">Select a GA4 property above to load landing page data.</p>
         </div>
       )}
 
       {/* ── Error ────────────────────────────────────────────────────────── */}
       {!isLoading && error && (
         <div className="px-5 py-8 flex flex-col items-center gap-3">
-          <AlertCircle className="w-8 h-8 text-rose-400" />
-          <p className="text-sm text-zinc-400">Failed to load landing page data. Please try again.</p>
+          <AlertCircle className="w-8 h-8 text-rose-600" />
+          <p className="text-sm text-(--nd-text-muted)">Failed to load landing page data. Please try again.</p>
         </div>
       )}
 
@@ -599,37 +599,37 @@ export function TopLandingPagesPanel({
       {!isLoading && data && !error && (
         <>
           {/* ── KPI Summary Cards ──────────────────────────────────────────── */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 px-5 py-4 border-b border-zinc-800/40">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 px-5 py-4 border-b border-(--nd-border)">
             <KPICard
               label="Total LLM Landing Pages"
               value={data.totalLLMPages.toLocaleString()}
-              icon={<Globe className="w-4 h-4 text-amber-400" />}
-              color="border-amber-500/20"
+              icon={<Globe className="w-4 h-4 text-amber-600" />}
+              color="border-amber-200"
             />
             <KPICard
               label="Top Page"
               value={data.topPage ? data.topPage.llmSessions.toLocaleString() + ' sessions' : '—'}
               sub={data.topPage ? displayUrl(data.topPage.url, 40) : 'No data yet'}
-              icon={<TrendingUp className="w-4 h-4 text-emerald-400" />}
-              color="border-emerald-500/20"
+              icon={<TrendingUp className="w-4 h-4 text-emerald-600" />}
+              color="border-emerald-200"
             />
             <KPICard
               label="Avg Bounce Rate (LLM Visitors)"
               value={data.avgBounceRate > 0 ? `${data.avgBounceRate.toFixed(1)}%` : '—'}
-              icon={<TrendingDown className="w-4 h-4 text-blue-400" />}
-              color="border-blue-500/20"
+              icon={<TrendingDown className="w-4 h-4 text-blue-600" />}
+              color="border-blue-200"
             />
           </div>
 
           {/* ── Empty state ─────────────────────────────────────────────────── */}
           {sortedPages.length === 0 && (
             <div className="px-5 py-16 flex flex-col items-center text-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-zinc-800/40 flex items-center justify-center">
-                <Bot className="w-7 h-7 text-zinc-600" />
+              <div className="w-14 h-14 rounded-2xl bg-(--nd-bg) border border-(--nd-border) flex items-center justify-center">
+                <Bot className="w-7 h-7 text-(--nd-text-muted)" />
               </div>
               <div>
-                <p className="text-sm font-medium text-zinc-400">No landing page data available yet.</p>
-                <p className="text-xs text-zinc-600 mt-1">
+                <p className="text-sm font-medium text-(--nd-text-secondary)">No landing page data available yet.</p>
+                <p className="text-xs text-(--nd-text-muted) mt-1">
                   This requires at least 7 days of GA4 data after connection.
                 </p>
               </div>
@@ -641,12 +641,12 @@ export function TopLandingPagesPanel({
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-800/60 bg-zinc-900/40">
-                    <th className="px-4 py-3 text-left text-[10px] font-medium text-zinc-500 uppercase tracking-wider w-64">
+                  <tr className="border-b border-(--nd-border) bg-(--nd-bg)">
+                    <th className="px-4 py-3 text-left text-[10px] font-medium text-(--nd-text-muted) uppercase tracking-wider w-64">
                       URL
                     </th>
                     <th
-                      className="px-4 py-3 text-right text-[10px] font-medium text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-300 select-none"
+                      className="px-4 py-3 text-right text-[10px] font-medium text-(--nd-text-muted) uppercase tracking-wider cursor-pointer hover:text-(--nd-text-secondary) select-none"
                       onClick={() => handleSort('llmSessions')}
                     >
                       <span className="flex items-center justify-end gap-1">
@@ -654,11 +654,11 @@ export function TopLandingPagesPanel({
                         <SortIcon field="llmSessions" />
                       </span>
                     </th>
-                    <th className="px-4 py-3 text-right text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-right text-[10px] font-medium text-(--nd-text-muted) uppercase tracking-wider">
                       Users
                     </th>
                     <th
-                      className="px-4 py-3 text-right text-[10px] font-medium text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-300 select-none"
+                      className="px-4 py-3 text-right text-[10px] font-medium text-(--nd-text-muted) uppercase tracking-wider cursor-pointer hover:text-(--nd-text-secondary) select-none"
                       onClick={() => handleSort('bounceRate')}
                     >
                       <span className="flex items-center justify-end gap-1">
@@ -667,7 +667,7 @@ export function TopLandingPagesPanel({
                       </span>
                     </th>
                     <th
-                      className="px-4 py-3 text-right text-[10px] font-medium text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-300 select-none"
+                      className="px-4 py-3 text-right text-[10px] font-medium text-(--nd-text-muted) uppercase tracking-wider cursor-pointer hover:text-(--nd-text-secondary) select-none"
                       onClick={() => handleSort('citationCount')}
                     >
                       <span className="flex items-center justify-end gap-1">
@@ -675,11 +675,11 @@ export function TopLandingPagesPanel({
                         <SortIcon field="citationCount" />
                       </span>
                     </th>
-                    <th className="px-4 py-3 text-center text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-center text-[10px] font-medium text-(--nd-text-muted) uppercase tracking-wider">
                       Primary Model
                     </th>
                     <th
-                      className="px-4 py-3 text-right text-[10px] font-medium text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-300 select-none"
+                      className="px-4 py-3 text-right text-[10px] font-medium text-(--nd-text-muted) uppercase tracking-wider cursor-pointer hover:text-(--nd-text-secondary) select-none"
                       onClick={() => handleSort('citationTrafficRatio')}
                     >
                       <span className="flex items-center justify-end gap-1">
@@ -687,31 +687,31 @@ export function TopLandingPagesPanel({
                         <SortIcon field="citationTrafficRatio" />
                       </span>
                     </th>
-                    <th className="px-4 py-3 text-center text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-center text-[10px] font-medium text-(--nd-text-muted) uppercase tracking-wider">
                       Gap Flag
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800/40">
+                <tbody className="divide-y divide-(--nd-border)">
                   {sortedPages.map((page) => {
                     const isExpanded = expandedRow === page.path
                     return (
                       <>
                         <tr
                           key={page.path}
-                          className="hover:bg-zinc-800/20 transition-colors cursor-pointer"
+                          className="hover:bg-(--nd-bg) transition-colors cursor-pointer"
                           onClick={() => setExpandedRow(isExpanded ? null : page.path)}
                         >
                           {/* URL */}
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1.5 min-w-0">
                               {isExpanded ? (
-                                <ChevronUp className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                                <ChevronUp className="w-3.5 h-3.5 text-(--nd-text-muted) shrink-0" />
                               ) : (
-                                <ChevronDown className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                                <ChevronDown className="w-3.5 h-3.5 text-(--nd-text-muted) shrink-0" />
                               )}
                               <span
-                                className="text-xs text-blue-400 truncate hover:text-blue-300"
+                                className="text-xs text-blue-600 truncate hover:text-blue-500"
                                 title={page.url}
                               >
                                 {displayUrl(page.path, 45)}
@@ -721,13 +721,13 @@ export function TopLandingPagesPanel({
 
                           {/* LLM Sessions */}
                           <td className="px-4 py-3 text-right">
-                            <span className="text-xs font-semibold text-white">
+                            <span className="text-xs font-semibold text-(--nd-text-primary)">
                               {page.llmSessions.toLocaleString()}
                             </span>
                           </td>
 
                           {/* Users */}
-                          <td className="px-4 py-3 text-right text-xs text-zinc-400">
+                          <td className="px-4 py-3 text-right text-xs text-(--nd-text-muted)">
                             {page.users.toLocaleString()}
                           </td>
 
@@ -735,7 +735,7 @@ export function TopLandingPagesPanel({
                           <td className="px-4 py-3 text-right">
                             <span
                               className={`text-xs font-medium inline-flex items-center gap-1 ${
-                                page.bounceRate > 75 ? 'text-amber-400' : 'text-zinc-300'
+                                page.bounceRate > 75 ? 'text-amber-600' : 'text-(--nd-text-secondary)'
                               }`}
                             >
                               {page.bounceRate > 75 && (
@@ -749,12 +749,12 @@ export function TopLandingPagesPanel({
 
                           {/* Citation Count */}
                           <td className="px-4 py-3 text-right">
-                            <span className="inline-flex items-center gap-1 text-xs text-zinc-300">
+                            <span className="inline-flex items-center gap-1 text-xs text-(--nd-text-secondary)">
                               {page.citationCount === 0 && (
                                 <span
                                   title="This page receives LLM traffic but is not tracked in your citation monitoring. Add it to prompt tracking for full visibility."
                                 >
-                                  <Info className="w-3 h-3 text-blue-400" />
+                                  <Info className="w-3 h-3 text-blue-600" />
                                 </span>
                               )}
                               {page.citationCount}
@@ -775,12 +775,12 @@ export function TopLandingPagesPanel({
                                 {page.primaryModel}
                               </span>
                             ) : (
-                              <span className="text-[10px] text-zinc-600">—</span>
+                              <span className="text-[10px] text-(--nd-text-muted)">—</span>
                             )}
                           </td>
 
                           {/* Citation/Traffic Ratio */}
-                          <td className="px-4 py-3 text-right text-xs text-zinc-400">
+                          <td className="px-4 py-3 text-right text-xs text-(--nd-text-muted)">
                             {page.citationTrafficRatio !== null
                               ? page.citationTrafficRatio.toFixed(2)
                               : '—'}
@@ -820,12 +820,12 @@ export function TopLandingPagesPanel({
 
           {/* ── Footer note ──────────────────────────────────────────────────── */}
           {sortedPages.length > 0 && (
-            <div className="px-5 py-3 border-t border-zinc-800/40 flex items-center justify-between">
-              <p className="text-[11px] text-zinc-600">
+            <div className="px-5 py-3 border-t border-(--nd-border) flex items-center justify-between">
+              <p className="text-[11px] text-(--nd-text-muted)">
                 Showing top {sortedPages.length} pages ranked by LLM sessions.
                 {data.totalLLMPages > 50 && ` ${data.totalLLMPages - 50} more pages available.`}
               </p>
-              <p className="text-[11px] text-zinc-600">
+              <p className="text-[11px] text-(--nd-text-muted)">
                 OPPORTUNITY GAP: citations &gt; 20 &amp; sessions &lt; 50 &nbsp;·&nbsp;
                 PERFORMING: citations &gt; 20 &amp; sessions ≥ 50
               </p>

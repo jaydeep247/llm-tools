@@ -268,19 +268,19 @@ function TopicGrid({ topicWins, brandName: _brandName, onSelectTopic }: TopicGri
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider">
+              <div className="flex justify-between text-xs font-bold uppercase tracking-wider">
                 <span style={{ color: 'var(--nd-text-muted)' }}>Brand Win Rate</span>
                 <span className={cn(
                   winColor === 'emerald' ? 'text-emerald-600' :
-                  winColor === 'amber' ? 'text-amber-600' : 'text-rose-600'
+                  winColor === 'amber' ? 'text-amber-600' : 'text-orange-600'
                 )}>{winRate}%</span>
               </div>
               <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--nd-border)' }}>
                 <div
                   className={cn(
                     'h-full rounded-full transition-all',
-                    winColor === 'emerald' ? 'bg-emerald-500' :
-                    winColor === 'amber' ? 'bg-amber-500' : 'bg-rose-500'
+                    winColor === 'emerald' ? 'bg-emerald-600' :
+                    winColor === 'amber' ? 'bg-amber-600' : 'bg-orange-400'
                   )}
                   style={{ width: `${winRate}%` }}
                 />
@@ -347,7 +347,7 @@ function PromptResultList({
                       result.winner === 'brand'
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                         : result.winner === 'competitor'
-                          ? 'bg-red-50 text-red-700 border-red-200'
+                          ? 'bg-orange-50 text-orange-700 border-orange-200'
                           : 'bg-gray-50 text-gray-500 border-gray-200'
                     )}>
                       {result.winner === 'brand' ? (
@@ -529,7 +529,7 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
   if (!effectiveData && !isLoading && !isFetchingModuleF) {
     return (
       <AnalysisEmptyState
-        icon={<Trophy className="w-8 h-8 text-zinc-400" />}
+        icon={<Trophy className="w-8 h-8" style={{ color: 'var(--nd-text-muted)' }} />}
         title="No Competitor Wins Data"
         description="Run Module F from the Visibility Comparison tab to generate competitor win data and content gap insights."
       />
@@ -696,24 +696,21 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
       </Dialog>
 
       {/* Premium Header */}
-      <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-6 sm:p-8 relative overflow-hidden group">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-500/5 blur-[100px] -mr-32 -mt-32" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/5 blur-[100px] -ml-32 -mb-32" />
-        
-        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="rounded-3xl p-6 sm:p-8 relative overflow-hidden" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-start gap-5">
-            <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-xl group-hover:border-yellow-500/30 transition-colors">
-              <Trophy className="w-8 h-8 text-yellow-400 animate-pulse" />
+            <div className="p-4 rounded-2xl shadow-sm" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+              <Trophy className="w-8 h-8 text-amber-500 animate-pulse" />
             </div>
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <h2 className="text-2xl font-bold text-white tracking-tight">Competitor Wins Library</h2>
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-yellow-500/10 border border-yellow-500/20">
-                  <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />
-                  <span className="text-[10px] font-bold text-yellow-400 uppercase tracking-wider">AEO Analysis</span>
+                <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--nd-text-primary)' }}>Competitor Wins Library</h2>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200">
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">AEO Analysis</span>
                 </div>
               </div>
-              <p className="text-sm text-zinc-400 max-w-2xl leading-relaxed">
+              <p className="text-sm max-w-2xl leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>
                 Analyze prompts where competitors rank higher or appear more frequently. Identify content gaps and opportunities to improve your AI visibility and citation share.
               </p>
             </div>
@@ -721,9 +718,9 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
           
           <div className="flex flex-col items-end gap-3 md:self-start">
             {summary?.total_prompts && (
-              <div className="flex flex-col items-end gap-1 bg-zinc-900/50 px-4 py-2 rounded-2xl border border-zinc-800">
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Dataset</span>
-                <span className="text-sm font-bold text-zinc-200">{summary.total_prompts} Prompts Tracked</span>
+              <div className="flex flex-col items-end gap-1 px-4 py-2 rounded-2xl" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--nd-text-muted)' }}>Dataset</span>
+                <span className="text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>{summary.total_prompts} Prompts Tracked</span>
               </div>
             )}
 
@@ -819,7 +816,6 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
         <SectionCard 
           title="Competitor Win Breakdown" 
           description="Per-competitor wins and win percentage (competitor rank better than your brand)."
-          className="bg-[#111113]"
           actionSlot={
             <MetricAskButton
               disabled={!jobId || isAskingAI}
@@ -830,53 +826,53 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
           <ScrollArea className="h-[400px] pr-4 -mr-2">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4">
                 {competitorBreakdown.map((row) => (
-                <div key={row.competitor} className="group relative rounded-2xl border border-zinc-800 bg-zinc-900/20 p-5 transition-all duration-300 hover:border-zinc-700 hover:bg-zinc-900/40 overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-[40px] -mr-16 -mt-16 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  
-                  <div className="relative flex items-start justify-between gap-4 mb-4">
+                <div key={row.competitor} className="group rounded-2xl p-5 transition-all duration-300 overflow-hidden" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--nd-border-hover)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--nd-border)')}
+                >
+                  <div className="flex items-start justify-between gap-4 mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center border border-zinc-700/50 group-hover:border-red-500/30 transition-colors">
-                        <Sword className="w-5 h-5 text-zinc-400 group-hover:text-red-400" />
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+                        <Sword className="w-5 h-5" style={{ color: 'var(--nd-text-muted)' }} />
                       </div>
                       <div className="min-w-0">
-                        <div className="text-zinc-100 font-bold truncate text-base" title={row.competitor}>{row.competitor}</div>
-                        <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter mt-0.5">
+                        <div className="font-bold truncate text-base" style={{ color: 'var(--nd-text-primary)' }} title={row.competitor}>{row.competitor}</div>
+                      <div className="text-[11px] font-bold uppercase tracking-tighter mt-0.5" style={{ color: 'var(--nd-text-muted)' }}>
                           Mentioned in {row.prompts_mentioned} / {summary?.total_prompts ?? 0} prompts
                         </div>
                       </div>
                     </div>
-                    <Badge className={cn('px-2.5 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-wider',
-                      row.win_percent >= 60 ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                      row.win_percent >= 30 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                      'bg-zinc-800/50 text-zinc-400 border-zinc-700'
+                    <Badge className={cn('px-2.5 py-1 rounded-lg border text-xs font-bold uppercase tracking-wider',
+                      row.win_percent >= 60 ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                      row.win_percent >= 30 ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                      'bg-gray-50 text-gray-600 border-gray-200'
                     )}>
                       {row.win_percent}% Win Rate
                     </Badge>
                   </div>
 
-                  <div className="relative h-2 w-full bg-zinc-800/50 rounded-full overflow-hidden mb-6 border border-zinc-800/50">
+                  <div className="relative h-2 w-full rounded-full overflow-hidden mb-6" style={{ background: 'var(--nd-border)' }}>
                     <div
                       className={cn('h-full rounded-full transition-all duration-1000 ease-out',
-                        row.win_percent >= 60 ? 'bg-red-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]' :
-                        row.win_percent >= 30 ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]' :
-                        'bg-zinc-600 shadow-[0_0_8px_rgba(113,113,122,0.4)]'
+                        row.win_percent >= 60 ? 'bg-orange-400' :
+                        row.win_percent >= 30 ? 'bg-amber-600' : 'bg-gray-400'
                       )}
                       style={{ width: `${Math.min(100, row.win_percent)}%` }}
                     />
                   </div>
 
                   <div className="grid grid-cols-3 gap-3">
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3 flex flex-col items-center text-center">
-                      <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Prompts Won</div>
-                      <div className="text-lg font-bold text-zinc-200 font-mono">{row.prompts_won}</div>
+                    <div className="rounded-xl p-3 flex flex-col items-center text-center" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' }}>
+                      <div className="text-[11px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--nd-text-muted)' }}>Prompts Won</div>
+                      <div className="text-lg font-bold font-mono" style={{ color: 'var(--nd-text-primary)' }}>{row.prompts_won}</div>
                     </div>
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3 flex flex-col items-center text-center">
-                      <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Win %</div>
-                      <div className="text-lg font-bold text-zinc-200 font-mono">{row.win_percent}%</div>
+                    <div className="rounded-xl p-3 flex flex-col items-center text-center" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' }}>
+                      <div className="text-[11px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--nd-text-muted)' }}>Win %</div>
+                      <div className="text-lg font-bold font-mono" style={{ color: 'var(--nd-text-primary)' }}>{row.win_percent}%</div>
                     </div>
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3 flex flex-col items-center text-center">
-                      <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Content Gap</div>
-                      <div className="text-lg font-bold text-zinc-200 font-mono">{row.content_gap_score}%</div>
+                    <div className="rounded-xl p-3 flex flex-col items-center text-center" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' }}>
+                      <div className="text-[11px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--nd-text-muted)' }}>Content Gap</div>
+                      <div className="text-lg font-bold font-mono" style={{ color: 'var(--nd-text-primary)' }}>{row.content_gap_score}%</div>
                     </div>
                   </div>
                 </div>
@@ -900,7 +896,7 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
               ? `Prompts are organized by the topics generated during brand onboarding. Click a topic to explore its prompts.`
               : 'Detailed breakdown of winner and ranking for each prompt analyzed by AI models.'
         }
-        className="bg-[#111113]"
+        className=""
         actionSlot={
           <MetricAskButton
             disabled={!jobId || isAskingAI}
@@ -909,29 +905,29 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
         }
       >
         {!flags.prompt_level_drilldown ? (
-          <div className="text-center py-20 bg-zinc-900/20 rounded-3xl border border-dashed border-zinc-800">
-            <div className="w-20 h-20 rounded-3xl bg-zinc-800/50 border border-zinc-700/50 flex items-center justify-center mx-auto mb-6 shadow-2xl">
-              <Lock className="w-10 h-10 text-zinc-600" />
+          <div className="text-center py-20 rounded-3xl border border-dashed" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+            <div className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6" style={{ background: 'var(--nd-border)', border: '1px solid var(--nd-border)' }}>
+              <Lock className="w-10 h-10" style={{ color: 'var(--nd-text-muted)' }} />
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">Prompt-Level Drilldown</h3>
-            <p className="text-sm text-zinc-500 max-w-sm mx-auto leading-relaxed mb-8">
+            <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--nd-text-primary)' }}>Prompt-Level Drilldown</h3>
+            <p className="text-sm max-w-sm mx-auto leading-relaxed mb-8" style={{ color: 'var(--nd-text-secondary)' }}>
               Upgrade to Agency or Enterprise to see per-prompt winner analysis, coverage gap scores, and ranking breakdowns.
             </p>
             <div className="flex items-center justify-center gap-3">
-              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/5 border border-amber-500/10">
-                <Star className="w-4 h-4 text-amber-500" />
-                <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">Agency</span>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-50 border border-amber-200">
+                <Star className="w-4 h-4 text-amber-600" />
+                <span className="text-xs font-bold text-amber-700 uppercase tracking-widest">Agency</span>
               </div>
-              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-500/5 border border-purple-500/10">
-                <Zap className="w-4 h-4 text-purple-500" />
-                <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">Enterprise</span>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl" style={{ background: 'var(--nd-purple-subtle)', border: '1px solid var(--nd-purple)' }}>
+                <Zap className="w-4 h-4" style={{ color: 'var(--nd-purple)' }} />
+                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--nd-purple)' }}>Enterprise</span>
               </div>
             </div>
           </div>
         ) : isActuallyLoading ? (
            <div className="space-y-4">
              {[1, 2, 3].map((i) => (
-               <div key={i} className="h-32 bg-zinc-900/50 rounded-2xl animate-pulse border border-zinc-800" />
+               <div key={i} className="h-32 rounded-2xl animate-pulse" style={{ background: 'var(--nd-border)', border: '1px solid var(--nd-border)' }} />
              ))}
            </div>
         ) : hasTopicWins && !selectedTopic ? (
@@ -961,45 +957,47 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
                       setSearchTerm('')
                       setFilter('all')
                     }}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-zinc-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-600"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold transition-colors px-3 py-1.5 rounded-lg"
+                    style={{ color: 'var(--nd-text-muted)', background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}
                   >
                     <ChevronLeft className="w-3.5 h-3.5" /> All Topics
                   </button>
                 )}
-                <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--nd-text-muted)' }}>
                   {filteredResults.length} Result{filteredResults.length !== 1 ? 's' : ''}
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
                 <div className="relative group">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-blue-400 transition-colors" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors" style={{ color: 'var(--nd-text-muted)' }} />
                   <input 
                     type="text" 
                     placeholder="Search prompts..." 
-                    className="bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 w-full md:w-64 transition-all"
+                    className="rounded-xl pl-10 pr-4 py-2 text-sm focus:outline-none w-full md:w-64 transition-all"
+                    style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)', color: 'var(--nd-text-primary)' }}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
                 
                 <Tabs value={filter} onValueChange={(v) => setFilter(v as any)} className="w-auto">
-                  <TabsList className="bg-zinc-900 border border-zinc-800 p-1 h-9">
-                    <TabsTrigger value="all" className="text-[10px] font-bold uppercase tracking-wider px-3 data-[state=active]:bg-zinc-800 data-[state=active]:text-white transition-all">All</TabsTrigger>
-                    <TabsTrigger value="brand" className="text-[10px] font-bold uppercase tracking-wider px-3 data-[state=active]:bg-emerald-500/10 data-[state=active]:text-emerald-400 transition-all">My Wins</TabsTrigger>
-                    <TabsTrigger value="competitor" className="text-[10px] font-bold uppercase tracking-wider px-3 data-[state=active]:bg-red-500/10 data-[state=active]:text-red-400 transition-all">Losses</TabsTrigger>
+                  <TabsList className="p-1 h-9" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+                    <TabsTrigger value="all" className="text-xs font-bold uppercase tracking-wider px-3 data-[state=active]:bg-white transition-all">All</TabsTrigger>
+                    <TabsTrigger value="brand" className="text-xs font-bold uppercase tracking-wider px-3 data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-700 transition-all">My Wins</TabsTrigger>
+                    <TabsTrigger value="competitor" className="text-xs font-bold uppercase tracking-wider px-3 data-[state=active]:bg-orange-50 data-[state=active]:text-orange-700 transition-all">Losses</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
             </div>
 
             {filteredResults.length === 0 ? (
-              <div className="text-center py-20 bg-zinc-900/20 rounded-3xl border border-dashed border-zinc-800">
-                <div className="w-16 h-16 rounded-2xl bg-zinc-900/50 flex items-center justify-center mx-auto mb-4">
-                  <Search className="w-8 h-8 text-zinc-700" />
+              <div className="text-center py-20 rounded-3xl border border-dashed" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--nd-border)' }}>
+                  <Search className="w-8 h-8" style={{ color: 'var(--nd-text-muted)' }} />
                 </div>
-                <h3 className="text-white font-bold mb-1">No prompts found</h3>
-                <p className="text-zinc-500 text-sm">Try adjusting your search or filters.</p>
+                <h3 className="font-bold mb-1" style={{ color: 'var(--nd-text-primary)' }}>No prompts found</h3>
+                <p className="text-sm" style={{ color: 'var(--nd-text-secondary)' }}>Try adjusting your search or filters.</p>
               </div>
             ) : (
               <PromptResultList

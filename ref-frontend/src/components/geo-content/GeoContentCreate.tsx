@@ -103,12 +103,12 @@ export function GeoContentCreate({ jobId: propJobId, inSession, onSuccess }: { j
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-6 animate-fade-in-hero">
         <div className="relative">
-          <div className="w-16 h-16 rounded-full border-4 border-indigo-500/20 border-t-indigo-500 animate-spin" />
-          <Sparkles className="absolute inset-0 m-auto h-6 w-6 text-indigo-400" />
+          <div className="w-16 h-16 rounded-full border-4 border-(--nd-purple)/20 border-t-(--nd-purple) animate-spin" />
+          <Sparkles className="absolute inset-0 m-auto h-6 w-6 text-(--nd-purple)" />
         </div>
         <div className="text-center">
-          <p className="text-white font-semibold text-lg">Generating your GEO article…</p>
-          <p className="text-zinc-500 text-sm mt-1">Claude is writing your content. This takes ~30 seconds.</p>
+          <p className="text-(--nd-text-primary) font-semibold text-lg">Generating your GEO article…</p>
+          <p className="text-(--nd-text-muted) text-sm mt-1">Claude is writing your content. This takes ~30 seconds.</p>
         </div>
       </div>
     )
@@ -124,7 +124,7 @@ export function GeoContentCreate({ jobId: propJobId, inSession, onSuccess }: { j
           <button
             id="geo-create-back-btn"
             onClick={() => router.push('/dashboard/geo-content')}
-            className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-200 text-sm transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-(--nd-text-muted) hover:text-(--nd-text-primary) text-sm transition-colors cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4" />
             Content list
@@ -134,19 +134,19 @@ export function GeoContentCreate({ jobId: propJobId, inSession, onSuccess }: { j
         {/* Page title — hidden when embedded */}
         {!inSession && (
           <div>
-            <h1 className="text-2xl font-bold text-white">Create GEO Article</h1>
-            <p className="text-zinc-500 text-sm mt-1">
+            <h1 className="text-2xl font-bold text-(--nd-text-primary)">Create GEO Article</h1>
+            <p className="text-(--nd-text-muted) text-sm mt-1">
               Generate a long-form article optimized to appear in AI-generated answers.
             </p>
           </div>
         )}
 
         {/* Form card */}
-        <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-6 space-y-6">
+        <div className="rounded-2xl border border-(--nd-border) bg-white p-6 space-y-6">
 
           {/* ── Content Brief ── */}
           <div className="space-y-2">
-            <label htmlFor="geo-brief" className="block text-sm font-medium text-white">
+            <label htmlFor="geo-brief" className="block text-sm font-medium text-(--nd-text-primary)">
               Content Brief <span className="text-red-400">*</span>
             </label>
             <textarea
@@ -155,7 +155,7 @@ export function GeoContentCreate({ jobId: propJobId, inSession, onSuccess }: { j
               placeholder="Describe what the article should cover, the audience, and any important context."
               value={brief}
               onChange={(e) => setBrief(e.target.value)}
-              className="w-full rounded-lg bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-600 text-sm px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-colors"
+              className="w-full rounded-lg bg-(--nd-bg) border border-(--nd-border) text-(--nd-text-primary) placeholder:text-(--nd-text-muted) text-sm px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-(--nd-purple)/30 focus:border-(--nd-purple)/50 transition-colors"
             />
           </div>
 
@@ -165,7 +165,7 @@ export function GeoContentCreate({ jobId: propJobId, inSession, onSuccess }: { j
               id="geo-toggle-title"
               type="button"
               onClick={() => setShowTitle((v) => !v)}
-              className="flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 text-sm text-(--nd-purple) hover:text-(--nd-purple-light) transition-colors cursor-pointer"
             >
               {showTitle ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
               Specify title (optional)
@@ -176,7 +176,7 @@ export function GeoContentCreate({ jobId: propJobId, inSession, onSuccess }: { j
                 placeholder="e.g. 10 Best Practices for B2B SaaS Content Marketing"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-600"
+                className="bg-(--nd-bg) border-(--nd-border) text-(--nd-text-primary) placeholder:text-(--nd-text-muted)"
               />
             )}
           </div>
@@ -187,24 +187,24 @@ export function GeoContentCreate({ jobId: propJobId, inSession, onSuccess }: { j
               id="geo-toggle-keywords"
               type="button"
               onClick={() => setShowKeywords((v) => !v)}
-              className="flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 text-sm text-(--nd-purple) hover:text-(--nd-purple-light) transition-colors cursor-pointer"
             >
               {showKeywords ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
               Add Target Search Keywords (optional)
             </button>
             {showKeywords && (
               <div className="space-y-2">
-                <div className="flex flex-wrap gap-1.5 min-h-9 px-3 py-2 rounded-lg bg-zinc-800/50 border border-zinc-700 focus-within:ring-2 focus-within:ring-indigo-500/50 focus-within:border-indigo-500/50 transition-colors">
+                <div className="flex flex-wrap gap-1.5 min-h-9 px-3 py-2 rounded-lg bg-(--nd-bg) border border-(--nd-border) focus-within:ring-2 focus-within:ring-(--nd-purple)/30 focus-within:border-(--nd-purple)/50 transition-colors">
                   {keywords.map((kw) => (
                     <span
                       key={kw}
-                      className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs"
+                      className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-(--nd-purple-subtle) border border-(--nd-purple)/30 text-(--nd-purple) text-xs"
                     >
                       {kw}
                       <button
                         type="button"
                         onClick={() => removeKeyword(kw)}
-                        className="text-indigo-400 hover:text-indigo-200 cursor-pointer"
+                        className="text-(--nd-purple) hover:text-(--nd-purple-light) cursor-pointer"
                         aria-label={`Remove keyword ${kw}`}
                       >
                         <X className="h-3 w-3" />
@@ -219,43 +219,43 @@ export function GeoContentCreate({ jobId: propJobId, inSession, onSuccess }: { j
                     onChange={(e) => setKeywordInput(e.target.value)}
                     onKeyDown={handleKeywordKeyDown}
                     onBlur={() => keywordInput && addKeyword(keywordInput)}
-                    className="flex-1 min-w-32 bg-transparent text-white placeholder:text-zinc-600 text-sm focus:outline-none"
+                    className="flex-1 min-w-32 bg-transparent text-(--nd-text-primary) placeholder:text-(--nd-text-muted) text-sm focus:outline-none"
                   />
                 </div>
-                <p className="text-xs text-zinc-600">Separate with commas or Enter key. Max 20 keywords.</p>
+                <p className="text-xs text-(--nd-text-muted)">Separate with commas or Enter key. Max 20 keywords.</p>
               </div>
             )}
           </div>
 
           {/* ── Target Prompt ── */}
           <div className="space-y-2">
-            <label htmlFor="geo-target-prompt" className="block text-sm font-medium text-white">
+            <label htmlFor="geo-target-prompt" className="block text-sm font-medium text-(--nd-text-primary)">
               Target Prompt
-              <span className="ml-1.5 text-zinc-500 font-normal">(optional)</span>
+              <span className="ml-1.5 text-(--nd-text-muted) font-normal">(optional)</span>
             </label>
             <Select value={targetPrompt} onValueChange={setTargetPrompt}>
               <SelectTrigger
                 id="geo-target-prompt"
-                className="bg-zinc-800/50 border-zinc-700 text-white data-[placeholder]:text-zinc-600"
+                className="bg-(--nd-bg) border-(--nd-border) text-(--nd-text-primary) data-[placeholder]:text-(--nd-text-muted)"
               >
                 <SelectValue placeholder="No prompt selected" />
               </SelectTrigger>
-              <SelectContent className="bg-[#161618] border-zinc-700">
-                <SelectItem value="none" className="text-zinc-400">
+              <SelectContent className="bg-white border-(--nd-border)">
+                <SelectItem value="none" className="text-(--nd-text-muted)">
                   No prompt selected
                 </SelectItem>
                 {brandPrompts.map((prompt, i) => (
                   <SelectItem
                     key={i}
                     value={prompt}
-                    className="text-zinc-200 focus:bg-zinc-800 focus:text-white"
+                    className="text-(--nd-text-secondary) focus:bg-(--nd-bg) focus:text-(--nd-text-primary)"
                   >
                     <span className="truncate max-w-sm block">{prompt}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-zinc-600">
+            <p className="text-xs text-(--nd-text-muted)">
               The article will be structured to be cited verbatim by AI models for this prompt.
             </p>
           </div>
@@ -263,16 +263,16 @@ export function GeoContentCreate({ jobId: propJobId, inSession, onSuccess }: { j
           {/* ── Listicle toggle ── */}
           <div className="flex items-center justify-between py-1">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-white">Listicle format</span>
+              <span className="text-sm font-medium text-(--nd-text-primary)">Listicle format</span>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button type="button" className="text-zinc-600 hover:text-zinc-400 cursor-pointer">
+                  <button type="button" className="text-(--nd-text-muted) hover:text-(--nd-text-secondary) cursor-pointer">
                     <HelpCircle className="h-4 w-4" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent
                   side="right"
-                  className="max-w-xs bg-[#1a1a1c] border-zinc-700 text-zinc-200 text-xs"
+                  className="max-w-xs bg-white border-(--nd-border) text-(--nd-text-secondary) text-xs"
                 >
                   When ON, the article is structured as a numbered list (e.g. &quot;11 Best Practices for X&quot;).
                   Listicles are highly citation-friendly for AI models.
@@ -283,14 +283,14 @@ export function GeoContentCreate({ jobId: propJobId, inSession, onSuccess }: { j
               id="geo-listicle-toggle"
               checked={listicle}
               onCheckedChange={setListicle}
-              className="data-[state=checked]:bg-indigo-600"
+              className="data-[state=checked]:bg-(--nd-purple)"
             />
           </div>
 
           {/* ── Error ── */}
           {formError && (
-            <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3">
-              <p className="text-red-300 text-sm">{formError}</p>
+            <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3">
+              <p className="text-red-600 text-sm">{formError}</p>
             </div>
           )}
 
@@ -299,7 +299,7 @@ export function GeoContentCreate({ jobId: propJobId, inSession, onSuccess }: { j
             id="geo-submit-btn"
             onClick={handleSubmit}
             disabled={!brief.trim() || isLoading}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white gap-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 h-11"
+            className="w-full bg-(--nd-purple) hover:bg-(--nd-purple-light) text-white gap-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 h-11"
           >
             <Sparkles className="h-4 w-4" />
             Create

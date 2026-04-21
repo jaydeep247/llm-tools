@@ -66,7 +66,7 @@ function normalizeModelResponse(text: string) {
 function ResponseContent({ text }: { text: string }) {
   const normalized = useMemo(() => normalizeModelResponse(text), [text])
   return (
-    <div className="rounded-md bg-zinc-950/50 border border-zinc-800 p-3 sm:p-4">
+    <div className="rounded-md bg-(--nd-bg) border border-(--nd-border) p-3 sm:p-4">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -75,19 +75,19 @@ function ResponseContent({ text }: { text: string }) {
               href={href}
               target="_blank"
               rel="noreferrer"
-              className="text-sky-300 hover:text-sky-200 underline underline-offset-2 break-words"
+              className="text-sky-500 hover:text-sky-400 underline underline-offset-2 break-words"
             >
               {children}
             </a>
           ),
-          p: ({ children }) => <p className="text-sm text-zinc-200 leading-relaxed mb-3 last:mb-0">{children}</p>,
+          p: ({ children }) => <p className="text-sm text-(--nd-text-secondary) leading-relaxed mb-3 last:mb-0">{children}</p>,
           ul: ({ children }) => <ul className="list-disc pl-5 space-y-1 mb-3 last:mb-0">{children}</ul>,
           ol: ({ children }) => <ol className="list-decimal pl-5 space-y-1 mb-3 last:mb-0">{children}</ol>,
-          li: ({ children }) => <li className="text-sm text-zinc-200 leading-relaxed">{children}</li>,
-          strong: ({ children }) => <strong className="text-zinc-100 font-semibold">{children}</strong>,
-          em: ({ children }) => <em className="text-zinc-200 italic">{children}</em>,
+          li: ({ children }) => <li className="text-sm text-(--nd-text-secondary) leading-relaxed">{children}</li>,
+          strong: ({ children }) => <strong className="text-(--nd-text-primary) font-semibold">{children}</strong>,
+          em: ({ children }) => <em className="text-(--nd-text-secondary) italic">{children}</em>,
           code: ({ children }) => (
-            <code className="px-1 py-0.5 rounded bg-zinc-900/70 border border-zinc-800 text-[12px] text-zinc-200">
+            <code className="px-1 py-0.5 rounded bg-(--nd-bg) border border-(--nd-border) text-[12px] text-(--nd-text-secondary)">
               {children}
             </code>
           ),
@@ -110,7 +110,7 @@ function StatusBadge({ status }: { status: string }) {
   const { color, bg, border } = config[status] || config['Good']
 
   return (
-    <div className={cn("flex flex-col items-center gap-1.5 py-2 px-3 rounded-xl border transition-all hover:bg-zinc-800/50", bg, border)}>
+    <div className={cn("flex flex-col items-center gap-1.5 py-2 px-3 rounded-xl border transition-all hover:bg-(--nd-bg)", bg, border)}>
       <div className={cn("w-2 h-2 rounded-full", color.replace('text', 'bg'))} />
       <span className={cn("text-[11px] font-bold uppercase tracking-wider", color)}>{status}</span>
     </div>
@@ -289,41 +289,41 @@ export default function PerceptionAnalysis({
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-3 min-w-0">
-        <div className="shrink-0 p-2 rounded-xl bg-white/10 border border-white/10">
-          <Glasses className="w-5 h-5 text-zinc-300" />
+        <div className="shrink-0 p-2 rounded-xl bg-(--nd-purple-subtle) border border-(--nd-purple)/20">
+          <Glasses className="w-5 h-5 text-(--nd-purple)" />
         </div>
         <div className="min-w-0">
-          <h3 className="text-base sm:text-lg font-semibold text-white truncate">
+          <h3 className="text-base sm:text-lg font-semibold text-(--nd-text-primary) truncate">
             What AI chatbots think about {safeDomainName}
           </h3>
-          <p className="text-xs text-white/60 mt-0.5">
+          <p className="text-xs text-(--nd-text-muted) mt-0.5">
             This analysis shows how AI perceives your brand when users ask questions about it directly. Monitor sentiment, accuracy, and positioning across major LLM models.
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-4">
-          <p className="text-xs uppercase tracking-wider text-zinc-500">Overall Perception</p>
-          <p className="mt-2 text-2xl font-semibold text-white">{overallPerception}</p>
-          <p className="mt-1 text-xs text-zinc-400">Based on live perception responses</p>
+        <div className="rounded-2xl border border-(--nd-border) bg-white p-4">
+          <p className="text-xs uppercase tracking-wider text-(--nd-text-muted)">Overall Perception</p>
+          <p className="mt-2 text-2xl font-semibold text-(--nd-text-primary)">{overallPerception}</p>
+          <p className="mt-1 text-xs text-(--nd-text-muted)">Based on live perception responses</p>
         </div>
-        <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-4">
-          <p className="text-xs uppercase tracking-wider text-zinc-500">Top Performing Model</p>
-          <p className="mt-2 text-2xl font-semibold text-white">{topModel}</p>
-          <p className="mt-1 text-xs text-zinc-400">Highest average status across prompts</p>
+        <div className="rounded-2xl border border-(--nd-border) bg-white p-4">
+          <p className="text-xs uppercase tracking-wider text-(--nd-text-muted)">Top Performing Model</p>
+          <p className="mt-2 text-2xl font-semibold text-(--nd-text-primary)">{topModel}</p>
+          <p className="mt-1 text-xs text-(--nd-text-muted)">Highest average status across prompts</p>
         </div>
-        <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-4">
-          <p className="text-xs uppercase tracking-wider text-zinc-500">Prompts Tracked</p>
-          <p className="mt-2 text-2xl font-semibold text-white">{promptsTracked}</p>
-          <p className="mt-1 text-xs text-zinc-400">Live tracked prompts</p>
+        <div className="rounded-2xl border border-(--nd-border) bg-white p-4">
+          <p className="text-xs uppercase tracking-wider text-(--nd-text-muted)">Prompts Tracked</p>
+          <p className="mt-2 text-2xl font-semibold text-(--nd-text-primary)">{promptsTracked}</p>
+          <p className="mt-1 text-xs text-(--nd-text-muted)">Live tracked prompts</p>
         </div>
       </div>
 
       <div className="flex items-center gap-3">
         <Button
           variant="outline"
-          className="border-zinc-700 bg-zinc-900/50 text-zinc-200 hover:bg-zinc-800"
+          className="border-(--nd-border) bg-white text-(--nd-text-secondary) hover:bg-(--nd-bg)"
           disabled={!jobId || !customerRootDomain || isRunning}
           onClick={async () => {
             if (!jobId || !customerRootDomain) return
@@ -337,46 +337,46 @@ export default function PerceptionAnalysis({
         >
           {isRunning ? 'Running...' : 'Run Perception Analysis'}
         </Button>
-        {(isLoading || isFetching) && <span className="text-xs text-zinc-400">Loading analysis...</span>}
+        {(isLoading || isFetching) && <span className="text-xs text-(--nd-text-muted)">Loading analysis...</span>}
       </div>
 
-      <div className="bg-[#111113] border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl shadow-black/50">
+      <div className="bg-white border border-(--nd-border) rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
-              <tr className="border-b border-zinc-800 bg-zinc-900/30">
-                <th className="py-4 px-6 text-[11px] font-bold uppercase tracking-widest text-zinc-500 w-[150px]">Property</th>
-                <th className="py-4 px-6 text-[11px] font-bold uppercase tracking-widest text-zinc-500">Prompt</th>
+              <tr className="border-b border-(--nd-border) bg-(--nd-bg)">
+                <th className="py-4 px-6 text-[11px] font-bold uppercase tracking-widest text-(--nd-text-muted) w-[150px]">Property</th>
+                <th className="py-4 px-6 text-[11px] font-bold uppercase tracking-widest text-(--nd-text-muted)">Prompt</th>
                 <th className="py-4 px-4 text-center">
                   <div className="flex flex-col items-center gap-1.5">
-                    <ChatGPTLogo className="w-5 h-5 text-white" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">ChatGPT</span>
+                    <ChatGPTLogo className="w-5 h-5 text-(--nd-text-primary)" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-(--nd-text-muted)">ChatGPT</span>
                   </div>
                 </th>
                 <th className="py-4 px-4 text-center">
                   <div className="flex flex-col items-center gap-1.5">
                     <GeminiLogo className="w-5 h-5 text-blue-400" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Gemini</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-(--nd-text-muted)">Gemini</span>
                   </div>
                 </th>
                 <th className="py-4 px-4 text-center">
                   <div className="flex flex-col items-center gap-1.5">
                     <ClaudeLogo className="w-5 h-5 text-orange-400" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Claude</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-(--nd-text-muted)">Claude</span>
                   </div>
                 </th>
-                <th className="py-4 px-6 text-[11px] font-bold uppercase tracking-widest text-zinc-500 w-[120px]">Added</th>
+                <th className="py-4 px-6 text-[11px] font-bold uppercase tracking-widest text-(--nd-text-muted) w-[120px]">Added</th>
                 <th className="py-4 px-6 w-[60px]"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-800/50">
+            <tbody className="divide-y divide-(--nd-border)">
               {rows.map((row) => {
                 const isExpanded = expandedRowId === row.id
                 const trend = trendByProperty.get(row.property)
                 const trendChartData = buildTrendChartData(row)
                 return (
                   <Fragment key={row.id}>
-                    <tr className="group hover:bg-zinc-800/20 transition-colors">
+                    <tr className="group hover:bg-(--nd-bg) transition-colors">
                       <td className="py-5 px-6">
                         <button
                           type="button"
@@ -385,15 +385,15 @@ export default function PerceptionAnalysis({
                         >
                           <ChevronRight
                             className={cn(
-                              'w-3.5 h-3.5 text-zinc-600 group-hover:text-zinc-400 transition-transform',
+                              'w-3.5 h-3.5 text-(--nd-border) group-hover:text-(--nd-text-muted) transition-transform',
                               isExpanded && 'rotate-90'
                             )}
                           />
-                          <span className="text-sm font-semibold text-zinc-100">{row.property}</span>
+                          <span className="text-sm font-semibold text-(--nd-text-primary)">{row.property}</span>
                         </button>
                       </td>
                       <td className="py-5 px-6">
-                        <p className="text-sm text-zinc-400 leading-relaxed max-w-md">
+                        <p className="text-sm text-(--nd-text-muted) leading-relaxed max-w-md">
                           {row.prompt.replace('[Brand]', safeDomainName).replace('[brand]', safeDomainNameLower)}
                         </p>
                       </td>
@@ -446,10 +446,10 @@ export default function PerceptionAnalysis({
                         </button>
                       </td>
                       <td className="py-5 px-6">
-                        <span className="text-xs font-medium text-zinc-500">{row.added}</span>
+                        <span className="text-xs font-medium text-(--nd-text-muted)">{row.added}</span>
                       </td>
                       <td className="py-5 px-6">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-white hover:bg-zinc-800 rounded-lg">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-(--nd-text-muted) hover:text-(--nd-text-primary) hover:bg-(--nd-bg) rounded-lg">
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </td>
@@ -457,15 +457,15 @@ export default function PerceptionAnalysis({
 
                     {isExpanded && (
                       <tr>
-                        <td colSpan={7} className="bg-zinc-900/20 px-6 py-5">
-                          <div className="rounded-xl border border-zinc-800 bg-[#0f0f11] p-4">
+                        <td colSpan={7} className="bg-(--nd-bg) px-6 py-5">
+                          <div className="rounded-xl border border-(--nd-border) bg-white p-4">
                             <div className="flex items-center justify-between mb-3">
-                              <p className="text-sm font-semibold text-zinc-200">Historical Score Trends</p>
+                              <p className="text-sm font-semibold text-(--nd-text-primary)">Historical Score Trends</p>
                               <Select value={timeRange} onValueChange={(value) => setTimeRange(value as TimeRangeKey)}>
-                                <SelectTrigger className="h-8 w-[150px] border-zinc-700 bg-zinc-900/60 text-xs text-zinc-300">
+                                <SelectTrigger className="h-8 w-[150px] border-(--nd-border) bg-white text-xs text-(--nd-text-secondary)">
                                   <SelectValue placeholder="Select range" />
                                 </SelectTrigger>
-                                <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-200">
+                                <SelectContent className="bg-white border-(--nd-border) text-(--nd-text-primary)">
                                   {TIME_RANGE_OPTIONS.map((option) => (
                                     <SelectItem key={option.value} value={option.value} className="text-xs">
                                       {option.label}
@@ -475,19 +475,19 @@ export default function PerceptionAnalysis({
                               </Select>
                             </div>
 
-                            <div className="w-full h-56 border border-zinc-800 rounded-lg p-3 bg-zinc-950/30">
+                            <div className="w-full h-56 border border-(--nd-border) rounded-lg p-3 bg-(--nd-bg)">
                               <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={trendChartData} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
-                                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#E8E9EF" vertical={false} />
                                   <XAxis
                                     dataKey="date"
-                                    stroke="#71717a"
+                                    stroke="#737890"
                                     fontSize={10}
                                     tickLine={false}
                                     axisLine={false}
                                   />
                                   <YAxis
-                                    stroke="#71717a"
+                                    stroke="#737890"
                                     fontSize={10}
                                     tickLine={false}
                                     axisLine={false}
@@ -495,10 +495,10 @@ export default function PerceptionAnalysis({
                                   />
                                   <Tooltip
                                     contentStyle={{
-                                      backgroundColor: '#0b0b0f',
-                                      border: '1px solid rgba(255,255,255,0.12)',
+                                      backgroundColor: '#ffffff',
+                                      border: '1px solid #E8E9EF',
                                       borderRadius: '10px',
-                                      color: '#e4e4e7',
+                                      color: '#1A1D2B',
                                     }}
                                   />
                                   <Line
@@ -532,7 +532,7 @@ export default function PerceptionAnalysis({
                               </ResponsiveContainer>
                             </div>
 
-                            <div className="mt-3 flex flex-wrap items-center justify-center gap-4 text-[10px] text-zinc-500">
+                            <div className="mt-3 flex flex-wrap items-center justify-center gap-4 text-[10px] text-(--nd-text-muted)">
                               <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#60a5fa]" />ChatGPT</span>
                               <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#22c55e]" />Gemini</span>
                               <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#fb923c]" />Claude</span>
@@ -548,8 +548,8 @@ export default function PerceptionAnalysis({
           </table>
         </div>
 
-        <div className="p-4 border-t border-zinc-800 bg-zinc-900/10 flex justify-center">
-          <Button variant="ghost" className="text-zinc-400 hover:text-white gap-2 text-sm font-medium py-6 px-8 rounded-xl border border-dashed border-zinc-800 hover:border-zinc-700 transition-all">
+        <div className="p-4 border-t border-(--nd-border) bg-white flex justify-center">
+          <Button variant="ghost" className="text-(--nd-text-muted) hover:text-(--nd-text-primary) gap-2 text-sm font-medium py-6 px-8 rounded-xl border border-dashed border-(--nd-border) hover:border-(--nd-text-muted) transition-all">
             <Plus className="w-4 h-4" />
             Add Perception Prompts
           </Button>
@@ -558,20 +558,20 @@ export default function PerceptionAnalysis({
 
       {selectedInsight && (
         <div className="fixed inset-0 z-[80] bg-black/65 backdrop-blur-sm flex items-start justify-center p-4 sm:p-6">
-          <div className="w-full max-w-3xl max-h-[90vh] rounded-xl border border-zinc-700 bg-[#121214] overflow-hidden shadow-2xl">
-            <div className="px-4 py-3 border-b border-zinc-800 flex items-start justify-between gap-3">
+          <div className="w-full max-w-3xl max-h-[90vh] rounded-xl border border-(--nd-border) bg-white overflow-hidden shadow-2xl">
+            <div className="px-4 py-3 border-b border-(--nd-border) flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-base font-semibold text-zinc-100">
+                <h3 className="text-base font-semibold text-(--nd-text-primary)">
                   {selectedInsight.property} as perceived by {selectedInsight.model}
                 </h3>
-                <p className="text-xs text-zinc-400 mt-0.5">
+                <p className="text-xs text-(--nd-text-muted) mt-0.5">
                   View the AI response and scoring for this perception prompt
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedInsight(null)}
-                className="text-zinc-400 hover:text-white cursor-pointer"
+                className="text-(--nd-text-muted) hover:text-(--nd-text-primary) cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
@@ -579,9 +579,9 @@ export default function PerceptionAnalysis({
             </div>
 
             <div className="p-4 space-y-3 overflow-y-auto max-h-[82vh]">
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 flex items-center justify-between">
-                <div className="text-sm text-zinc-300 flex items-center gap-2">
-                  <span className="text-zinc-400">Score:</span>
+              <div className="rounded-lg border border-(--nd-border) bg-(--nd-bg) p-3 flex items-center justify-between">
+                <div className="text-sm text-(--nd-text-secondary) flex items-center gap-2">
+                  <span className="text-(--nd-text-muted)">Score:</span>
                   <span
                     className={cn(
                       'font-semibold',
@@ -592,19 +592,19 @@ export default function PerceptionAnalysis({
                   >
                     {selectedInsight.status}
                   </span>
-                  <span className="text-xs text-zinc-500">Score Reasoning</span>
+                  <span className="text-xs text-(--nd-text-muted)">Score Reasoning</span>
                 </div>
-                <Pencil className="w-4 h-4 text-zinc-500" />
+                <Pencil className="w-4 h-4 text-(--nd-text-muted)" />
               </div>
 
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 space-y-3">
-                <h4 className="text-sm font-semibold text-zinc-200">Prompt &amp; Response</h4>
+              <div className="rounded-lg border border-(--nd-border) bg-(--nd-bg) p-4 space-y-3">
+                <h4 className="text-sm font-semibold text-(--nd-text-primary)">Prompt &amp; Response</h4>
                 <div>
-                  <p className="text-xs text-zinc-500 mb-1">Prompt</p>
-                  <p className="text-sm text-zinc-300">{selectedInsight.prompt}</p>
+                  <p className="text-xs text-(--nd-text-muted) mb-1">Prompt</p>
+                  <p className="text-sm text-(--nd-text-secondary)">{selectedInsight.prompt}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-zinc-500 mb-1">Response</p>
+                  <p className="text-xs text-(--nd-text-muted) mb-1">Response</p>
                   <ResponseContent
                     text={
                       rows.find((r) => r.property === selectedInsight.property)?.[
@@ -619,8 +619,8 @@ export default function PerceptionAnalysis({
                 </div>
               </div>
 
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
-                <h4 className="text-sm font-semibold text-zinc-200 mb-2">Sources and Citations</h4>
+              <div className="rounded-lg border border-(--nd-border) bg-(--nd-bg) p-4">
+                <h4 className="text-sm font-semibold text-(--nd-text-primary) mb-2">Sources and Citations</h4>
                 <div className="space-y-1">
                   {(rows
                     .find((r) => r.property === selectedInsight.property)
@@ -637,7 +637,7 @@ export default function PerceptionAnalysis({
                     >
                       {url}
                     </a>
-                  )) || <p className="text-xs text-zinc-500">No citations available.</p>}
+                  )) || <p className="text-xs text-(--nd-text-muted)">No citations available.</p>}
                 </div>
               </div>
             </div>

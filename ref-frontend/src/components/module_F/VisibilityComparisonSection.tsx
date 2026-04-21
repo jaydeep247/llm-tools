@@ -168,12 +168,8 @@ function MetricAskButton({
         onClick()
       }}
       disabled={disabled}
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10',
-        'px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300',
-        'hover:bg-violet-500/18 transition-colors cursor-pointer shrink-0',
-        'disabled:opacity-40 disabled:cursor-not-allowed',
-      )}
+      className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+      style={{ borderColor: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)' }}
     >
       <MessageSquare className="size-3 shrink-0" aria-hidden />
       Ask AI
@@ -212,9 +208,9 @@ function OBModelBenchmarkMatrix({
   }, [benchmarkData])
 
   const MODEL_CONFIG: Record<string, { color: string; icon: any; bg: string }> = {
-    openai: { color: 'text-emerald-400', icon: Zap, bg: 'bg-emerald-500/10' },
-    gemini: { color: 'text-blue-400', icon: Activity, bg: 'bg-blue-500/10' },
-    claude: { color: 'text-amber-400', icon: Star, bg: 'bg-amber-500/10' },
+    openai: { color: 'text-emerald-700', icon: Zap, bg: 'bg-emerald-50' },
+    gemini: { color: 'text-blue-700', icon: Activity, bg: 'bg-blue-50' },
+    claude: { color: 'text-amber-700', icon: Star, bg: 'bg-amber-50' },
   }
 
   if (!benchmarkData.length || !models.length) return null
@@ -223,7 +219,7 @@ function OBModelBenchmarkMatrix({
     <SectionCard
       title="Model-by-Model Benchmark"
       description="Mention frequency per AI provider across all prompts. Leader cell highlighted."
-      className="bg-[#111113] overflow-hidden"
+      className="overflow-hidden"
       actionSlot={
         <MetricAskButton
           disabled={!jobId || isAskingAI}
@@ -234,14 +230,14 @@ function OBModelBenchmarkMatrix({
       <div className="overflow-x-auto -mx-5 -mb-5">
         <table className="w-full text-sm text-left">
           <thead>
-            <tr className="border-b border-zinc-800 bg-zinc-900/50 text-zinc-400">
-              <th className="p-4 font-bold uppercase tracking-wider text-[10px] sticky left-0 bg-zinc-900/50 backdrop-blur-md z-10">Brand</th>
+            <tr style={{ borderBottom: '1px solid var(--nd-border)', background: 'var(--nd-bg)', color: 'var(--nd-text-muted)' }}>
+              <th className="p-4 font-bold uppercase tracking-wider text-xs sticky left-0 z-10" style={{ background: 'var(--nd-bg)' }}>Brand</th>
               {models.map((model) => {
                 const mKey = model.toLowerCase()
-                const cfg = MODEL_CONFIG[mKey] ?? { color: 'text-zinc-400', icon: MessageSquare, bg: 'bg-zinc-800/50' }
+                const cfg = MODEL_CONFIG[mKey] ?? { color: 'text-gray-600', icon: MessageSquare, bg: 'bg-gray-100' }
                 const Icon = cfg.icon
                 return (
-                  <th key={model} className="p-4 font-bold uppercase tracking-wider text-[10px]">
+                  <th key={model} className="p-4 font-bold uppercase tracking-wider text-xs">
                     <div className="flex flex-col items-center gap-2">
                       <div className={cn('p-1.5 rounded-lg', cfg.bg)}>
                         <Icon className={cn('w-3.5 h-3.5', cfg.color)} />
@@ -253,16 +249,19 @@ function OBModelBenchmarkMatrix({
               })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-800">
+          <tbody>
             {benchmarkData.map((entity) => (
-              <tr key={entity.name} className="hover:bg-zinc-900/40 transition-colors group">
-                <td className="p-4 sticky left-0 bg-[#111113] group-hover:bg-[#161618] transition-colors z-10 border-r border-zinc-800/50">
+              <tr key={entity.name} className="transition-colors group" style={{ borderBottom: '1px solid var(--nd-border)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--nd-bg)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = '')}
+              >
+                <td className="p-4 sticky left-0 z-10 transition-colors" style={{ background: 'var(--nd-card-bg)', borderRight: '1px solid var(--nd-border)' }}>
                   <div className="flex items-center gap-2">
-                    <span className={cn('font-semibold truncate max-w-48', entity.is_our_brand ? 'text-blue-300' : 'text-zinc-100')}>
+                    <span className={cn('font-semibold truncate max-w-48')} style={{ color: entity.is_our_brand ? 'var(--nd-blue)' : 'var(--nd-text-primary)' }}>
                       {entity.name}
                     </span>
                     {entity.is_our_brand && (
-                      <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[9px] px-1 py-0 h-4">YOU</Badge>
+                      <Badge className="bg-blue-50 text-blue-700 border border-blue-200 text-[9px] px-1 py-0 h-4">YOU</Badge>
                     )}
                   </div>
                 </td>
@@ -279,25 +278,23 @@ function OBModelBenchmarkMatrix({
                       {stats ? (
                         <div className={cn(
                           'rounded-xl border p-3 text-center transition-all duration-300',
-                          isLeader
-                            ? 'border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_12px_rgba(16,185,129,0.1)] scale-[1.02]'
-                            : 'border-zinc-800 bg-zinc-900/40',
-                        )}>
-                          <div className={cn('text-lg font-bold font-mono', isLeader ? 'text-emerald-400' : 'text-zinc-100')}>
+                          isLeader ? 'border-emerald-200 bg-emerald-50 scale-[1.02]' : '',
+                        )} style={!isLeader ? { borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' } : {}}>
+                          <div className="text-lg font-bold font-mono" style={{ color: isLeader ? '#059669' : 'var(--nd-text-primary)' }}>
                             ×{stats.mentions}
                           </div>
-                          <div className="text-[10px] font-medium text-zinc-500 mt-1 uppercase tracking-tighter">
+                          <div className="text-[10px] font-medium mt-1 uppercase tracking-tighter" style={{ color: 'var(--nd-text-muted)' }}>
                             {stats.avg_rank != null ? `Avg #${stats.avg_rank}` : 'mentions'}
                           </div>
                           {isLeader && (
                             <div className="mt-1.5 flex justify-center">
-                              <Trophy className="w-3 h-3 text-emerald-500/50" />
+                              <Trophy className="w-3 h-3 text-emerald-500" />
                             </div>
                           )}
                         </div>
                       ) : (
                         <div className="flex justify-center">
-                          <span className="text-zinc-800 text-xs font-mono">—</span>
+                          <span className="text-xs font-mono" style={{ color: 'var(--nd-text-muted)' }}>—</span>
                         </div>
                       )}
                     </td>
@@ -320,33 +317,33 @@ function OBModelBenchmarkMatrix({
 type OBProviders = 'openai' | 'gemini' | 'claude'
 const OB_PROVIDERS: OBProviders[] = ['openai', 'gemini', 'claude']
 const OB_PROVIDER_CFG: Record<OBProviders, { label: string; color: string; bg: string; border: string }> = {
-  openai: { label: 'GPT',    color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/25' },
-  gemini: { label: 'Gemini', color: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/25'   },
-  claude: { label: 'Claude', color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/25'  },
+  openai: { label: 'GPT',    color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+  gemini: { label: 'Gemini', color: 'text-blue-700',    bg: 'bg-blue-50',    border: 'border-blue-200'   },
+  claude: { label: 'Claude', color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200'  },
 }
 
 function OBPresenceBadge({ mentioned }: { mentioned: boolean }) {
   return mentioned ? (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
       Present
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-zinc-800/50 text-zinc-600 border border-zinc-700/30">
-      <span className="w-1.5 h-1.5 rounded-full bg-zinc-700 inline-block" />
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-gray-50 text-gray-500 border border-gray-200">
+      <span className="w-1.5 h-1.5 rounded-full bg-gray-300 inline-block" />
       Absent
     </span>
   )
 }
 
 function OBRankBadge({ rank, outOf }: { rank: number | null; outOf: number }) {
-  if (rank == null) return <span className="text-[10px] text-zinc-700 font-mono">—</span>
+  if (rank == null) return <span className="text-[10px] font-mono" style={{ color: 'var(--nd-text-muted)' }}>—</span>
   return (
     <span className={cn(
       'inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold font-mono border',
       rank === 1
-        ? 'text-amber-400 bg-amber-500/10 border-amber-500/25'
-        : 'text-zinc-400 bg-zinc-800/40 border-zinc-700/30',
+        ? 'text-amber-700 bg-amber-50 border-amber-200'
+        : 'text-gray-600 bg-gray-50 border-gray-200',
     )}>
       #{rank}{outOf ? `/${outOf}` : ''}
     </span>
@@ -355,9 +352,9 @@ function OBRankBadge({ rank, outOf }: { rank: number | null; outOf: number }) {
 
 function OBSentimentBadge({ sentiment }: { sentiment: string }) {
   const cls: Record<string, string> = {
-    positive: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25',
-    negative: 'text-red-400 bg-red-500/10 border-red-500/25',
-    neutral:  'text-zinc-400 bg-zinc-800/40 border-zinc-700/30',
+    positive: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+    negative: 'text-red-700 bg-red-50 border-red-200',
+    neutral:  'text-gray-600 bg-gray-50 border-gray-200',
   }
   const sym: Record<string, string> = { positive: '↑', negative: '↓', neutral: '~' }
   return (
@@ -382,7 +379,7 @@ function OBProviderCell({
       <div className="flex items-center justify-between gap-1">
         <span className={cn('text-[9px] font-bold uppercase tracking-widest', cfg.color)}>{cfg.label}</span>
         {!a && (
-          <span className="text-[9px] text-zinc-700">{result?.error ? 'Error' : '—'}</span>
+          <span className="text-[9px]" style={{ color: 'var(--nd-text-muted)' }}>{result?.error ? 'Error' : '—'}</span>
         )}
       </div>
       {a && (
@@ -395,7 +392,7 @@ function OBProviderCell({
           {a.brand_mentioned && a.all_mentioned_brands && a.all_mentioned_brands.length > 0 && (
             <div className="flex flex-wrap gap-1 pt-0.5">
               {a.all_mentioned_brands.slice(0, 5).map((b, i) => (
-                <span key={i} className="px-1 py-0.5 text-[8px] rounded bg-zinc-800/60 border border-zinc-700/40 text-zinc-500">
+                <span key={i} className="px-1 py-0.5 text-[8px] rounded border" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-muted)' }}>
                   {b.name}
                 </span>
               ))}
@@ -407,13 +404,14 @@ function OBProviderCell({
         <>
           <button
             onClick={() => setShowResp(!showResp)}
-            className="text-[8px] text-zinc-600 hover:text-zinc-400 underline"
+            className="text-[8px] underline transition-colors"
+            style={{ color: 'var(--nd-text-muted)' }}
           >
             {showResp ? 'hide response' : 'view response'}
           </button>
           {showResp && (
-            <div className="mt-1 p-1.5 bg-zinc-950/60 rounded border border-zinc-800/60 max-h-28 overflow-y-auto">
-              <p className="text-[8px] text-zinc-500 whitespace-pre-wrap leading-relaxed">{result.response}</p>
+            <div className="mt-1 p-1.5 rounded max-h-28 overflow-y-auto" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+              <p className="text-[8px] whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>{result.response}</p>
             </div>
           )}
         </>
@@ -440,14 +438,16 @@ function OBPromptRow({ result, index }: { result: PromptResult; index: number })
     .filter((r): r is number => r != null)
   const avgRank = ranks.length ? (ranks.reduce((a, b) => a + b, 0) / ranks.length).toFixed(1) : null
   return (
-    <div className="border border-zinc-800/50 rounded-xl overflow-hidden">
+    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--nd-border)' }}>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-zinc-800/20 transition-colors"
+        className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors"
+        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--nd-bg)')}
+        onMouseLeave={(e) => (e.currentTarget.style.background = '')}
       >
-        <span className="text-[10px] font-mono text-zinc-700 pt-0.5 shrink-0 w-5">{index + 1}</span>
+        <span className="text-[10px] font-mono pt-0.5 shrink-0 w-5" style={{ color: 'var(--nd-text-muted)' }}>{index + 1}</span>
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-zinc-200 leading-snug">{result.prompt}</p>
+          <p className="text-xs leading-snug" style={{ color: 'var(--nd-text-primary)' }}>{result.prompt}</p>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {OB_PROVIDERS.map((p) => {
               const a = result.results?.[p]?.analysis
@@ -455,26 +455,26 @@ function OBPromptRow({ result, index }: { result: PromptResult; index: number })
               return (
                 <span key={p} className={cn('inline-flex items-center gap-0.5 text-[9px] font-bold', cfg.color)}>
                   {cfg.label}
-                  <span className={a?.brand_mentioned ? 'text-emerald-500' : 'text-zinc-700'}>
+                  <span className={a?.brand_mentioned ? 'text-emerald-600' : 'text-gray-400'}>
                     {a ? (a.brand_mentioned ? ' ✓' : ' ✗') : ' –'}
                   </span>
                 </span>
               )
             })}
             {mentionedCount > 0 && (
-              <span className="text-[9px] text-zinc-600">
+              <span className="text-[9px]" style={{ color: 'var(--nd-text-muted)' }}>
                 {mentionedCount}/3 models{avgRank ? ` · avg #${avgRank}` : ''}
               </span>
             )}
           </div>
         </div>
         {expanded
-          ? <ChevronUp className="w-3.5 h-3.5 text-zinc-600 shrink-0 mt-0.5" />
-          : <ChevronDown className="w-3.5 h-3.5 text-zinc-600 shrink-0 mt-0.5" />
+          ? <ChevronUp className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: 'var(--nd-text-muted)' }} />
+          : <ChevronDown className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: 'var(--nd-text-muted)' }} />
         }
       </button>
       {expanded && (
-        <div className="border-t border-zinc-800/40 px-4 pb-4 pt-3 space-y-4">
+        <div className="px-4 pb-4 pt-3 space-y-4" style={{ borderTop: '1px solid var(--nd-border)' }}>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {OB_PROVIDERS.map((p) => (
               <OBProviderCell key={p} provider={p} result={result.results?.[p]} />
@@ -482,8 +482,8 @@ function OBPromptRow({ result, index }: { result: PromptResult; index: number })
           </div>
 
           {/* Sources Section */}
-          <div className="border-t border-zinc-800/40 pt-3">
-            <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">
+          <div className="pt-3" style={{ borderTop: '1px solid var(--nd-border)' }}>
+            <h4 className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--nd-text-muted)' }}>
               Source URLs
             </h4>
             {isSearching ? (
@@ -493,7 +493,7 @@ function OBPromptRow({ result, index }: { result: PromptResult; index: number })
             ) : error ? (
               <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
                 <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                <div className="text-[11px] text-red-200">Failed to fetch sources</div>
+                <p className="text-[11px] text-red-700">Failed to fetch sources</p>
               </div>
             ) : searchData?.results && searchData.results.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -503,28 +503,31 @@ function OBPromptRow({ result, index }: { result: PromptResult; index: number })
                     href={r.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-start gap-2.5 p-2.5 rounded-lg bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800 hover:border-zinc-700 transition-all group/link"
+                    className="flex items-start gap-2.5 p-2.5 rounded-lg border transition-all group/link"
+                    style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--nd-border-hover)' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--nd-border)' }}
                   >
                     <div className="mt-0.5 shrink-0">
-                      <Globe className="w-3.5 h-3.5 text-zinc-500 group-hover/link:text-blue-400 transition-colors" />
+                      <Globe className="w-3.5 h-3.5 transition-colors" style={{ color: 'var(--nd-text-muted)' }} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
-                          <p className="text-[11px] font-semibold text-zinc-200 group-hover/link:text-blue-300 transition-colors line-clamp-2">
+                          <p className="text-[11px] font-semibold line-clamp-2 transition-colors" style={{ color: 'var(--nd-text-primary)' }}>
                             {r.title}
                           </p>
-                          <p className="text-[10px] text-zinc-500 font-mono mt-0.5 truncate group-hover/link:text-zinc-400 transition-colors">
+                          <p className="text-[10px] font-mono mt-0.5 truncate transition-colors" style={{ color: 'var(--nd-text-muted)' }}>
                             {r.url}
                           </p>
                         </div>
-                        <ExternalLink className="w-3 h-3 text-zinc-600 group-hover/link:text-blue-400 shrink-0 mt-0.5 transition-colors" />
+                        <ExternalLink className="w-3 h-3 shrink-0 mt-0.5 transition-colors" style={{ color: 'var(--nd-text-muted)' }} />
                       </div>
                       <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[8px] font-bold uppercase tracking-tighter text-zinc-600 px-1.5 py-0.5 rounded bg-zinc-800/50">
+                        <span className="text-[8px] font-bold uppercase tracking-tighter px-1.5 py-0.5 rounded" style={{ color: 'var(--nd-text-muted)', background: 'var(--nd-border)' }}>
                           Rank #{r.rank}
                         </span>
-                        <span className="text-[8px] text-zinc-600 bg-zinc-800/40 px-1.5 py-0.5 rounded">
+                        <span className="text-[8px] px-1.5 py-0.5 rounded" style={{ color: 'var(--nd-text-muted)', background: 'var(--nd-border)' }}>
                           {r.source_domain}
                         </span>
                       </div>
@@ -534,7 +537,7 @@ function OBPromptRow({ result, index }: { result: PromptResult; index: number })
               </div>
             ) : (
               <div className="text-center py-4">
-                <p className="text-[11px] text-zinc-600">No sources found for this query</p>
+                <p className="text-xs" style={{ color: 'var(--nd-text-muted)' }}>No sources found for this query</p>
               </div>
             )}
           </div>
@@ -606,15 +609,15 @@ function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
             label: 'Brand Presence',
             value: `${presenceRate}%`,
             sub: `${presenceCount} of ${totalResps} responses`,
-            color: 'text-blue-400',
+            color: 'text-blue-700',
             bar: presenceRate,
-            barColor: 'bg-blue-500',
+            barColor: 'bg-blue-600',
           },
           {
             label: 'Average Rank',
             value: aggregate?.avg_rank != null ? `#${aggregate.avg_rank}` : '—',
             sub: 'across all models',
-            color: 'text-violet-400',
+            color: 'text-violet-700',
             bar: null as number | null,
             barColor: '',
           },
@@ -622,25 +625,25 @@ function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
             label: 'Positive Mentions',
             value: `${positivePct}%`,
             sub: `${aggregate?.positive_mentions ?? 0} of ${presenceCount}`,
-            color: 'text-emerald-400',
+            color: 'text-emerald-700',
             bar: positivePct,
-            barColor: 'bg-emerald-500',
+            barColor: 'bg-emerald-600',
           },
           {
             label: 'Negative Mentions',
             value: `${negativePct}%`,
             sub: `${aggregate?.negative_mentions ?? 0} of ${presenceCount}`,
-            color: 'text-red-400',
+            color: 'text-red-700',
             bar: negativePct,
-            barColor: 'bg-red-500',
+            barColor: 'bg-red-600',
           },
         ] as const).map(({ label, value, sub, color, bar, barColor }) => (
-          <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-            <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">{label}</div>
+          <div key={label} className="rounded-xl p-4" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' }}>
+            <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--nd-text-muted)' }}>{label}</div>
             <div className={cn('text-2xl font-bold font-mono', color)}>{value}</div>
-            <div className="text-[10px] text-zinc-600 mt-0.5">{sub}</div>
+            <div className="text-[11px] mt-0.5" style={{ color: 'var(--nd-text-muted)' }}>{sub}</div>
             {bar !== null && (
-              <div className="mt-3 h-1 rounded-full bg-zinc-800 overflow-hidden">
+              <div className="mt-3 h-1 rounded-full overflow-hidden" style={{ background: 'var(--nd-border)' }}>
                 <div className={cn('h-full rounded-full', barColor)} style={{ width: `${bar}%` }} />
               </div>
             )}
@@ -649,48 +652,51 @@ function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
       </div>
 
       {/* Brand presence by topic */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
-        <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
-          <span className="text-sm font-semibold text-zinc-100">Brand Presence by Topic</span>
-          <span className="text-[10px] text-zinc-600">
+      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+        <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--nd-border)' }}>
+          <span className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Brand Presence by Topic</span>
+          <span className="text-[11px]" style={{ color: 'var(--nd-text-muted)' }}>
             {topicList.length} topics · {results.length} prompts
           </span>
         </div>
-        <div className="divide-y divide-zinc-800/50 max-h-80 overflow-y-auto">
+        <div className="max-h-80 overflow-y-auto">
           {topicList.length === 0 ? (
-            <p className="px-4 py-6 text-center text-[11px] text-zinc-600">No topic data</p>
+              <p className="px-4 py-6 text-center text-xs" style={{ color: 'var(--nd-text-muted)' }}>No topic data</p>
           ) : (
             topicList.map(({ topic, rate, promptCount }) => (
               <button
                 key={topic}
                 onClick={() => setSelectedTopic(selectedTopic === topic ? null : topic)}
-                className={cn(
-                  'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
-                  selectedTopic === topic ? 'bg-zinc-800/60' : 'hover:bg-zinc-800/30',
-                )}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+                style={{
+                  background: selectedTopic === topic ? 'var(--nd-bg)' : undefined,
+                  borderBottom: '1px solid var(--nd-border)',
+                }}
+                onMouseEnter={(e) => { if (selectedTopic !== topic) (e.currentTarget as HTMLButtonElement).style.background = 'var(--nd-bg)' }}
+                onMouseLeave={(e) => { if (selectedTopic !== topic) (e.currentTarget as HTMLButtonElement).style.background = '' }}
               >
-                <span className="flex-1 text-[11px] text-zinc-300 truncate">{topic}</span>
-                <span className="text-[10px] text-zinc-600 shrink-0">{promptCount} prompts</span>
+                <span className="flex-1 text-xs truncate" style={{ color: 'var(--nd-text-secondary)' }}>{topic}</span>
+                <span className="text-[11px] shrink-0" style={{ color: 'var(--nd-text-muted)' }}>{promptCount} prompts</span>
                 <div className="w-20 shrink-0 flex items-center gap-1.5">
-                  <div className="flex-1 h-1 rounded-full bg-zinc-800">
+                  <div className="flex-1 h-1 rounded-full" style={{ background: 'var(--nd-border)' }}>
                     <div
                       className={cn(
                         'h-full rounded-full',
-                        rate >= 50 ? 'bg-emerald-500' : rate >= 25 ? 'bg-amber-500' : 'bg-zinc-600',
+                        rate >= 50 ? 'bg-emerald-600' : rate >= 25 ? 'bg-amber-600' : 'bg-gray-400',
                       )}
                       style={{ width: `${rate}%` }}
                     />
                   </div>
                   <span className={cn(
-                    'text-[9px] font-bold w-7 text-right',
-                    rate >= 50 ? 'text-emerald-400' : rate >= 25 ? 'text-amber-400' : 'text-zinc-600',
-                  )}>
+                    'text-[11px] font-bold w-7 text-right',
+                    rate >= 50 ? 'text-emerald-700' : rate >= 25 ? 'text-amber-700' : '',
+                  )} style={rate < 25 ? { color: 'var(--nd-text-muted)' } : {}}>
                     {rate}%
                   </span>
                 </div>
                 {selectedTopic === topic
-                  ? <ChevronUp className="w-3 h-3 text-zinc-500 shrink-0" />
-                  : <ChevronDown className="w-3 h-3 text-zinc-600 shrink-0" />
+                  ? <ChevronUp className="w-3 h-3 shrink-0" style={{ color: 'var(--nd-text-muted)' }} />
+                  : <ChevronDown className="w-3 h-3 shrink-0" style={{ color: 'var(--nd-text-muted)' }} />
                 }
               </button>
             ))
@@ -699,18 +705,19 @@ function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
       </div>
 
       {/* Prompt results table */}
-      <div className="rounded-xl border border-zinc-800 bg-[#111113] overflow-hidden">
-        <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+        <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--nd-border)' }}>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-zinc-100">
+            <span className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>
               {selectedTopic ? `Topic: ${selectedTopic}` : 'All Prompts'}
             </span>
-            <span className="text-[10px] text-zinc-600">({displayedPrompts.length})</span>
+            <span className="text-[10px]" style={{ color: 'var(--nd-text-muted)' }}>({displayedPrompts.length})</span>
           </div>
           {selectedTopic && (
             <button
               onClick={() => setSelectedTopic(null)}
-              className="text-[10px] text-zinc-500 hover:text-zinc-300 px-2 py-1 rounded border border-zinc-800 hover:border-zinc-700 transition-colors"
+              className="text-[10px] px-2 py-1 rounded transition-colors"
+              style={{ color: 'var(--nd-text-muted)', border: '1px solid var(--nd-border)' }}
             >
               Show all
             </button>
@@ -1013,35 +1020,32 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
         </DialogContent>
       </Dialog>
 
-      <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-6 sm:p-8 relative overflow-hidden group">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-[100px] -mr-32 -mt-32" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 blur-[100px] -ml-32 -mb-32" />
-        
+      <div className="rounded-3xl p-6 sm:p-8 relative overflow-hidden" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
         <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-start gap-5">
-            <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-xl group-hover:border-blue-500/30 transition-colors">
-              <Swords className="w-8 h-8 text-blue-400 animate-pulse" />
+            <div className="p-4 rounded-2xl shadow-sm" style={{ background: 'var(--nd-purple-subtle)', border: '1px solid var(--nd-border)' }}>
+              <Swords className="w-8 h-8" style={{ color: 'var(--nd-purple)' }} />
             </div>
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <h2 className="text-2xl font-bold text-white tracking-tight">Visibility Comparison</h2>
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--nd-text-primary)' }}>Visibility Comparison</h2>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Live AI Insights</span>
+                  <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Live AI Insights</span>
                 </div>
               </div>
-              <p className="text-sm text-zinc-400 max-w-xl">
-                Real-time competitive analysis across OpenAI, Gemini & Claude. Compare your brand's presence, sentiment, and citation share.
+              <p className="text-sm max-w-xl" style={{ color: 'var(--nd-text-secondary)' }}>
+                Real-time competitive analysis across OpenAI, Gemini &amp; Claude. Compare your brand's presence, sentiment, and citation share.
               </p>
               {comparison?.topic && (
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-300">
-                    <Search className="w-3 h-3 text-zinc-500" />
-                    <span className="text-zinc-500 uppercase font-bold tracking-tighter">Topic:</span>
+                  <div className="flex items-center gap-2 px-3 py-1 rounded-xl text-xs" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)', color: 'var(--nd-text-secondary)' }}>
+                    <Search className="w-3 h-3" style={{ color: 'var(--nd-text-muted)' }} />
+                    <span className="uppercase font-bold tracking-tighter" style={{ color: 'var(--nd-text-muted)' }}>Topic:</span>
                     <span className="font-semibold">{comparison.topic}</span>
                   </div>
                   {result?.plan && (
-                    <div className="px-3 py-1 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[11px] font-bold text-blue-400 uppercase">
+                    <div className="px-3 py-1 rounded-xl text-xs font-bold uppercase bg-blue-50 border border-blue-200 text-blue-700">
                       {result.plan} Plan
                     </div>
                   )}
@@ -1053,8 +1057,8 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
           <div className="flex flex-col items-end gap-3 md:self-start">
             <div className="flex flex-col items-end gap-3">
               {updatedAt && (
-                <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800">
-                  <Activity className="w-3 h-3 text-emerald-500" />
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full" style={{ color: 'var(--nd-text-muted)', background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+                  <Activity className="w-3 h-3" style={{ color: 'var(--nd-teal)' }} />
                   Last Analysis: {new Date(updatedAt).toLocaleTimeString()}
                 </div>
               )}
@@ -1064,10 +1068,10 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
                   onClick={openAskAiDialog}
                   disabled={isAskingAI || !comparison}
                   className={cn(
-                    'rounded-full border-0 shadow-lg shadow-fuchsia-950/30',
+                    'rounded-full border-0 shadow-md',
                     'text-xs font-extrabold uppercase tracking-wider',
                     'bg-linear-to-r from-purple-500 via-pink-500 to-amber-300',
-                    'text-black hover:opacity-95 hover:shadow-xl',
+                    'text-black hover:opacity-95 hover:shadow-lg',
                     'h-auto min-h-11 px-5 py-2.5',
                     'gap-2',
                   )}
@@ -1080,11 +1084,14 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
                   onClick={handleRun}
                   disabled={isRunning}
                   className={cn(
-                    'flex items-center gap-2 px-6 py-2.5 rounded-2xl font-bold text-sm transition-all',
-                    isRunning 
-                      ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' 
-                      : 'bg-white text-black hover:bg-zinc-200 active:scale-95 shadow-lg shadow-white/5'
+                    'flex items-center gap-2 px-6 py-2.5 rounded-2xl font-bold text-sm transition-all active:scale-95',
+                    isRunning
+                      ? 'cursor-not-allowed opacity-60'
+                      : 'shadow-sm hover:shadow-md'
                   )}
+                  style={isRunning
+                    ? { background: 'var(--nd-bg)', color: 'var(--nd-text-muted)', border: '1px solid var(--nd-border)' }
+                    : { background: 'var(--nd-purple)', color: '#ffffff', border: '1px solid var(--nd-purple)' }}
                 >
                   {isRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
                   {isRunning ? 'Analyzing Models...' : (comparison ? 'Re-Run Analysis' : 'Run Analysis')}
@@ -1096,21 +1103,21 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
       </div>
 
       {isRunning && (
-        <div className="flex items-center gap-2 text-xs text-blue-200 bg-blue-500/10 border border-blue-500/20 rounded-lg px-4 py-2">
+        <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
           <Loader2 className="w-3 h-3 animate-spin" />
-          <span>Querying OpenAI, Gemini & Claude — results will appear automatically…</span>
+          <span>Querying OpenAI, Gemini &amp; Claude — results will appear automatically…</span>
         </div>
       )}
 
       {comparison?.error && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-200 rounded-lg px-4 py-3 text-sm">
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">
           {comparison.error}
         </div>
       )}
 
       {!comparison && !isRunning && (
         <AnalysisEmptyState
-          icon={<Swords className="w-8 h-8 text-zinc-400" />}
+          icon={<Swords className="w-8 h-8" style={{ color: 'var(--nd-text-muted)' }} />}
           title="No Visibility Data Yet"
           description="Complete the brand onboarding to discover your competitive landscape, then run the analysis for your AIVS™ D7 score."
           onRunAnalysis={handleRun}
@@ -1180,15 +1187,15 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
 
 
       {leaderboardEntries.length > 0 && (
-        <div className="bg-[#111113] rounded-xl border border-zinc-800 overflow-hidden">
-          <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+        <div className="rounded-xl overflow-hidden" style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)' }}>
+          <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--nd-border)' }}>
             <div className="flex items-center gap-2.5">
-              <div className="p-1.5 bg-zinc-800 rounded-lg">
-                <Swords className="w-3.5 h-3.5 text-zinc-400" />
+              <div className="p-1.5 rounded-lg" style={{ background: 'var(--nd-bg)' }}>
+                <Swords className="w-3.5 h-3.5" style={{ color: 'var(--nd-text-muted)' }} />
               </div>
               <div>
-                <div className="text-sm font-medium text-zinc-100">Competitor Leaderboard</div>
-                <div className="text-[11px] text-zinc-600">
+                <div className="text-sm font-medium" style={{ color: 'var(--nd-text-primary)' }}>Competitor Leaderboard</div>
+                <div className="text-[11px]" style={{ color: 'var(--nd-text-muted)' }}>
                   {leaderboardEntries.length} brands · organic AI discovery
                 </div>
               </div>
@@ -1202,15 +1209,15 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead>
-                <tr className="border-b border-zinc-800 bg-zinc-900/50 text-zinc-400">
-                  <th className="p-3 font-medium w-10 text-[10px] uppercase tracking-wider">#</th>
-                  <th className="p-3 font-medium text-[10px] uppercase tracking-wider">Brand</th>
-                  <th className="p-3 font-medium text-[10px] uppercase tracking-wider">Mentions</th>
-                  <th className="p-3 font-medium text-[10px] uppercase tracking-wider">Avg Rank</th>
-                  <th className="p-3 font-medium text-[10px] uppercase tracking-wider">Providers</th>
+                <tr style={{ borderBottom: '1px solid var(--nd-border)', background: 'var(--nd-bg)', color: 'var(--nd-text-muted)' }}>
+                  <th className="p-3 font-medium w-10 text-xs uppercase tracking-wider">#</th>
+                  <th className="p-3 font-medium text-xs uppercase tracking-wider">Brand</th>
+                  <th className="p-3 font-medium text-xs uppercase tracking-wider">Mentions</th>
+                  <th className="p-3 font-medium text-xs uppercase tracking-wider">Avg Rank</th>
+                  <th className="p-3 font-medium text-xs uppercase tracking-wider">Providers</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-800">
+              <tbody>
                 {leaderboardEntries.map((entry) => {
                   const isOurBrand = entry.entity_type === 'client'
                   const maxMentions = leaderboardEntries[0]?.mentions_total ?? 1
@@ -1222,15 +1229,15 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
                   return (
                     <tr
                       key={entry.name}
-                      className={cn(
-                        'hover:bg-zinc-900/50 transition-colors',
-                        isOurBrand && 'bg-blue-950/20',
-                      )}
+                      className="transition-colors"
+                      style={{ borderBottom: '1px solid var(--nd-border)', background: isOurBrand ? 'rgba(72,150,254,0.04)' : undefined }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--nd-bg)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = isOurBrand ? 'rgba(72,150,254,0.04)' : '')}
                     >
                       <td className="p-3">
-                        <span className="text-zinc-600 text-xs font-mono">
+                        <span className="text-xs font-mono" style={{ color: 'var(--nd-text-muted)' }}>
                           {entry.rank_position === 1
-                            ? <Trophy className="w-4 h-4 text-amber-400 inline" />
+                            ? <Trophy className="w-4 h-4 text-amber-500 inline" />
                             : `#${entry.rank_position}`}
                         </span>
                       </td>
@@ -1238,36 +1245,33 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
                         <div className="flex items-center gap-2">
                           <div className={cn(
                             'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
-                            isOurBrand ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-800 text-zinc-400',
-                          )}>
+                            isOurBrand ? 'bg-blue-50 text-blue-700' : 'text-gray-500',
+                          )} style={!isOurBrand ? { background: 'var(--nd-bg)' } : {}}>
                             {isOurBrand ? <Target className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <span className={cn(
-                              'font-medium truncate max-w-55',
-                              isOurBrand ? 'text-blue-300' : 'text-zinc-100',
-                            )}>
+                            <span className={cn('font-medium truncate max-w-55')} style={{ color: isOurBrand ? 'var(--nd-blue)' : 'var(--nd-text-primary)' }}>
                               {entry.name}
                             </span>
                             {isOurBrand && (
-                              <span className="text-[9px] font-bold text-blue-400 uppercase tracking-tighter">Your Brand</span>
+                              <span className="text-[11px] font-bold uppercase tracking-tighter" style={{ color: 'var(--nd-blue)' }}>Your Brand</span>
                             )}
                           </div>
                         </div>
                       </td>
                       <td className="p-3">
                         <div className="flex items-center gap-2">
-                          <div className="w-20 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                          <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--nd-border)' }}>
                             <div
-                              className={cn('h-full rounded-full', isOurBrand ? 'bg-blue-500' : 'bg-zinc-500/60')}
+                              className={cn('h-full rounded-full', isOurBrand ? 'bg-blue-600' : 'bg-gray-400')}
                               style={{ width: `${barPct}%` }}
                             />
                           </div>
-                          <span className="text-xs font-mono text-zinc-400">×{entry.mentions_total}</span>
+                          <span className="text-xs font-mono" style={{ color: 'var(--nd-text-secondary)' }}>×{entry.mentions_total}</span>
                         </div>
                       </td>
                       <td className="p-3">
-                        <span className="text-xs font-mono text-zinc-400">
+                        <span className="text-xs font-mono" style={{ color: 'var(--nd-text-secondary)' }}>
                           {entry.avg_rank != null ? `#${entry.avg_rank}` : '—'}
                         </span>
                       </td>
@@ -1276,7 +1280,8 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
                           {mentionedProviders.map((p) => (
                             <span
                               key={p}
-                              className="text-[8px] font-mono bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded"
+                              className="text-[8px] font-mono px-1.5 py-0.5 rounded"
+                              style={{ background: 'var(--nd-bg)', color: 'var(--nd-text-muted)', border: '1px solid var(--nd-border)' }}
                             >
                               {providerLabels[p] ?? p.slice(0, 3).toUpperCase()}
                             </span>

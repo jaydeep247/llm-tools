@@ -188,11 +188,12 @@ function MetricAskButton({
       }}
       disabled={disabled}
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10',
-        'px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300',
-        'hover:bg-violet-500/18 transition-colors cursor-pointer shrink-0',
+        'inline-flex items-center gap-1 rounded-full',
+        'px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider',
+        'hover:opacity-80 transition-colors cursor-pointer shrink-0',
         'disabled:opacity-40 disabled:cursor-not-allowed',
       )}
+      style={{ border: '1px solid var(--nd-purple)', background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)' }}
     >
       <MessageSquare className="size-3 shrink-0" aria-hidden />
       Ask AI
@@ -403,13 +404,13 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
   const series = useMemo((): TrendSeries[] => {
     if (!history.length) return []
     const brandLabel = history[0]?.brand?.name || 'Brand'
-    const colors = ['#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#22c55e', '#06b6d4']
+    const colors = ['#DC2626', '#059669', '#D97706', '#7C3AED', '#DB2777', '#16A34A', '#0E7490']
 
     const competitorsFromLatest = (latestPoint?.competitors || []).map((c) => c.name).filter(Boolean)
     const competitorsUnique = Array.from(new Set(competitorsFromLatest))
     const limitedCompetitors = competitorsUnique.slice(0, 6)
 
-    const s: TrendSeries[] = [{ key: 's_brand', label: brandLabel, color: '#3b82f6', kind: 'brand' }]
+    const s: TrendSeries[] = [{ key: 's_brand', label: brandLabel, color: '#5347CE', kind: 'brand' }]
     limitedCompetitors.forEach((name, i) => {
       s.push({
         key: `s_c_${i}`,
@@ -487,13 +488,13 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
 
     // Overlay signals based on latest run deltas/swings.
     if (promptSwings.length > 0) {
-      events.push({ label: 'Content published', y: 96, color: '#22c55e' })
+      events.push({ label: 'Content published', y: 96, color: '#059669' })
     }
     if (competitorChanges.some((c) => c.status === 'rising' || c.status === 'falling')) {
-      events.push({ label: 'Model update detected', y: 90, color: '#f59e0b' })
+      events.push({ label: 'Model update detected', y: 90, color: '#D97706' })
     }
     if (latestResult?.data?.moat4_recommendations?.all_actions?.some((a) => a.gap_type === 'schema')) {
-      events.push({ label: 'Schema added', y: 84, color: '#06b6d4' })
+      events.push({ label: 'Schema added', y: 84, color: '#16C8C7' })
     }
 
     return events
@@ -511,7 +512,7 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
   if (flags.trend_chart_days === 0) {
     return (
       <AnalysisEmptyState
-        icon={<LineChartIcon className="w-8 h-8 text-zinc-400" />}
+        icon={<LineChartIcon className="w-8 h-8" style={{ color: 'var(--nd-text-muted)' }} />}
         title="Growth Trends Locked"
         description="Upgrade to Pro plan or above to unlock growth trend charts and competitor movement tracking."
       />
@@ -521,7 +522,7 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
   if (error || !trends || !history.length) {
     return (
       <AnalysisEmptyState
-        icon={<LineChartIcon className="w-8 h-8 text-zinc-400" />}
+        icon={<LineChartIcon className="w-8 h-8" style={{ color: 'var(--nd-text-muted)' }} />}
         title="No Trend Data Available"
         description="Trends appear after you run Module F multiple times. Use the Visibility Comparison tab to run the analysis."
       />
@@ -565,33 +566,30 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
       </Dialog>
 
       {/* Premium Header */}
-      <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-6 sm:p-8 relative overflow-hidden group">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[100px] -mr-32 -mt-32" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/5 blur-[100px] -ml-32 -mb-32" />
-        
-        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="rounded-3xl p-6 sm:p-8 relative overflow-hidden" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-start gap-5">
-            <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-xl group-hover:border-emerald-500/30 transition-colors">
-              <History className="w-8 h-8 text-emerald-400 animate-pulse" />
+            <div className="p-4 rounded-2xl shadow-sm" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+              <History className="w-8 h-8 text-emerald-600 animate-pulse" />
             </div>
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <h2 className="text-2xl font-bold text-white tracking-tight">Growth Trends</h2>
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--nd-text-primary)' }}>Growth Trends</h2>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Historical Tracking</span>
+                  <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Historical Tracking</span>
                 </div>
               </div>
-              <p className="text-sm text-zinc-400 max-w-2xl leading-relaxed">
+              <p className="text-sm max-w-2xl leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>
                 Monitor visibility shifts and market share momentum over time. Analyze how model updates and content changes impact your competitive standing.
               </p>
             </div>
           </div>
           
           <div className="flex flex-col items-end gap-3 md:self-start">
-            <div className="flex flex-col items-end gap-1 bg-zinc-900/50 px-4 py-2 rounded-2xl border border-zinc-800">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Dataset</span>
-              <span className="text-sm font-bold text-zinc-200">{runCount} Historical Runs</span>
+            <div className="flex flex-col items-end gap-1 px-4 py-2 rounded-2xl" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--nd-text-muted)' }}>Dataset</span>
+              <span className="text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>{runCount} Historical Runs</span>
             </div>
 
             <Button
@@ -617,63 +615,56 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
       {/* Emerging Trend Summary Highlights */}
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-5 relative overflow-hidden group/sum">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-[50px] -mr-16 -mt-16 transition-all group-hover/sum:bg-emerald-500/10" />
-            <div className="relative flex items-center gap-4">
-              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
-                <Zap className="w-5 h-5 text-emerald-400" />
+          <div className="rounded-3xl p-5" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200">
+                <Zap className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Trends Detected</p>
+                <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--nd-text-muted)' }}>Trends Detected</p>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-white">{summary.trends_detected}</span>
-                  <span className="text-[10px] font-bold text-emerald-400 uppercase">Active</span>
+                  <span className="text-2xl font-bold" style={{ color: 'var(--nd-text-primary)' }}>{summary.trends_detected}</span>
+                  <span className="text-xs font-bold text-emerald-700 uppercase">Active</span>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-5 relative overflow-hidden group/sum">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-[50px] -mr-16 -mt-16 transition-all group-hover/sum:bg-blue-500/10" />
-            <div className="relative flex items-center gap-4">
-              <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20">
-                <Activity className="w-5 h-5 text-blue-400" />
+          <div className="rounded-3xl p-5" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-2xl bg-blue-50 border border-blue-200">
+                <Activity className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Avg. Visibility Delta</p>
+                <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--nd-text-muted)' }}>Avg. Visibility Delta</p>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-white">{formatSigned(summary.avg_visibility_delta)}</span>
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase">Pts</span>
+                  <span className="text-2xl font-bold" style={{ color: 'var(--nd-text-primary)' }}>{formatSigned(summary.avg_visibility_delta)}</span>
+                  <span className="text-[10px] font-bold uppercase" style={{ color: 'var(--nd-text-muted)' }}>Pts</span>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-5 relative overflow-hidden group/sum">
-            <div className={cn(
-              "absolute top-0 right-0 w-32 h-32 blur-[50px] -mr-16 -mt-16 transition-all group-hover/sum:opacity-100 opacity-50",
-              summary.threat_level === 'high' ? "bg-rose-500/10" : 
-              summary.threat_level === 'medium' ? "bg-amber-500/10" : "bg-emerald-500/10"
-            )} />
-            <div className="relative flex items-center gap-4">
+          <div className="rounded-3xl p-5" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+            <div className="flex items-center gap-4">
               <div className={cn(
                 "p-3 rounded-2xl border",
-                summary.threat_level === 'high' ? "bg-rose-500/10 border-rose-500/20" : 
-                summary.threat_level === 'medium' ? "bg-amber-500/10 border-amber-500/20" : "bg-emerald-500/10 border-emerald-500/20"
+                summary.threat_level === 'high' ? "bg-rose-50 border-rose-200" : 
+                summary.threat_level === 'medium' ? "bg-amber-50 border-amber-200" : "bg-emerald-50 border-emerald-200"
               )}>
                 <Shield className={cn(
                   "w-5 h-5",
-                  summary.threat_level === 'high' ? "text-rose-400" : 
-                  summary.threat_level === 'medium' ? "text-amber-400" : "text-emerald-400"
+                  summary.threat_level === 'high' ? "text-rose-600" : 
+                  summary.threat_level === 'medium' ? "text-amber-700" : "text-emerald-600"
                 )} />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Overall Threat Level</p>
+                <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--nd-text-muted)' }}>Overall Threat Level</p>
                 <div className="flex items-baseline gap-2">
                   <span className={cn(
                     "text-2xl font-bold capitalize",
-                    summary.threat_level === 'high' ? "text-rose-400" : 
-                    summary.threat_level === 'medium' ? "text-amber-400" : "text-emerald-400"
+                    summary.threat_level === 'high' ? "text-rose-600" : 
+                    summary.threat_level === 'medium' ? "text-amber-700" : "text-emerald-700"
                   )}>{summary.threat_level}</span>
                 </div>
               </div>
@@ -768,7 +759,6 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
       <SectionCard 
         title="Performance Trends" 
         description="Visualize visibility and market share shifts across multiple analysis runs."
-        className="bg-[#111113]"
         actionSlot={
           <MetricAskButton
             disabled={!jobId || isAskingAI}
@@ -779,43 +769,41 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
         <div className="flex flex-col gap-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-auto">
-              <TabsList className="bg-zinc-900 border border-zinc-800 p-1 h-9">
-                <TabsTrigger value="visibility" className="text-[10px] font-bold uppercase tracking-wider px-4 data-[state=active]:bg-zinc-800 data-[state=active]:text-white transition-all">Visibility</TabsTrigger>
-                <TabsTrigger value="share" className="text-[10px] font-bold uppercase tracking-wider px-4 data-[state=active]:bg-zinc-800 data-[state=active]:text-white transition-all">Market Share</TabsTrigger>
+              <TabsList className="p-1 h-9" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+                <TabsTrigger value="visibility" className="text-xs font-bold uppercase tracking-wider px-4 data-[state=active]:bg-white transition-all">Visibility</TabsTrigger>
+                <TabsTrigger value="share" className="text-xs font-bold uppercase tracking-wider px-4 data-[state=active]:bg-white transition-all">Market Share</TabsTrigger>
               </TabsList>
             </Tabs>
 
             <div className="flex flex-wrap items-center gap-2">
-              <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mr-2">Legend:</div>
+              <div className="text-xs font-bold uppercase tracking-widest mr-2" style={{ color: 'var(--nd-text-muted)' }}>Legend:</div>
               {series.map((s) => (
                 <button
                   key={s.key}
                   onClick={() => toggleSeries(s.key)}
-                  className={cn(
-                    'flex items-center gap-2 rounded-xl border px-3 py-1.5 text-[10px] font-bold uppercase tracking-tighter transition-all duration-300',
-                    hidden[s.key]
-                      ? 'border-zinc-800 bg-zinc-900/30 text-zinc-600 hover:bg-zinc-900/50'
-                      : 'border-zinc-700 bg-zinc-900/60 text-zinc-200 hover:border-zinc-600 shadow-lg shadow-black/20',
-                  )}
+                  className="flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-bold uppercase tracking-tighter transition-all duration-300"
+                  style={hidden[s.key]
+                    ? { borderColor: 'var(--nd-border)', background: 'var(--nd-bg)', color: 'var(--nd-text-muted)' }
+                    : { borderColor: 'var(--nd-border-hover)', background: 'var(--nd-card-bg)', color: 'var(--nd-text-primary)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
+                  }
                   type="button"
                 >
-                  <div className={cn("h-1.5 w-1.5 rounded-full transition-all", hidden[s.key] ? "bg-zinc-800" : "")} style={{ backgroundColor: hidden[s.key] ? undefined : s.color }} />
+                  <div className="h-1.5 w-1.5 rounded-full transition-all" style={{ backgroundColor: hidden[s.key] ? 'var(--nd-border)' : s.color }} />
                   <span className="max-w-32 truncate">{s.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="h-[400px] w-full bg-zinc-950/40 rounded-3xl border border-zinc-800/50 p-6 relative overflow-hidden group/chart">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-[40px] -mr-16 -mt-16 opacity-0 group-hover/chart:opacity-100 transition-opacity" />
+          <div className="h-[400px] w-full rounded-3xl p-6" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' }}>
             
             <ResponsiveContainer width="100%" height="100%">
               {activeTab === 'visibility' ? (
                 <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E8E9EF" vertical={false} />
                   <XAxis 
                     dataKey="date" 
-                    stroke="#52525b" 
+                    stroke="#737890" 
                     fontSize={10} 
                     fontWeight="bold"
                     tickLine={false} 
@@ -823,7 +811,7 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
                     dy={10}
                   />
                   <YAxis 
-                    stroke="#52525b" 
+                    stroke="#737890" 
                     fontSize={10} 
                     fontWeight="bold"
                     tickLine={false} 
@@ -833,13 +821,13 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#0b0b0f',
-                      border: '1px solid rgba(255,255,255,0.1)',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #E8E9EF',
                       borderRadius: '16px',
-                      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.5)',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
                       padding: '12px'
                     }}
-                    labelStyle={{ color: '#71717a', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '8px' }}
+                    labelStyle={{ color: '#737890', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '8px' }}
                     itemStyle={{ padding: '2px 0' }}
                     formatter={(value: any, name: any, item: any) => {
                       const s = series.find((x) => x.key === item?.dataKey)
@@ -847,12 +835,12 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
                       const label = s?.label ?? String(name)
                       return [
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-bold text-white">{Number(value ?? 0).toFixed(1)}</span>
+                          <span className="text-sm font-bold" style={{ color: '#1A1D2B' }}>{Number(value ?? 0).toFixed(1)}</span>
                           {Number.isFinite(mentions) && (
-                            <span className="text-[10px] font-bold text-zinc-500 uppercase">{mentions} Mentions</span>
+                            <span className="text-[11px] font-bold uppercase" style={{ color: '#737890' }}>{mentions} Mentions</span>
                           )}
                         </div>,
-                        <span className="text-[11px] font-medium text-zinc-400">{label}</span>
+                        <span className="text-[11px] font-medium" style={{ color: '#4A5068' }}>{label}</span>
                       ]
                     }}
                     labelFormatter={(label: any, payload: any[]) => {
@@ -868,7 +856,7 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
                         dataKey={s.key}
                         stroke={s.color}
                         strokeWidth={s.kind === 'brand' ? 3 : 2}
-                        dot={{ r: 4, fill: s.color, strokeWidth: 2, stroke: '#0b0b0f' }}
+                        dot={{ r: 4, fill: s.color, strokeWidth: 2, stroke: '#ffffff' }}
                         activeDot={{ r: 6, strokeWidth: 0 }}
                         animationDuration={1500}
                       />
@@ -888,10 +876,10 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
                 </LineChart>
               ) : (
                 <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E8E9EF" vertical={false} />
                   <XAxis 
                     dataKey="date" 
-                    stroke="#52525b" 
+                    stroke="#737890" 
                     fontSize={10} 
                     fontWeight="bold"
                     tickLine={false} 
@@ -899,7 +887,7 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
                     dy={10}
                   />
                   <YAxis 
-                    stroke="#52525b" 
+                    stroke="#737890" 
                     fontSize={10} 
                     fontWeight="bold"
                     tickLine={false} 
@@ -910,21 +898,21 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#0b0b0f',
-                      border: '1px solid rgba(255,255,255,0.1)',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #E8E9EF',
                       borderRadius: '16px',
-                      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.5)',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
                       padding: '12px'
                     }}
-                    labelStyle={{ color: '#71717a', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '8px' }}
+                    labelStyle={{ color: '#737890', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '8px' }}
                     formatter={(value: any, name: any, item: any) => {
                       const rawKey = String(item?.dataKey || '')
                       const baseKey = rawKey.replace(/_share$/, '')
                       const s = series.find((x) => x.key === baseKey)
                       const label = s?.label ?? String(name)
                       return [
-                        <span className="text-sm font-bold text-white">{Number(value ?? 0).toFixed(1)}%</span>,
-                        <span className="text-[11px] font-medium text-zinc-400">{label}</span>
+                        <span className="text-sm font-bold" style={{ color: '#1A1D2B' }}>{Number(value ?? 0).toFixed(1)}%</span>,
+                        <span className="text-[11px] font-medium" style={{ color: '#4A5068' }}>{label}</span>
                       ]
                     }}
                     labelFormatter={(label: any, payload: any[]) => {
@@ -941,7 +929,7 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
                         stroke={s.color}
                         strokeWidth={s.kind === 'brand' ? 3 : 2}
                         strokeDasharray={s.kind === 'brand' ? undefined : '6 6'}
-                        dot={{ r: 4, fill: s.color, strokeWidth: 2, stroke: '#0b0b0f' }}
+                        dot={{ r: 4, fill: s.color, strokeWidth: 2, stroke: '#ffffff' }}
                         activeDot={{ r: 6, strokeWidth: 0 }}
                         animationDuration={1500}
                       />
@@ -958,7 +946,6 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
         <SectionCard 
           title="Market Momentum & Emerging Shifts" 
           description="Identify competitors with the highest visibility gains and analyze recent prompt winner shifts."
-          className="bg-[#111113]"
           actionSlot={
             <MetricAskButton
               disabled={!jobId || isAskingAI}
@@ -971,23 +958,26 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {/* Top Movers */}
               <div className="space-y-4">
-                <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-3">
-                  <Rocket className="w-3.5 h-3.5 text-emerald-400" /> Top Movers (Visibility)
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest pb-3" style={{ color: 'var(--nd-text-muted)', borderBottom: '1px solid var(--nd-border)' }}>
+                  <Rocket className="w-3.5 h-3.5 text-emerald-600" /> Top Movers (Visibility)
                 </div>
                 <div className="space-y-3">
                   {topMovers.map((m) => (
-                    <div key={m.name} className="group flex items-center justify-between p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60 transition-all duration-300">
+                    <div key={m.name} className="flex items-center justify-between p-4 rounded-2xl transition-all duration-300" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--nd-border-hover)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--nd-border)')}
+                    >
                       <div className="flex items-center gap-3">
-                        <div className={cn("p-2 rounded-xl shrink-0", m.visibilityDelta > 0 ? "bg-emerald-500/10" : "bg-rose-500/10")}>
-                          {m.visibilityDelta > 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-rose-400" />}
+                        <div className={cn("p-2 rounded-xl shrink-0", m.visibilityDelta > 0 ? "bg-emerald-50" : "bg-rose-50")}>
+                          {m.visibilityDelta > 0 ? <TrendingUp className="w-4 h-4 text-emerald-600" /> : <TrendingDown className="w-4 h-4 text-rose-600" />}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm font-bold text-zinc-100 truncate max-w-[120px]">{m.name}</div>
-                          <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">Score: {m.currentVisibility.toFixed(1)}</div>
+                          <div className="text-sm font-bold truncate max-w-[120px]" style={{ color: 'var(--nd-text-primary)' }}>{m.name}</div>
+                          <div className="text-[11px] font-bold uppercase tracking-tighter" style={{ color: 'var(--nd-text-muted)' }}>Score: {m.currentVisibility.toFixed(1)}</div>
                         </div>
                       </div>
                       <div className="flex flex-col items-end">
-                        <div className={cn("text-sm font-bold font-mono", m.visibilityDelta > 0 ? "text-emerald-400" : "text-rose-400")}>
+                        <div className={cn("text-sm font-bold font-mono", m.visibilityDelta > 0 ? "text-emerald-700" : "text-rose-600")}>
                           {formatSigned(m.visibilityDelta)} pts
                         </div>
                       </div>
@@ -998,38 +988,41 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
 
               {/* Competitor Changes */}
               <div className="space-y-4">
-                <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-3">
-                  <Activity className="w-3.5 h-3.5 text-blue-400" /> Competitor Status
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest pb-3" style={{ color: 'var(--nd-text-muted)', borderBottom: '1px solid var(--nd-border)' }}>
+                  <Activity className="w-3.5 h-3.5 text-blue-600" /> Competitor Status
                 </div>
                 <div className="space-y-3">
                   {competitorChanges.length > 0 ? (
                     competitorChanges.slice(0, 5).map((c, idx) => (
-                      <div key={idx} className="group flex items-center justify-between p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60 transition-all duration-300">
+                      <div key={idx} className="flex items-center justify-between p-4 rounded-2xl transition-all duration-300" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--nd-border-hover)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--nd-border)')}
+                      >
                         <div className="flex items-center gap-3">
                           <div className={cn("p-2 rounded-xl shrink-0", 
-                            c.status === 'rising' || c.status === 'new' ? "bg-emerald-500/10" : 
-                            c.status === 'falling' || c.status === 'missing' ? "bg-rose-500/10" : "bg-zinc-800/50"
+                            c.status === 'rising' || c.status === 'new' ? "bg-emerald-50" : 
+                            c.status === 'falling' || c.status === 'missing' ? "bg-rose-50" : "bg-gray-50"
                           )}>
-                            {c.status === 'rising' || c.status === 'new' ? <ArrowUpRight className="w-4 h-4 text-emerald-400" /> : 
-                            c.status === 'falling' || c.status === 'missing' ? <TrendingDown className="w-4 h-4 text-rose-400" /> : 
-                            <Zap className="w-4 h-4 text-zinc-400" />}
+                            {c.status === 'rising' || c.status === 'new' ? <ArrowUpRight className="w-4 h-4 text-emerald-600" /> : 
+                            c.status === 'falling' || c.status === 'missing' ? <TrendingDown className="w-4 h-4 text-rose-600" /> : 
+                            <Zap className="w-4 h-4" style={{ color: 'var(--nd-text-muted)' }} />}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm font-bold text-zinc-100 truncate max-w-[120px]">{c.name}</div>
-                            <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter capitalize">{c.status}</div>
+                            <div className="text-sm font-bold truncate max-w-[120px]" style={{ color: 'var(--nd-text-primary)' }}>{c.name}</div>
+                            <div className="text-[11px] font-bold uppercase tracking-tighter" style={{ color: 'var(--nd-text-muted)' }}>{c.status}</div>
                           </div>
                         </div>
-                        <Badge variant="outline" className={cn("border-0 text-[10px] font-bold uppercase", 
-                          c.status === 'rising' || c.status === 'new' ? "bg-emerald-500/10 text-emerald-400" : 
-                          c.status === 'falling' || c.status === 'missing' ? "bg-rose-500/10 text-rose-400" : "bg-zinc-800 text-zinc-500"
+                        <Badge variant="outline" className={cn("border text-xs font-bold uppercase", 
+                          c.status === 'rising' || c.status === 'new' ? "bg-emerald-50 text-emerald-700 border-emerald-200" : 
+                          c.status === 'falling' || c.status === 'missing' ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-gray-50 text-gray-600 border-gray-200"
                         )}>
                           {formatSigned(c.delta_market_share)}% Share
                         </Badge>
                       </div>
                     ))
                   ) : (
-                    <div className="flex flex-col items-center justify-center h-40 rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/20">
-                      <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest text-center px-6">No major status changes</p>
+                    <div className="flex flex-col items-center justify-center h-40 rounded-2xl border border-dashed" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-center px-6" style={{ color: 'var(--nd-text-muted)' }}>No major status changes</p>
                     </div>
                   )}
                 </div>
@@ -1037,20 +1030,23 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
 
               {/* AI Model Targeting */}
               <div className="space-y-4">
-                <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-3">
-                  <Target className="w-3.5 h-3.5 text-violet-400" /> AI Model Targeting
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest pb-3" style={{ color: 'var(--nd-text-muted)', borderBottom: '1px solid var(--nd-border)' }}>
+                  <Target className="w-3.5 h-3.5" style={{ color: 'var(--nd-purple)' }} /> AI Model Targeting
                 </div>
                 <div className="space-y-3">
                   {Object.keys(modelTargeting).length > 0 ? (
                     Object.entries(modelTargeting).slice(0, 5).map(([comp, models], idx) => (
-                      <div key={idx} className="group p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60 transition-all duration-300">
+                      <div key={idx} className="p-4 rounded-2xl transition-all duration-300" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--nd-border-hover)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--nd-border)')}
+                      >
                         <div className="flex items-center justify-between mb-3">
-                          <span className="text-sm font-bold text-zinc-100 truncate max-w-[140px]">{comp}</span>
-                          <span className="text-[9px] font-bold text-zinc-500 uppercase">{models.length} Models</span>
+                          <span className="text-sm font-bold truncate max-w-[140px]" style={{ color: 'var(--nd-text-primary)' }}>{comp}</span>
+                          <span className="text-[9px] font-bold uppercase" style={{ color: 'var(--nd-text-muted)' }}>{models.length} Models</span>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                           {models.map((m) => (
-                            <div key={m} className="px-2 py-0.5 rounded-lg bg-violet-500/5 border border-violet-500/10 text-[9px] font-bold text-violet-400 uppercase tracking-tighter">
+                            <div key={m} className="px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-tighter" style={{ background: 'var(--nd-purple-subtle)', border: '1px solid var(--nd-purple)', color: 'var(--nd-purple)' }}>
                               {m}
                             </div>
                           ))}
@@ -1058,8 +1054,8 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
                       </div>
                     ))
                   ) : (
-                    <div className="flex flex-col items-center justify-center h-40 rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/20">
-                      <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest text-center px-6">No specific model targeting detected</p>
+                    <div className="flex flex-col items-center justify-center h-40 rounded-2xl border border-dashed" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-center px-6" style={{ color: 'var(--nd-text-muted)' }}>No specific model targeting detected</p>
                     </div>
                   )}
                 </div>
@@ -1068,41 +1064,44 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
 
             {/* Row 2: Prompt Swings (Full-width Table) */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-3">
-                <Swords className="w-3.5 h-3.5 text-amber-400" /> Detailed Prompt Swings
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest pb-3" style={{ color: 'var(--nd-text-muted)', borderBottom: '1px solid var(--nd-border)' }}>
+                <Swords className="w-3.5 h-3.5 text-amber-600" /> Detailed Prompt Swings
               </div>
-              <div className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/20">
+              <div className="overflow-hidden rounded-3xl" style={{ border: '1px solid var(--nd-border)' }}>
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-zinc-800 bg-zinc-900/50">
-                      <th className="px-6 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">High-Value Prompt</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Previous Winner</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">New Leader</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-right">Status</th>
+                    <tr style={{ borderBottom: '1px solid var(--nd-border)', background: 'var(--nd-bg)' }}>
+                      <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--nd-text-muted)' }}>High-Value Prompt</th>
+                      <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--nd-text-muted)' }}>Previous Winner</th>
+                      <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--nd-text-muted)' }}>New Leader</th>
+                      <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-right" style={{ color: 'var(--nd-text-muted)' }}>Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {promptSwings.length > 0 ? (
                       promptSwings.map((p, idx) => (
-                        <tr key={idx} className="group border-b border-zinc-800/50 last:border-0 hover:bg-zinc-900/30 transition-colors">
+                        <tr key={idx} className="transition-colors" style={{ borderBottom: '1px solid var(--nd-border)' }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--nd-bg)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = '')}
+                        >
                           <td className="px-6 py-4">
-                            <span className="text-sm font-medium text-zinc-200 group-hover:text-white transition-colors">{p.prompt}</span>
+                            <span className="text-sm font-medium" style={{ color: 'var(--nd-text-primary)' }}>{p.prompt}</span>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="inline-flex px-2.5 py-1 rounded-xl bg-zinc-900 border border-zinc-800 text-[10px] font-bold text-zinc-400 uppercase">
+                            <div className="inline-flex px-2.5 py-1 rounded-xl text-[10px] font-bold uppercase" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)', color: 'var(--nd-text-secondary)' }}>
                               {p.from}
                             </div>
                           </td>
                           <td className="px-6 py-4">
                             <div className="inline-flex items-center gap-2">
-                              <div className="px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400 uppercase">
+                              <div className="px-2.5 py-1 rounded-xl text-[10px] font-bold uppercase bg-emerald-50 border border-emerald-200 text-emerald-700">
                                 {p.to}
                               </div>
-                              <ArrowUpRight className="w-3 h-3 text-emerald-500/50" />
+                              <ArrowUpRight className="w-3 h-3 text-emerald-500" />
                             </div>
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <Badge variant="outline" className="bg-amber-500/5 border-amber-500/20 text-[9px] font-bold text-amber-400 uppercase tracking-tighter">
+                            <Badge variant="outline" className="bg-amber-50 border-amber-200 text-[9px] font-bold text-amber-700 uppercase tracking-tighter">
                               Swing Detected
                             </Badge>
                           </td>
@@ -1111,7 +1110,7 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
                     ) : (
                       <tr>
                         <td colSpan={4} className="px-6 py-12 text-center">
-                          <p className="text-[11px] text-zinc-600 font-bold uppercase tracking-widest">No major winner swings detected in recent runs</p>
+                          <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--nd-text-muted)' }}>No major winner swings detected in recent runs</p>
                         </td>
                       </tr>
                     )}

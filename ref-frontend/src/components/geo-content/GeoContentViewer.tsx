@@ -35,15 +35,15 @@ import { useGetGeoContentQuery, useUpdateGeoContentTitleMutation } from '@/store
 
 // ─── Prose styles ─────────────────────────────────────────────────────────────
 const PROSE_STYLES = `
-  .geo-prose h1 { font-size: 1.875rem; font-weight: 700; color: #fff; margin-bottom: 1rem; line-height: 1.2; }
-  .geo-prose h2 { font-size: 1.375rem; font-weight: 600; color: #e4e4e7; margin-top: 2rem; margin-bottom: 0.75rem; }
-  .geo-prose h3 { font-size: 1.125rem; font-weight: 600; color: #d4d4d8; margin-top: 1.5rem; margin-bottom: 0.5rem; }
-  .geo-prose p { color: #a1a1aa; line-height: 1.75; margin-bottom: 1rem; }
-  .geo-prose ul, .geo-prose ol { color: #a1a1aa; margin-bottom: 1rem; padding-left: 1.5rem; }
+  .geo-prose h1 { font-size: 1.875rem; font-weight: 700; color: #1A1D2B; margin-bottom: 1rem; line-height: 1.2; }
+  .geo-prose h2 { font-size: 1.375rem; font-weight: 600; color: #1A1D2B; margin-top: 2rem; margin-bottom: 0.75rem; }
+  .geo-prose h3 { font-size: 1.125rem; font-weight: 600; color: #4A5068; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+  .geo-prose p { color: #4A5068; line-height: 1.75; margin-bottom: 1rem; }
+  .geo-prose ul, .geo-prose ol { color: #4A5068; margin-bottom: 1rem; padding-left: 1.5rem; }
   .geo-prose li { margin-bottom: 0.4rem; line-height: 1.7; }
-  .geo-prose strong { color: #e4e4e7; font-weight: 600; }
-  .geo-prose em { color: #c4b5fd; font-style: italic; }
-  .geo-prose blockquote { border-left: 3px solid #6366f1; padding-left: 1rem; margin: 1.5rem 0; color: #a1a1aa; font-style: italic; }
+  .geo-prose strong { color: #1A1D2B; font-weight: 600; }
+  .geo-prose em { color: #5347CE; font-style: italic; }
+  .geo-prose blockquote { border-left: 3px solid #5347CE; padding-left: 1rem; margin: 1.5rem 0; color: #4A5068; font-style: italic; }
 `
 
 // ─── Copy helpers ─────────────────────────────────────────────────────────────
@@ -124,7 +124,7 @@ export function GeoContentViewer({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+        <Loader2 className="h-6 w-6 animate-spin text-(--nd-text-muted)" />
       </div>
     )
   }
@@ -132,13 +132,13 @@ export function GeoContentViewer({
   if (error || !content) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
-        <AlertCircle className="h-12 w-12 text-red-400 mb-3" />
-        <h2 className="text-lg font-semibold text-white mb-1">Content not found</h2>
-        <p className="text-zinc-500 text-sm mb-4">This article doesn&apos;t exist or you don&apos;t have access.</p>
+        <AlertCircle className="h-12 w-12 text-red-600 mb-3" />
+        <h2 className="text-lg font-semibold text-(--nd-text-primary) mb-1">Content not found</h2>
+        <p className="text-(--nd-text-muted) text-sm mb-4">This article doesn&apos;t exist or you don&apos;t have access.</p>
         <Button
           onClick={onBack}
           variant="outline"
-          className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+          className="border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) cursor-pointer"
         >
           Back to Content List
         </Button>
@@ -171,7 +171,7 @@ export function GeoContentViewer({
           <button
             id="geo-viewer-back-btn"
             onClick={onBack}
-            className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-200 text-sm transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-(--nd-text-muted) hover:text-(--nd-text-primary) text-sm transition-colors cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4" />
             Content list
@@ -185,31 +185,31 @@ export function GeoContentViewer({
                   id="geo-copy-dropdown-btn"
                   variant="outline"
                   size="sm"
-                  className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white gap-1.5 cursor-pointer"
+                  className="border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) gap-1.5 cursor-pointer"
                 >
-                  {copiedFormat ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiedFormat ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
                   Copy
                   <ChevronDown className="h-3 w-3 opacity-60" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-[#161618] border-zinc-700">
+              <DropdownMenuContent align="end" className="bg-white border-(--nd-border)">
                 <DropdownMenuItem
                   id="geo-copy-html"
-                  className="text-zinc-200 focus:bg-zinc-800 focus:text-white cursor-pointer"
+                  className="text-(--nd-text-secondary) focus:bg-(--nd-bg) focus:text-(--nd-text-primary) cursor-pointer"
                   onClick={() => handleCopy('html')}
                 >
                   Copy as HTML
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   id="geo-copy-markdown"
-                  className="text-zinc-200 focus:bg-zinc-800 focus:text-white cursor-pointer"
+                  className="text-(--nd-text-secondary) focus:bg-(--nd-bg) focus:text-(--nd-text-primary) cursor-pointer"
                   onClick={() => handleCopy('markdown')}
                 >
                   Copy as Markdown
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   id="geo-copy-text"
-                  className="text-zinc-200 focus:bg-zinc-800 focus:text-white cursor-pointer"
+                  className="text-(--nd-text-secondary) focus:bg-(--nd-bg) focus:text-(--nd-text-primary) cursor-pointer"
                   onClick={() => handleCopy('text')}
                 >
                   Copy as Plain Text
@@ -222,7 +222,7 @@ export function GeoContentViewer({
               id="geo-wordpress-btn"
               variant="outline"
               size="sm"
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white gap-1.5 cursor-pointer"
+              className="border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) gap-1.5 cursor-pointer"
               onClick={() => window.open('https://wordpress.com/post', '_blank')}
             >
               <Globe className="h-3.5 w-3.5" />
@@ -234,7 +234,7 @@ export function GeoContentViewer({
               id="geo-linkedin-btn"
               variant="outline"
               size="sm"
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white gap-1.5 cursor-pointer"
+              className="border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) gap-1.5 cursor-pointer"
               onClick={() => setLinkedinOpen(true)}
             >
               <Linkedin className="h-3.5 w-3.5" />
@@ -246,7 +246,7 @@ export function GeoContentViewer({
               id="geo-image-btn"
               variant="outline"
               size="sm"
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white gap-1.5 cursor-pointer"
+              className="border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) gap-1.5 cursor-pointer"
             >
               <ImageIcon className="h-3.5 w-3.5" />
               Image Generator
@@ -255,7 +255,7 @@ export function GeoContentViewer({
         </div>
 
         {/* ── Content card ── */}
-        <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-8 sm:p-10">
+<div className="rounded-2xl border border-(--nd-border) bg-white p-8 sm:p-10">
 
           {/* Title with inline edit */}
           <div className="group relative mb-6">
@@ -270,14 +270,14 @@ export function GeoContentViewer({
                     if (e.key === 'Enter') handleSaveTitle()
                     if (e.key === 'Escape') handleCancelTitle()
                   }}
-                  className="text-2xl sm:text-3xl font-bold bg-zinc-800/50 border-zinc-700 text-white h-auto py-1"
+                  className="text-2xl sm:text-3xl font-bold bg-(--nd-bg) border-(--nd-border) text-(--nd-text-primary) h-auto py-1"
                 />
                 <Button
                   size="icon"
                   variant="ghost"
                   disabled={isSavingTitle}
                   onClick={handleSaveTitle}
-                  className="shrink-0 h-9 w-9 text-green-400 hover:bg-green-500/10 cursor-pointer"
+                  className="shrink-0 h-9 w-9 text-green-600 hover:bg-green-50 cursor-pointer"
                 >
                   {isSavingTitle ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                 </Button>
@@ -285,20 +285,20 @@ export function GeoContentViewer({
                   size="icon"
                   variant="ghost"
                   onClick={handleCancelTitle}
-                  className="shrink-0 h-9 w-9 text-red-400 hover:bg-red-500/10 cursor-pointer"
+                  className="shrink-0 h-9 w-9 text-red-600 hover:bg-red-50 cursor-pointer"
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
             ) : (
               <div className="flex items-start gap-2">
-                <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight flex-1">
+                <h1 className="text-2xl sm:text-3xl font-bold text-(--nd-text-primary) leading-tight flex-1">
                   {content.title}
                 </h1>
                 <button
                   id="geo-edit-title-btn"
                   onClick={handleStartEditTitle}
-                  className="opacity-0 group-hover:opacity-100 shrink-0 mt-1 p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-all cursor-pointer"
+                  className="opacity-0 group-hover:opacity-100 shrink-0 mt-1 p-1.5 rounded-lg text-(--nd-text-muted) hover:text-(--nd-text-primary) hover:bg-(--nd-bg) transition-all cursor-pointer"
                   aria-label="Edit title"
                 >
                   <Pencil className="h-4 w-4" />
@@ -314,7 +314,7 @@ export function GeoContentViewer({
           />
 
           {/* Footer meta */}
-          <div className="mt-8 pt-6 border-t border-zinc-800 flex flex-wrap gap-4 text-xs text-zinc-600">
+          <div className="mt-8 pt-6 border-t border-(--nd-border) flex flex-wrap gap-4 text-xs text-(--nd-text-muted)">
             <span>{content.wordCount.toLocaleString()} words</span>
             {content.listicle && <span>Listicle format</span>}
             {content.keywords.length > 0 && (
@@ -333,31 +333,31 @@ export function GeoContentViewer({
       <Dialog open={linkedinOpen} onOpenChange={setLinkedinOpen}>
         <DialogContent
           id="linkedin-pulse-modal"
-          className="bg-[#111113] border-zinc-800 text-white max-w-lg"
+          className="bg-white border-(--nd-border) text-(--nd-text-primary) max-w-lg"
         >
           <DialogHeader>
-            <DialogTitle className="text-white text-lg font-semibold">
+            <DialogTitle className="text-(--nd-text-primary) text-lg font-semibold">
               Post to LinkedIn Article
             </DialogTitle>
-            <DialogDescription className="text-zinc-500 text-sm">
+            <DialogDescription className="text-(--nd-text-muted) text-sm">
               Follow these steps to post your content as a LinkedIn Article (LinkedIn Pulse).
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             {/* Step 1 */}
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-zinc-800/40 border border-zinc-800">
-              <span className="shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 text-xs font-bold flex items-center justify-center mt-0.5">
+<div className="flex items-start gap-3 p-3 rounded-lg bg-(--nd-bg) border border-(--nd-border)">
+              <span className="shrink-0 w-6 h-6 rounded-full bg-(--nd-purple-subtle) text-(--nd-purple) text-xs font-bold flex items-center justify-center mt-0.5">
                 1
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-zinc-300">Open LinkedIn Article Editor</p>
+                <p className="text-sm text-(--nd-text-secondary)">Open LinkedIn Article Editor</p>
               </div>
               <Button
                 id="linkedin-open-editor-btn"
                 size="sm"
                 variant="outline"
-                className="shrink-0 border-zinc-700 text-zinc-300 hover:bg-zinc-700 gap-1.5 cursor-pointer"
+                className="shrink-0 border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) gap-1.5 cursor-pointer"
                 onClick={() => window.open('https://www.linkedin.com/pulse/new/', '_blank')}
               >
                 Open <ExternalLink className="h-3 w-3" />
@@ -365,12 +365,12 @@ export function GeoContentViewer({
             </div>
 
             {/* Step 2 */}
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-zinc-800/40 border border-zinc-800">
-              <span className="shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 text-xs font-bold flex items-center justify-center mt-0.5">
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-(--nd-bg) border border-(--nd-border)">
+              <span className="shrink-0 w-6 h-6 rounded-full bg-(--nd-purple-subtle) text-(--nd-purple) text-xs font-bold flex items-center justify-center mt-0.5">
                 2
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-zinc-300">Paste title</p>
+                <p className="text-sm text-(--nd-text-secondary)">Paste title</p>
               </div>
               <Button
                 id="linkedin-copy-title-btn"
@@ -378,8 +378,8 @@ export function GeoContentViewer({
                 variant="outline"
                 className={`shrink-0 gap-1.5 cursor-pointer transition-all duration-200 ${
                   copiedLinkedin === 'title'
-                    ? 'border-green-500/50 text-green-400 bg-green-500/10 hover:bg-green-500/15'
-                    : 'border-zinc-700 text-zinc-300 hover:bg-zinc-700'
+                    ? 'border-green-500/50 text-green-600 bg-green-50 hover:bg-green-100'
+                    : 'border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg)'
                 }`}
                 onClick={() => copyLinkedin('title')}
               >
@@ -392,12 +392,12 @@ export function GeoContentViewer({
             </div>
 
             {/* Step 3 */}
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-zinc-800/40 border border-zinc-800">
-              <span className="shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 text-xs font-bold flex items-center justify-center mt-0.5">
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-(--nd-bg) border border-(--nd-border)">
+              <span className="shrink-0 w-6 h-6 rounded-full bg-(--nd-purple-subtle) text-(--nd-purple) text-xs font-bold flex items-center justify-center mt-0.5">
                 3
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-zinc-300">Paste body under the title</p>
+                <p className="text-sm text-(--nd-text-secondary)">Paste body under the title</p>
               </div>
               <Button
                 id="linkedin-copy-body-btn"
@@ -405,8 +405,8 @@ export function GeoContentViewer({
                 variant="outline"
                 className={`shrink-0 gap-1.5 cursor-pointer transition-all duration-200 ${
                   copiedLinkedin === 'body'
-                    ? 'border-green-500/50 text-green-400 bg-green-500/10 hover:bg-green-500/15'
-                    : 'border-zinc-700 text-zinc-300 hover:bg-zinc-700'
+                    ? 'border-green-500/50 text-green-600 bg-green-50 hover:bg-green-100'
+                    : 'border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg)'
                 }`}
                 onClick={() => copyLinkedin('body')}
               >
@@ -424,7 +424,7 @@ export function GeoContentViewer({
               href="https://www.linkedin.com/help/linkedin/answer/a548918"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-zinc-600 hover:text-zinc-400 underline underline-offset-2 transition-colors"
+              className="text-xs text-(--nd-text-muted) hover:text-(--nd-text-secondary) underline underline-offset-2 transition-colors"
             >
               Example Screenshot
             </a>
@@ -432,7 +432,7 @@ export function GeoContentViewer({
               id="linkedin-close-btn"
               variant="outline"
               onClick={() => setLinkedinOpen(false)}
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+              className="border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) cursor-pointer"
             >
               Close
             </Button>

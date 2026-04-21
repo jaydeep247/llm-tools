@@ -871,8 +871,8 @@ export default function AuditReportsPanel({ jobId, onNavigate }: Props) {
               }}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer whitespace-nowrap -mb-px ${
                 isActive
-                  ? 'border-[--nd-purple] text-[--nd-purple]'
-                  : 'border-transparent hover:border-[--nd-border-hover]'
+                  ? 'border-(--nd-purple) text-(--nd-purple)'
+                  : 'border-transparent hover:border-(--nd-border-hover)'
               }`}
               style={isActive ? { color: 'var(--nd-purple)', borderBottomColor: 'var(--nd-purple)' } : { color: 'var(--nd-text-muted)', borderBottomColor: 'transparent' }}
             >

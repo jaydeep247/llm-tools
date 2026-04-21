@@ -71,53 +71,53 @@ const DELTA_CONFIG: Record<DeltaClass, {
   competitor_threat: {
     label: 'Competitor Threat',
     desc: 'A competitor has surged or flipped prompts away from your brand. Act within 7 days.',
-    color: 'text-rose-400', accent: 'rose',
+    color: 'text-rose-600', accent: 'rose',
     icon: ShieldAlert,
   },
   critical_drop: {
     label: 'Critical Drop',
     desc: 'Your benchmark score dropped more than 15 pts since the last run. Immediate action required.',
-    color: 'text-rose-400', accent: 'rose',
+    color: 'text-rose-600', accent: 'rose',
     icon: TrendingDown,
   },
   significant_drop: {
     label: 'Significant Drop',
     desc: 'Benchmark or visibility dropped 8–15 pts. Prioritise content fixes this sprint.',
-    color: 'text-amber-400', accent: 'amber',
+    color: 'text-amber-700', accent: 'amber',
     icon: TrendingDown,
   },
   plateau: {
     label: 'Plateau',
     desc: 'Score has been flat 21+ days while competitors win prompts. Expand your content coverage.',
-    color: 'text-blue-400', accent: 'blue',
+    color: 'text-blue-700', accent: 'blue',
     icon: Minus,
   },
   improvement: {
     label: 'Improving',
     desc: 'Benchmark improved +5 pts or more. Defend winning prompts and push for further gains.',
-    color: 'text-emerald-400', accent: 'emerald',
+    color: 'text-emerald-700', accent: 'emerald',
     icon: TrendingUp,
   },
   stable: {
     label: 'Stable',
     desc: 'No significant movement. Use this time to build uncontested territory before a competitor does.',
-    color: 'text-zinc-400', accent: 'zinc',
+    color: 'text-gray-600', accent: 'zinc',
     icon: Minus,
   },
 }
 
 const GAP_CONFIG: Partial<Record<GapType, { label: string; cls: string; icon: LucideIcon }>> = {
-  uncontested:        { label: 'Uncontested',   icon: Star,          cls: 'bg-amber-500/10 text-amber-400 border-amber-500/25' },
-  priority_fix:       { label: 'Priority Fix',     icon: AlertCircle,   cls: 'bg-rose-500/10 text-rose-400 border-rose-500/25' },
-  comparison_page:    { label: 'Comparison Page',  icon: Layers,        cls: 'bg-violet-500/10 text-violet-400 border-violet-500/25' },
-  near_uncontested:   { label: 'Near-Uncontested', icon: Zap,           cls: 'bg-amber-500/10 text-amber-400 border-amber-500/25' },
-  competitor_surge:   { label: 'Competitor Surge', icon: Flame,         cls: 'bg-rose-500/10 text-rose-400 border-rose-500/25' },
-  win_rate:           { label: 'Win Rate Fix',      icon: Target,        cls: 'bg-blue-500/10 text-blue-400 border-blue-500/25' },
-  citation_gap:       { label: 'Citation Gap',      icon: Link2,         cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' },
-  schema:             { label: 'Add Schema',        icon: FileText,      cls: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/25' },
-  score_drop:         { label: 'Score Recovery',    icon: ArrowDown,     cls: 'bg-rose-500/10 text-rose-400 border-rose-500/25' },
-  entity_consistency: { label: 'Entity Signals',    icon: ShieldCheck,   cls: 'bg-zinc-800 text-zinc-400 border-zinc-700/50' },
-  model_gap:          { label: 'Model Gap',          icon: Activity,      cls: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/25' },
+  uncontested:        { label: 'Uncontested',   icon: Star,          cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  priority_fix:       { label: 'Priority Fix',     icon: AlertCircle,   cls: 'bg-rose-50 text-rose-700 border-rose-200' },
+  comparison_page:    { label: 'Comparison Page',  icon: Layers,        cls: 'bg-violet-50 text-violet-700 border-violet-200' },
+  near_uncontested:   { label: 'Near-Uncontested', icon: Zap,           cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  competitor_surge:   { label: 'Competitor Surge', icon: Flame,         cls: 'bg-rose-50 text-rose-700 border-rose-200' },
+  win_rate:           { label: 'Win Rate Fix',      icon: Target,        cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  citation_gap:       { label: 'Citation Gap',      icon: Link2,         cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  schema:             { label: 'Add Schema',        icon: FileText,      cls: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  score_drop:         { label: 'Score Recovery',    icon: ArrowDown,     cls: 'bg-rose-50 text-rose-700 border-rose-200' },
+  entity_consistency: { label: 'Entity Signals',    icon: ShieldCheck,   cls: 'bg-gray-50 text-gray-600 border-gray-200' },
+  model_gap:          { label: 'Model Gap',          icon: Activity,      cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
 }
 
 const ROLE_CONFIG = [
@@ -143,12 +143,12 @@ const METRIC_META: Record<string, { label: string; icon: React.ReactNode }> = {
 }
 
 const CT_COLOR: Record<string, string> = {
-  comparison: 'bg-purple-500/10 text-purple-300 border-purple-500/25',
-  guide:      'bg-sky-500/10 text-sky-300 border-sky-500/25',
-  blog:       'bg-zinc-700/40 text-zinc-400 border-zinc-600/25',
-  tool:       'bg-emerald-500/10 text-emerald-300 border-emerald-500/25',
-  faq:        'bg-cyan-500/10 text-cyan-300 border-cyan-500/25',
-  page:       'bg-zinc-800 text-zinc-500 border-zinc-700',
+  comparison: 'bg-purple-50 text-purple-700 border-purple-200',
+  guide:      'bg-sky-50 text-sky-700 border-sky-200',
+  blog:       'bg-gray-50 text-gray-600 border-gray-200',
+  tool:       'bg-emerald-50 text-emerald-700 border-emerald-200',
+  faq:        'bg-cyan-50 text-cyan-700 border-cyan-200',
+  page:       'bg-gray-50 text-gray-500 border-gray-200',
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -161,35 +161,17 @@ function EngineHeader({ deltaClass, summary }: { deltaClass: DeltaClass; summary
   const Icon = cfg.icon
 
   return (
-    <div className="relative group overflow-hidden rounded-[2rem] border border-zinc-800/50 bg-zinc-900/40 p-8 mb-8 transition-all duration-500 hover:border-zinc-700/50 hover:bg-zinc-900/60">
-      {/* Background Effects */}
-      <div className={cn(
-        "absolute -top-24 -right-24 w-64 h-64 rounded-full blur-[100px] opacity-20 transition-all duration-700 group-hover:opacity-30",
-        cfg.accent === 'rose' ? 'bg-rose-500' :
-        cfg.accent === 'amber' ? 'bg-amber-500' :
-        cfg.accent === 'blue' ? 'bg-blue-500' :
-        cfg.accent === 'emerald' ? 'bg-emerald-500' :
-        cfg.accent === 'violet' ? 'bg-violet-500' : 'bg-zinc-500'
-      )} />
-      
-      <div className="relative flex flex-col md:flex-row items-center gap-8">
-        {/* Pulsing Icon */}
-        <div className="relative shrink-0">
+    <div className="relative overflow-hidden rounded-[2rem] p-8 mb-8" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+      <div className="flex flex-col md:flex-row items-center gap-8">
+        {/* Icon */}
+        <div className="shrink-0">
           <div className={cn(
-            "absolute inset-0 rounded-3xl blur-xl opacity-40 animate-pulse",
-            cfg.accent === 'rose' ? 'bg-rose-500' :
-            cfg.accent === 'amber' ? 'bg-amber-500' :
-            cfg.accent === 'blue' ? 'bg-blue-500' :
-            cfg.accent === 'emerald' ? 'bg-emerald-500' :
-            cfg.accent === 'violet' ? 'bg-violet-500' : 'bg-zinc-500'
-          )} />
-          <div className={cn(
-            "relative w-20 h-20 rounded-3xl border flex items-center justify-center shadow-2xl",
-            cfg.accent === 'rose' ? 'bg-rose-500/20 border-rose-500/30' :
-            cfg.accent === 'amber' ? 'bg-amber-500/20 border-amber-500/30' :
-            cfg.accent === 'blue' ? 'bg-blue-500/20 border-blue-500/30' :
-            cfg.accent === 'emerald' ? 'bg-emerald-500/20 border-emerald-500/30' :
-            cfg.accent === 'violet' ? 'bg-violet-500/20 border-violet-500/30' : 'bg-zinc-800/50 border-zinc-700/50'
+            "relative w-20 h-20 rounded-3xl border flex items-center justify-center shadow-sm",
+            cfg.accent === 'rose' ? 'bg-rose-50 border-rose-200' :
+            cfg.accent === 'amber' ? 'bg-amber-50 border-amber-200' :
+            cfg.accent === 'blue' ? 'bg-blue-50 border-blue-200' :
+            cfg.accent === 'emerald' ? 'bg-emerald-50 border-emerald-200' :
+            cfg.accent === 'violet' ? 'bg-violet-50 border-violet-200' : 'bg-gray-50 border-gray-200'
           )}>
             <Icon className={cn("w-10 h-10", cfg.color)} />
           </div>
@@ -199,26 +181,26 @@ function EngineHeader({ deltaClass, summary }: { deltaClass: DeltaClass; summary
         <div className="flex-1 text-center md:text-left space-y-4">
           <div className="space-y-1">
             <div className="flex items-center justify-center md:justify-start gap-3">
-              <h1 className="text-3xl font-bold tracking-tight text-white">Recommendation Engine</h1>
+              <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--nd-text-primary)' }}>Recommendation Engine</h1>
               <Badge variant="outline" className={cn(
-                "text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 border-transparent",
-                cfg.accent === 'rose' ? 'bg-rose-500/10 text-rose-400' :
-                cfg.accent === 'amber' ? 'bg-amber-500/10 text-amber-400' :
-                cfg.accent === 'blue' ? 'bg-blue-500/10 text-blue-400' :
-                cfg.accent === 'emerald' ? 'bg-emerald-500/10 text-emerald-400' :
-                cfg.accent === 'violet' ? 'bg-violet-500/10 text-violet-400' : 'bg-zinc-800 text-zinc-400'
+                "text-xs font-bold uppercase tracking-widest px-2.5 py-0.5",
+                cfg.accent === 'rose' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                cfg.accent === 'amber' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                cfg.accent === 'blue' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                cfg.accent === 'emerald' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                cfg.accent === 'violet' ? 'bg-violet-50 text-violet-700 border-violet-200' : 'bg-gray-50 text-gray-600 border-gray-200'
               )}>
                 {cfg.label}
               </Badge>
             </div>
-            <p className="text-zinc-400 text-lg font-medium max-w-2xl leading-relaxed">
+            <p className="text-lg font-medium max-w-2xl leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>
               {cfg.desc}
             </p>
           </div>
           
           {summary && (
-            <div className="flex items-center gap-2 text-sm text-zinc-500 bg-zinc-950/40 w-fit px-4 py-2 rounded-full border border-zinc-800/50">
-              <Info className="w-4 h-4 text-zinc-600" />
+            <div className="flex items-center gap-2 text-sm w-fit px-4 py-2 rounded-full" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)', color: 'var(--nd-text-muted)' }}>
+              <Info className="w-4 h-4" />
               <span>{summary}</span>
             </div>
           )}
@@ -226,10 +208,10 @@ function EngineHeader({ deltaClass, summary }: { deltaClass: DeltaClass; summary
 
         {/* Action Buttons */}
         <div className="flex items-center gap-3">
-          <button className="p-2.5 rounded-xl bg-zinc-800/50 border border-zinc-700/50 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all">
+          <button className="p-2.5 rounded-xl transition-all" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)', color: 'var(--nd-text-muted)' }}>
             <Share2 className="w-5 h-5" />
           </button>
-          <button className="p-2.5 rounded-xl bg-zinc-800/50 border border-zinc-700/50 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all">
+          <button className="p-2.5 rounded-xl transition-all" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)', color: 'var(--nd-text-muted)' }}>
             <Download className="w-5 h-5" />
           </button>
         </div>
@@ -250,14 +232,14 @@ function AlertBanner({ alerts }: { alerts: ModuleFAlert[] }) {
   return (
     <div className={cn(
       "relative overflow-hidden rounded-2xl border p-4 mb-6 transition-all duration-300 animate-in slide-in-from-top-4",
-      isUp ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 
-      isDn ? 'bg-rose-500/5 border-rose-500/20 text-rose-400' : 
-      'bg-amber-500/5 border-amber-500/20 text-amber-400'
+      isUp ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 
+      isDn ? 'bg-rose-50 border-rose-200 text-rose-700' : 
+      'bg-amber-50 border-amber-200 text-amber-700'
     )}>
       <div className="flex items-start gap-4">
         <div className={cn(
           "p-2 rounded-xl shrink-0",
-          isUp ? 'bg-emerald-500/10' : isDn ? 'bg-rose-500/10' : 'bg-amber-500/10'
+          isUp ? 'bg-emerald-100' : isDn ? 'bg-rose-100' : 'bg-amber-100'
         )}>
           {isUp ? <TrendingUp className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
         </div>
@@ -269,12 +251,12 @@ function AlertBanner({ alerts }: { alerts: ModuleFAlert[] }) {
             </span>
             <Badge variant="outline" className={cn(
               "text-[9px] font-bold px-1.5 py-0 border-current opacity-70",
-              isUp ? 'text-emerald-500' : isDn ? 'text-rose-500' : 'text-amber-500'
+              isUp ? 'text-emerald-600' : isDn ? 'text-rose-600' : 'text-amber-600'
             )}>
               {top.alertLevel?.toUpperCase()}
             </Badge>
           </div>
-          <p className="text-sm text-zinc-200 font-medium">{top.message}</p>
+          <p className="text-sm font-medium" style={{ color: 'var(--nd-text-primary)' }}>{top.message}</p>
           
           <div className="flex items-center gap-4 text-[10px] font-mono opacity-80">
             {top.scoreDelta !== 0 && (
@@ -287,13 +269,14 @@ function AlertBanner({ alerts }: { alerts: ModuleFAlert[] }) {
                 {top.rankMove > 0 ? '↑' : '↓'} {Math.abs(top.rankMove)} rank
               </span>
             )}
-            <span className="text-zinc-500">{new Date(top.firedAt).toLocaleDateString()}</span>
+            <span style={{ color: 'var(--nd-text-muted)' }}>{new Date(top.firedAt).toLocaleDateString()}</span>
           </div>
         </div>
 
         <button 
           onClick={() => setGone(true)}
-          className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+          className="p-1.5 rounded-lg transition-colors"
+          style={{ color: 'var(--nd-text-muted)' }}
         >
           <Minus className="w-4 h-4" />
         </button>
@@ -327,22 +310,24 @@ function ActionCard({
   return (
     <div className={cn(
       "group relative overflow-hidden rounded-2xl border transition-all duration-300",
-      isDone ? "bg-emerald-500/5 border-emerald-500/20 opacity-60" :
-      isDismissed ? "bg-zinc-900/40 border-zinc-800 opacity-40" :
-      priorityAccent === 'rose' ? "bg-rose-500/5 border-rose-500/20 hover:border-rose-500/40" :
-      priorityAccent === 'amber' ? "bg-amber-500/5 border-amber-500/20 hover:border-amber-500/40" :
-      "bg-zinc-900/40 border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900/60"
-    )}>
+      isDone ? "bg-emerald-50 border-emerald-200 opacity-60" :
+      isDismissed ? "opacity-40" :
+      priorityAccent === 'rose' ? "bg-rose-50 border-rose-200" :
+      priorityAccent === 'amber' ? "bg-amber-50 border-amber-200" :
+      "border-nd-border"
+    )}
+    style={!isDone && !isDismissed && priorityAccent !== 'rose' && priorityAccent !== 'amber' ? { background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' } : {}}>
       <div className="p-5">
         <div className="flex items-start gap-5">
           {/* Index/Icon Container */}
           <div className={cn(
             "w-12 h-12 rounded-2xl border flex items-center justify-center text-sm font-bold shrink-0 mt-0.5 shadow-inner transition-transform group-hover:scale-105",
-            isDone ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400" :
-            priorityAccent === 'rose' ? "bg-rose-500/20 border-rose-500/30 text-rose-400" :
-            priorityAccent === 'amber' ? "bg-amber-500/20 border-amber-500/30 text-amber-400" :
-            "bg-zinc-800 border-zinc-700 text-zinc-400"
-          )}>
+            isDone ? "bg-emerald-50 border-emerald-200 text-emerald-700" :
+            priorityAccent === 'rose' ? "bg-rose-100 border-rose-200 text-rose-700" :
+            priorityAccent === 'amber' ? "bg-amber-100 border-amber-200 text-amber-700" :
+            "border-gray-200 text-gray-600"
+          )}
+          style={priorityAccent !== 'rose' && priorityAccent !== 'amber' && !isDone ? { background: 'var(--nd-bg)' } : {}}>
             {isDone ? <CheckSquare className="w-5 h-5" /> : index + 1}
           </div>
 
@@ -352,8 +337,9 @@ function ActionCard({
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className={cn(
                   "text-lg font-bold tracking-tight",
-                  isDone ? "line-through text-zinc-500" : "text-zinc-100 group-hover:text-white transition-colors"
-                )}>
+                  isDone ? "line-through" : ""
+                )}
+                style={{ color: isDone ? 'var(--nd-text-muted)' : 'var(--nd-text-primary)' }}>
                   {action.action_title}
                 </h3>
                 {gap && (
@@ -363,18 +349,18 @@ function ActionCard({
                   </Badge>
                 )}
                 {action.competitor && (
-                  <Badge variant="secondary" className="bg-zinc-800 text-zinc-400 text-[9px] font-bold uppercase tracking-widest px-2 py-0">
+                  <Badge variant="secondary" className="text-[9px] font-bold uppercase tracking-widest px-2 py-0" style={{ background: 'var(--nd-bg)', color: 'var(--nd-text-secondary)', border: '1px solid var(--nd-border)' }}>
                     vs {action.competitor}
                   </Badge>
                 )}
               </div>
               
-              <div className="flex items-center gap-4 text-xs font-medium text-zinc-500">
+              <div className="flex items-center gap-4 text-xs font-medium" style={{ color: 'var(--nd-text-muted)' }}>
                 <span className="flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5" />
                   {effortText}
                 </span>
-                <span className="w-1 h-1 rounded-full bg-zinc-800" />
+                <span className="w-1 h-1 rounded-full" style={{ background: 'var(--nd-border)' }} />
                 <span className="flex items-center gap-1.5">
                   <Activity className="w-3.5 h-3.5" />
                   Score: {priorityScore.toFixed(1)}
@@ -383,28 +369,28 @@ function ActionCard({
             </div>
 
             {/* Score Breakdown Bar */}
-            <div className="grid grid-cols-3 sm:flex sm:items-center gap-6 py-3 border-y border-zinc-800/40">
+            <div className="grid grid-cols-3 sm:flex sm:items-center gap-6 py-3" style={{ borderTop: '1px solid var(--nd-border)', borderBottom: '1px solid var(--nd-border)' }}>
               {[
-                { label: 'Impact',  value: action.impact_score,  color: 'text-violet-400', icon: Zap },
-                { label: 'Effort',  value: action.effort_score,  color: 'text-cyan-400',   icon: Activity },
-                { label: 'Urgency', value: action.urgency_score, color: 'text-amber-400',  icon: Flame },
+                { label: 'Impact',  value: action.impact_score,  color: 'text-violet-700', icon: Zap },
+                { label: 'Effort',  value: action.effort_score,  color: 'text-cyan-700',   icon: Activity },
+                { label: 'Urgency', value: action.urgency_score, color: 'text-amber-700',  icon: Flame },
               ].map(({ label, value, color, icon: Icon }) => (
                 <div key={label} className="flex flex-col gap-0.5">
                   <div className={cn("flex items-center gap-1.5 text-xs font-bold tabular-nums", color)}>
                     <Icon className="w-3.5 h-3.5" />
                     {value.toFixed(1)}
                   </div>
-                  <span className="text-[9px] text-zinc-600 uppercase tracking-widest font-bold">{label}</span>
+                <span className="text-[11px] uppercase tracking-widest font-bold" style={{ color: 'var(--nd-text-muted)' }}>{label}</span>
                 </div>
               ))}
               
-              <div className="hidden sm:block flex-1 ml-6 h-1.5 bg-zinc-800/50 rounded-full overflow-hidden">
+              <div className="hidden sm:block flex-1 ml-6 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--nd-border)' }}>
                 <div 
                   className={cn(
                     "h-full rounded-full transition-all duration-1000 ease-out",
                     priorityAccent === 'rose' ? "bg-rose-500" :
                     priorityAccent === 'amber' ? "bg-amber-500" :
-                    priorityAccent === 'blue' ? "bg-blue-500" : "bg-zinc-600"
+                    priorityAccent === 'blue' ? "bg-blue-500" : "bg-gray-400"
                   )} 
                   style={{ width: `${(priorityScore / 10) * 100}%` }}
                 />
@@ -421,7 +407,8 @@ function ActionCard({
                     <TooltipTrigger asChild>
                       <button 
                         onClick={() => onStatusChange(action.rec_id, 'completed')}
-                        className="p-2.5 rounded-xl bg-zinc-800/50 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 border border-transparent transition-all"
+                        className="p-2.5 rounded-xl border border-transparent transition-all hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700"
+                        style={{ background: 'var(--nd-bg)', color: 'var(--nd-text-muted)' }}
                       >
                         <CheckCircle2 className="w-4.5 h-4.5" />
                       </button>
@@ -435,7 +422,8 @@ function ActionCard({
                     <TooltipTrigger asChild>
                       <button 
                         onClick={() => onStatusChange(action.rec_id, 'dismissed')}
-                        className="p-2.5 rounded-xl bg-zinc-800/50 text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30 border border-transparent transition-all"
+                        className="p-2.5 rounded-xl border border-transparent transition-all hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700"
+                        style={{ background: 'var(--nd-bg)', color: 'var(--nd-text-muted)' }}
                       >
                         <Clock className="w-4.5 h-4.5" />
                       </button>
@@ -448,10 +436,11 @@ function ActionCard({
             
             <button 
               onClick={() => setIsOpen(!isOpen)}
-              className={cn(
-                "p-2.5 rounded-xl transition-all border border-transparent",
-                isOpen ? "bg-zinc-800 text-white border-zinc-700" : "bg-zinc-800/50 text-zinc-500 hover:text-white"
-              )}
+              className="p-2.5 rounded-xl transition-all border"
+              style={isOpen
+                ? { background: 'var(--nd-bg)', color: 'var(--nd-text-primary)', borderColor: 'var(--nd-border-hover)' }
+                : { background: 'var(--nd-bg)', color: 'var(--nd-text-muted)', borderColor: 'var(--nd-border)' }
+              }
             >
               {isOpen ? <ChevronUp className="w-4.5 h-4.5" /> : <ChevronDown className="w-4.5 h-4.5" />}
             </button>
@@ -462,17 +451,14 @@ function ActionCard({
         {isOpen && (
           <div className="mt-6 ml-16 space-y-6 animate-in slide-in-from-top-4 duration-500">
             {/* Strategy Box */}
-            <div className="relative overflow-hidden rounded-2xl border border-zinc-800/60 bg-zinc-950/50 p-5 shadow-inner">
-              <div className="absolute top-0 right-0 p-4 opacity-5">
-                <BookOpen className="w-12 h-12" />
-              </div>
+            <div className="relative overflow-hidden rounded-2xl p-5" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' }}>
               <div className="flex items-center gap-2 mb-3">
-                <div className="p-1.5 bg-violet-500/10 rounded-lg border border-violet-500/20">
-                  <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+                <div className="p-1.5 rounded-lg" style={{ background: 'var(--nd-purple-subtle)', border: '1px solid var(--nd-purple)' }}>
+                  <Sparkles className="w-3.5 h-3.5" style={{ color: 'var(--nd-purple)' }} />
                 </div>
-                <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Execution Strategy</span>
+                <span className="text-xs uppercase tracking-widest font-bold" style={{ color: 'var(--nd-text-muted)' }}>Execution Strategy</span>
               </div>
-              <p className="text-sm text-zinc-300 leading-relaxed font-medium">
+              <p className="text-sm leading-relaxed font-medium" style={{ color: 'var(--nd-text-secondary)' }}>
                 {action.action_detail}
               </p>
             </div>
@@ -481,37 +467,37 @@ function ActionCard({
             {(action.affected_urls?.length ?? 0) > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2 ml-1">
-                  <Link2 className="w-3.5 h-3.5 text-zinc-600" />
-                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Target Endpoints</span>
+                  <Link2 className="w-3.5 h-3.5" style={{ color: 'var(--nd-text-muted)' }} />
+                  <span className="text-xs uppercase tracking-widest font-bold" style={{ color: 'var(--nd-text-muted)' }}>Target Endpoints</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {action.affected_urls.map((url, i) => (
-                    <div key={i} className="group/url flex items-center justify-between px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800/60 hover:border-zinc-700 transition-colors">
-                      <code className="text-[10px] text-zinc-400 truncate max-w-[80%] font-mono">{url}</code>
-                      <ExternalLink className="w-3 h-3 text-zinc-700 group-hover/url:text-zinc-400 transition-colors" />
+                    <div key={i} className="flex items-center justify-between px-3 py-2 rounded-xl transition-colors" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+                      <code className="text-[10px] truncate max-w-[80%] font-mono" style={{ color: 'var(--nd-text-secondary)' }}>{url}</code>
+                      <ExternalLink className="w-3 h-3" style={{ color: 'var(--nd-text-muted)' }} />
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Model Sensitivity Breakdown (Issue 10 Fix) */}
+            {/* Model Sensitivity Breakdown */}
             {action.gap_type === 'model_gap' && action.model_detail && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2 ml-1">
-                  <Activity className="w-3.5 h-3.5 text-indigo-400" />
-                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Model Sensitivity Breakdown</span>
+                  <Activity className="w-3.5 h-3.5 text-indigo-600" />
+                  <span className="text-xs uppercase tracking-widest font-bold" style={{ color: 'var(--nd-text-muted)' }}>Model Sensitivity Breakdown</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 text-center">
-                    <p className="text-[10px] text-emerald-500/60 uppercase tracking-wider mb-1 font-bold">Peak Performance</p>
-                    <p className="text-2xl font-bold text-emerald-400">#{action.model_detail.best_rank}</p>
-                    <p className="text-[10px] text-zinc-500 capitalize mt-1 font-medium">{action.model_detail.best_model}</p>
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
+                    <p className="text-[10px] text-emerald-600 uppercase tracking-wider mb-1 font-bold">Peak Performance</p>
+                    <p className="text-2xl font-bold text-emerald-700">#{action.model_detail.best_rank}</p>
+                    <p className="text-[10px] capitalize mt-1 font-medium" style={{ color: 'var(--nd-text-muted)' }}>{action.model_detail.best_model}</p>
                   </div>
-                  <div className="bg-rose-500/5 border border-rose-500/20 rounded-2xl p-4 text-center">
-                    <p className="text-[10px] text-rose-500/60 uppercase tracking-wider mb-1 font-bold">Critical Gap</p>
-                    <p className="text-2xl font-bold text-rose-400">#{action.model_detail.worst_rank}</p>
-                    <p className="text-[10px] text-zinc-500 capitalize mt-1 font-medium">{action.model_detail.worst_model}</p>
+                  <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-center">
+                    <p className="text-[10px] text-rose-600 uppercase tracking-wider mb-1 font-bold">Critical Gap</p>
+                    <p className="text-2xl font-bold text-rose-700">#{action.model_detail.worst_rank}</p>
+                    <p className="text-[10px] capitalize mt-1 font-medium" style={{ color: 'var(--nd-text-muted)' }}>{action.model_detail.worst_model}</p>
                   </div>
                 </div>
               </div>
@@ -557,7 +543,6 @@ function ActionQueue({
     <SectionCard
       title="Strategic Action Queue"
       description="The MOAT 4 engine has analyzed your competitive landscape and prioritized these actions based on their potential to flip AI model rankings."
-      className="border-zinc-800/50"
     >
       <div className="space-y-8">
         {/* Role Navigation */}
@@ -570,28 +555,27 @@ function ActionQueue({
                 <button
                   key={role.id}
                   onClick={() => setActiveRole(role.id)}
-                  className={cn(
-                    "group relative flex items-center gap-2.5 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all border",
-                    isActive 
-                      ? "bg-zinc-800 border-zinc-600 text-white shadow-xl shadow-black/40 scale-[1.02]" 
-                      : "bg-transparent border-zinc-800/60 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/30"
-                  )}
+                  className="group relative flex items-center gap-2.5 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all border"
+                  style={isActive
+                    ? { background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border-hover)', color: 'var(--nd-text-primary)', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }
+                    : { background: 'transparent', borderColor: 'var(--nd-border)', color: 'var(--nd-text-muted)' }
+                  }
                 >
                   {isActive && (
-                    <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.6)]" />
+                    <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500" />
                   )}
-                  <Icon className={cn("w-4 h-4", isActive ? "text-amber-400" : "text-zinc-600 group-hover:text-zinc-500")} />
+                  <Icon className={cn("w-4 h-4", isActive ? "text-amber-600" : "")} style={!isActive ? { color: 'var(--nd-text-muted)' } : {}} />
                   <span>{role.label}</span>
                 </button>
               )
             })}
           </div>
           
-          <div className="flex items-start gap-3 bg-zinc-950/40 rounded-2xl p-4 border border-zinc-800/50 shadow-inner">
-            <div className="p-1.5 bg-zinc-800 rounded-lg mt-0.5">
-              <Info className="w-3.5 h-3.5 text-zinc-500" />
+          <div className="flex items-start gap-3 rounded-2xl p-4" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+            <div className="p-1.5 rounded-lg mt-0.5" style={{ background: 'var(--nd-border)' }}>
+              <Info className="w-3.5 h-3.5" style={{ color: 'var(--nd-text-muted)' }} />
             </div>
-            <p className="text-xs text-zinc-500 leading-relaxed italic font-medium">
+            <p className="text-xs leading-relaxed italic font-medium" style={{ color: 'var(--nd-text-secondary)' }}>
               {ROLE_HINTS[activeRole]}
             </p>
           </div>
@@ -601,12 +585,12 @@ function ActionQueue({
         <div className="space-y-12">
           {filteredActions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 text-center space-y-4">
-              <div className="w-20 h-20 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-inner">
-                <Search className="w-10 h-10 text-zinc-800" />
+              <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+                <Search className="w-10 h-10" style={{ color: 'var(--nd-text-muted)' }} />
               </div>
               <div className="space-y-1">
-                <p className="text-lg font-bold text-zinc-400">No actions found</p>
-                <p className="text-sm text-zinc-600 max-w-xs">
+                <p className="text-lg font-bold" style={{ color: 'var(--nd-text-secondary)' }}>No actions found</p>
+                <p className="text-sm max-w-xs" style={{ color: 'var(--nd-text-muted)' }}>
                   Your competitive standing for this role perspective is currently optimal.
                 </p>
               </div>
@@ -616,32 +600,32 @@ function ActionQueue({
               {/* CXO Brief Special View */}
               {activeRole === 'cxo' && moat4.role_output && (
                 <div className="space-y-8 animate-in fade-in duration-700">
-                  <div className="relative overflow-hidden rounded-[2rem] border border-amber-500/20 bg-amber-500/5 p-8 shadow-2xl">
-                    <div className="absolute top-0 right-0 p-6 opacity-5">
+                  <div className="relative overflow-hidden rounded-[2rem] border border-amber-200 bg-amber-50 p-8 shadow-sm">
+                    <div className="absolute top-0 right-0 p-6 opacity-10">
                       <Trophy className="w-24 h-24 text-amber-500" />
                     </div>
                     <div className="relative z-10 space-y-6">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-amber-500/10 rounded-xl border border-amber-500/20">
-                          <Trophy className="w-5 h-5 text-amber-400" />
+                        <div className="p-2 bg-amber-100 rounded-xl border border-amber-200">
+                          <Trophy className="w-5 h-5 text-amber-600" />
                         </div>
-                        <span className="text-xs font-bold uppercase tracking-[0.3em] text-amber-500/80">
+                        <span className="text-xs font-bold uppercase tracking-[0.3em] text-amber-700/80">
                           Executive Strategic Summary
                         </span>
                       </div>
-                      <h2 className="text-2xl font-bold text-zinc-100 leading-snug tracking-tight">
+                      <h2 className="text-2xl font-bold leading-snug tracking-tight" style={{ color: 'var(--nd-text-primary)' }}>
                         {moat4.role_output.headline}
                       </h2>
-                      <p className="text-lg text-zinc-300 leading-relaxed font-medium">
+                      <p className="text-lg leading-relaxed font-medium" style={{ color: 'var(--nd-text-secondary)' }}>
                         {moat4.role_output.summary}
                       </p>
                       {moat4.role_output.top_risk && (
-                        <div className="pt-6 border-t border-zinc-800/40">
+                        <div className="pt-6" style={{ borderTop: '1px solid var(--nd-border)' }}>
                           <div className="flex items-center gap-2 mb-3">
-                            <ShieldAlert className="w-4 h-4 text-rose-400" />
-                            <span className="text-[10px] text-rose-400/80 uppercase tracking-[0.2em] font-bold">Strategic Risk Factor</span>
+                            <ShieldAlert className="w-4 h-4 text-rose-600" />
+                            <span className="text-xs text-rose-600/80 uppercase tracking-[0.2em] font-bold">Strategic Risk Factor</span>
                           </div>
-                          <p className="text-sm text-zinc-400 leading-relaxed italic border-l-2 border-rose-500/30 pl-4 py-1">
+                          <p className="text-sm leading-relaxed italic border-l-2 border-rose-300 pl-4 py-1" style={{ color: 'var(--nd-text-secondary)' }}>
                             {moat4.role_output.top_risk}
                           </p>
                         </div>
@@ -651,8 +635,8 @@ function ActionQueue({
                   
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 ml-1">
-                      <Sparkles className="w-4 h-4 text-amber-400" />
-                      <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Top Strategic Actions</span>
+                      <Sparkles className="w-4 h-4 text-amber-600" />
+                      <span className="text-xs uppercase tracking-widest font-bold" style={{ color: 'var(--nd-text-muted)' }}>Top Strategic Actions</span>
                     </div>
                     <div className="space-y-4">
                       {tiers.critical.concat(tiers.high).slice(0, 3).map((a, i) => (
@@ -708,30 +692,30 @@ function TierGroup({
   onStatusChange: (recId: string, status: 'completed' | 'dismissed') => void
 }) {
   const accentCls = 
-    accent === 'rose' ? 'text-rose-400 border-rose-500/30 bg-rose-500/10' :
-    accent === 'amber' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' :
-    accent === 'blue' ? 'text-blue-400 border-blue-500/30 bg-blue-500/10' :
-    'text-zinc-500 border-zinc-700 bg-zinc-800/30'
+    accent === 'rose' ? 'text-rose-700 border-rose-200 bg-rose-50' :
+    accent === 'amber' ? 'text-amber-700 border-amber-200 bg-amber-50' :
+    accent === 'blue' ? 'text-blue-700 border-blue-200 bg-blue-50' :
+    'text-gray-600 border-gray-200 bg-gray-50'
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
-        <div className={cn("flex items-center gap-2 px-4 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-[0.2em] shadow-lg", accentCls)}>
+        <div className={cn("flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-bold uppercase tracking-[0.2em] shadow-sm", accentCls)}>
           <Icon className="w-4 h-4" />
           {label}
         </div>
-        <div className="flex-1 h-px bg-gradient-to-r from-zinc-800/60 via-zinc-800/20 to-transparent" />
-        <Badge variant="secondary" className="bg-zinc-900 border border-zinc-800 text-zinc-500 text-[10px] font-bold px-2 py-0.5">
+        <div className="flex-1 h-px" style={{ background: 'var(--nd-border)' }} />
+        <Badge variant="secondary" className="text-[10px] font-bold px-2 py-0.5" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)', color: 'var(--nd-text-muted)' }}>
           {actions.length} ACTIONS
         </Badge>
       </div>
       
       {actions.length === 0 ? (
-        <div className="flex items-center gap-4 py-6 px-6 rounded-[1.5rem] border border-dashed border-zinc-800 bg-zinc-900/10 transition-all hover:bg-zinc-900/20">
-          <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-            <CheckCheck className="w-5 h-5 text-emerald-500/60" />
+        <div className="flex items-center gap-4 py-6 px-6 rounded-[1.5rem] border border-dashed transition-all" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+          <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200">
+            <CheckCheck className="w-5 h-5 text-emerald-600" />
           </div>
-          <p className="text-sm text-zinc-500 font-medium italic">
+          <p className="text-sm font-medium italic" style={{ color: 'var(--nd-text-secondary)' }}>
             No pending actions in this tier. Your competitive stance is stable.
           </p>
         </div>
@@ -759,10 +743,9 @@ function LeaderboardDelta({ comparison }: { comparison: ModuleFCompareVisibility
     <SectionCard
       title="Leaderboard Momentum"
       description="Score and rank shifts compared to your last analysis run."
-      className="border-zinc-800/50"
     >
       <div className="space-y-4">
-        <div className="grid grid-cols-[1fr_100px_100px_100px] gap-4 px-6 py-3 bg-zinc-900/60 rounded-xl border border-zinc-800/60 text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-bold">
+        <div className="grid grid-cols-[1fr_100px_100px_100px] gap-4 px-6 py-3 rounded-xl border text-xs uppercase tracking-[0.2em] font-bold" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-muted)' }}>
           <div>Entity Name</div>
           <div className="text-right">AIVS™</div>
           <div className="text-right">Δ Score</div>
@@ -778,23 +761,25 @@ function LeaderboardDelta({ comparison }: { comparison: ModuleFCompareVisibility
               <div key={e.name} className={cn(
                 'group relative overflow-hidden grid grid-cols-[1fr_100px_100px_100px] gap-4 items-center px-6 py-4 rounded-2xl border transition-all duration-300',
                 isBrand 
-                  ? 'bg-amber-500/5 border-amber-500/20 hover:border-amber-500/40' 
-                  : 'bg-zinc-900/40 border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900/60'
-              )}>
+                  ? 'bg-amber-50 border-amber-200' 
+                  : 'border-nd-border'
+              )}
+              style={!isBrand ? { background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' } : {}}>
                 <div className="flex items-center gap-4 min-w-0">
                   <div className={cn(
                     'w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 border transition-transform group-hover:scale-110',
-                    isBrand ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-zinc-800 text-zinc-500 border-zinc-700'
-                  )}>
+                    isBrand ? 'bg-amber-50 text-amber-700 border-amber-200' : 'border-gray-200 text-gray-500'
+                  )}
+                  style={!isBrand ? { background: 'var(--nd-bg)' } : {}}>
                     {e.rank_position ?? i + 1}
                   </div>
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className={cn('text-sm truncate font-bold', isBrand ? 'text-white' : 'text-zinc-200')}>
+                      <span className="text-sm truncate font-bold" style={{ color: 'var(--nd-text-primary)' }}>
                         {e.name}
                       </span>
                       {isBrand && (
-                        <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-[9px] font-bold py-0 h-4 px-1.5">
+                        <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[9px] font-bold py-0 h-4 px-1.5">
                           BRAND
                         </Badge>
                       )}
@@ -803,23 +788,25 @@ function LeaderboardDelta({ comparison }: { comparison: ModuleFCompareVisibility
                 </div>
                 
                 <div className="text-right">
-                  <span className="text-sm font-mono font-bold text-zinc-100">
+                  <span className="text-sm font-mono font-bold" style={{ color: 'var(--nd-text-primary)' }}>
                     {e.benchmark_score?.toFixed(1) ?? '—'}
                   </span>
                 </div>
 
                 <div className={cn(
                   'text-sm font-mono font-bold text-right flex items-center justify-end gap-1',
-                  delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-rose-400' : 'text-zinc-600'
-                )}>
+                  delta > 0 ? 'text-emerald-600' : delta < 0 ? 'text-rose-600' : ''
+                )}
+                style={delta === 0 ? { color: 'var(--nd-text-muted)' } : {}}>
                   {delta !== 0 && (delta > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />)}
                   {delta !== 0 ? `${delta > 0 ? '+' : ''}${delta.toFixed(1)}` : '—'}
                 </div>
 
                 <div className={cn(
                   'text-sm text-right font-bold tabular-nums',
-                  move > 0 ? 'text-emerald-400' : move < 0 ? 'text-rose-400' : 'text-zinc-700'
-                )}>
+                  move > 0 ? 'text-emerald-600' : move < 0 ? 'text-rose-600' : ''
+                )}
+                style={move === 0 ? { color: 'var(--nd-text-muted)' } : {}}>
                   {move !== 0 ? (
                     <span className="flex items-center justify-end gap-1">
                       {move > 0 ? '↑' : '↓'} {Math.abs(move)}
@@ -847,26 +834,25 @@ function SourcesPanel({ sourceAnalysis }: { sourceAnalysis?: ModuleFSourceAnalys
     <SectionCard
       title="Competitive Citation Analysis"
       description="Domains cited by AI models for your competitors. Gaining citations here boosts your authority."
-      className="border-zinc-800/50"
     >
       <div className="space-y-6">
-        <div className="divide-y divide-zinc-800/40">
+        <div style={{ borderTop: '1px solid var(--nd-border)' }} className="divide-y">
           {shown.map((src, i) => (
-            <div key={i} className="group py-6 first:pt-0 last:pb-0 transition-all duration-300 hover:bg-zinc-800/5 rounded-2xl px-4 -mx-4">
+            <div key={i} className="group py-6 first:pt-0 last:pb-0 transition-all duration-300">
               <div className="flex flex-col lg:flex-row gap-8 items-start">
                 {/* Competitor Identity */}
                 <div className="w-full lg:w-[260px] space-y-3 shrink-0">
                   <div className="flex items-center gap-3">
-                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] animate-pulse" />
-                    <span className="text-base font-bold text-zinc-100 group-hover:text-blue-400 transition-colors tracking-tight">
+                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
+                    <span className="text-base font-bold tracking-tight transition-colors" style={{ color: 'var(--nd-text-primary)' }}>
                       {src.competitor}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="bg-zinc-900/60 border-zinc-800 text-zinc-500 text-[10px] font-bold px-2 py-0.5 tracking-wider">
+                    <Badge variant="secondary" className="text-[10px] font-bold px-2 py-0.5 tracking-wider" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)', color: 'var(--nd-text-muted)' }}>
                       {src.citation_count} CITES
                     </Badge>
-                    <Badge variant="secondary" className="bg-zinc-900/60 border-zinc-800 text-zinc-500 text-[10px] font-bold px-2 py-0.5 tracking-wider">
+                    <Badge variant="secondary" className="text-[10px] font-bold px-2 py-0.5 tracking-wider" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)', color: 'var(--nd-text-muted)' }}>
                       {src.unique_domains ?? 0} DOMAINS
                     </Badge>
                   </div>
@@ -880,26 +866,26 @@ function SourcesPanel({ sourceAnalysis }: { sourceAnalysis?: ModuleFSourceAnalys
                     { l: 'Trust',     v: src.credibility_score,            c: 'violet', i: ShieldCheck },
                   ].map(m => (
                     <div key={m.l} className={cn(
-                      'relative overflow-hidden flex flex-col gap-1.5 p-3 rounded-xl border min-w-[120px] transition-all group/metric hover:shadow-lg',
-                      m.c === 'amber' ? 'bg-amber-500/5 border-amber-500/20 hover:border-amber-500/40' :
-                      m.c === 'cyan'  ? 'bg-cyan-500/5 border-cyan-500/20 hover:border-cyan-500/40' :
-                      'bg-violet-500/5 border-violet-500/20 hover:border-violet-500/40'
+                      'relative overflow-hidden flex flex-col gap-1.5 p-3 rounded-xl border min-w-[120px] transition-all group/metric',
+                      m.c === 'amber' ? 'bg-amber-50 border-amber-200' :
+                      m.c === 'cyan'  ? 'bg-cyan-50 border-cyan-200' :
+                      'bg-violet-50 border-violet-200'
                     )}>
                       <div className="flex items-center justify-between">
                         <span className={cn(
                           'text-[9px] font-bold uppercase tracking-widest opacity-60',
-                          m.c === 'amber' ? 'text-amber-500' : m.c === 'cyan' ? 'text-cyan-500' : 'text-violet-500'
+                          m.c === 'amber' ? 'text-amber-600' : m.c === 'cyan' ? 'text-cyan-600' : 'text-violet-600'
                         )}>{m.l}</span>
                         <m.i className={cn(
                           'w-3 h-3 transition-transform group-hover/metric:scale-110',
-                          m.c === 'amber' ? 'text-amber-500' : m.c === 'cyan' ? 'text-cyan-500' : 'text-violet-500'
+                          m.c === 'amber' ? 'text-amber-600' : m.c === 'cyan' ? 'text-cyan-600' : 'text-violet-600'
                         )} />
                       </div>
                       <div className="flex items-end gap-2">
-                        <span className="text-xl font-bold text-zinc-100 tabular-nums">
+                        <span className="text-xl font-bold tabular-nums" style={{ color: 'var(--nd-text-primary)' }}>
                           {m.v?.toFixed(0) ?? '0'}
                         </span>
-                        <div className="flex-1 h-1 bg-zinc-800/50 rounded-full mb-1.5 overflow-hidden">
+                        <div className="flex-1 h-1 rounded-full mb-1.5 overflow-hidden" style={{ background: 'var(--nd-border)' }}>
                           <div 
                             className={cn(
                               'h-full rounded-full transition-all duration-1000',
@@ -920,15 +906,15 @@ function SourcesPanel({ sourceAnalysis }: { sourceAnalysis?: ModuleFSourceAnalys
                       <TooltipProvider key={j}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <div className="group/domain flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-600 transition-all cursor-default shadow-sm hover:shadow-md">
-                              <Globe className="w-3.5 h-3.5 text-zinc-600 group-hover/domain:text-blue-400 transition-colors" />
-                              <span className="text-[11px] text-zinc-300 font-mono tracking-tight group-hover:text-zinc-100 transition-colors">{cf.domain}</span>
-                              <div className="h-4 w-[1px] bg-zinc-800 mx-1" />
-                              <span className="text-[10px] text-zinc-600 font-bold tracking-tighter group-hover:text-blue-400 transition-colors">×{cf.count}</span>
+                            <div className="group/domain flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all cursor-default" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+                              <Globe className="w-3.5 h-3.5" style={{ color: 'var(--nd-text-muted)' }} />
+                              <span className="text-xs font-mono tracking-tight" style={{ color: 'var(--nd-text-secondary)' }}>{cf.domain}</span>
+                              <div className="h-4 w-[1px] mx-1" style={{ background: 'var(--nd-border)' }} />
+                              <span className="text-[11px] font-bold tracking-tighter" style={{ color: 'var(--nd-text-muted)' }}>×{cf.count}</span>
                             </div>
                           </TooltipTrigger>
-                          <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-200">
-                            <p className="text-xs">Cited {cf.count} times for <span className="text-blue-400 font-bold">{src.competitor}</span></p>
+                          <TooltipContent className="bg-white border" style={{ borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}>
+                            <p className="text-xs">Cited {cf.count} times for <span className="text-blue-600 font-bold">{src.competitor}</span></p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -945,12 +931,12 @@ function SourcesPanel({ sourceAnalysis }: { sourceAnalysis?: ModuleFSourceAnalys
                     if (!entries.length) return null
                     
                     return (
-                      <div className="flex items-center gap-3 pt-2 border-t border-zinc-800/40">
-                        <span className="text-[10px] text-zinc-600 uppercase tracking-[0.2em] font-bold">Content Mix:</span>
+                      <div className="flex items-center gap-3 pt-2" style={{ borderTop: '1px solid var(--nd-border)' }}>
+                        <span className="text-xs uppercase tracking-[0.2em] font-bold" style={{ color: 'var(--nd-text-muted)' }}>Content Mix:</span>
                         <div className="flex flex-wrap gap-2">
                           {entries.slice(0, 5).map(([ct, count]) => (
                             <Badge key={ct} variant="outline" className={cn(
-                              'text-[10px] font-bold capitalize px-2.5 py-0.5 border-zinc-800/60 shadow-sm transition-all hover:scale-105',
+                              'text-[10px] font-bold capitalize px-2.5 py-0.5 shadow-sm transition-all hover:scale-105',
                               CT_COLOR[ct] ?? CT_COLOR.page
                             )}>
                               {ct} <span className="ml-1.5 opacity-60 font-mono">{count}</span>
@@ -969,7 +955,8 @@ function SourcesPanel({ sourceAnalysis }: { sourceAnalysis?: ModuleFSourceAnalys
         {sources.length > 3 && (
           <button
             onClick={() => setExp(!exp)}
-            className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800 hover:border-zinc-700 text-xs font-bold text-zinc-400 hover:text-zinc-200 transition-all group shadow-inner"
+            className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl border text-xs font-bold transition-all group"
+            style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-secondary)' }}
           >
             {exp ? <ChevronUp className="w-4 h-4 group-hover:-translate-y-0.5 transition-transform" /> : <ChevronDown className="w-4 h-4 group-hover:translate-y-0.5 transition-transform" />}
             {exp ? 'Collapse Deep Analysis' : `View Comprehensive Citation Profiles (${sources.length})`}
@@ -993,7 +980,6 @@ function MetricAccordion({ metricRecs }: { metricRecs: ModuleFRecommendations })
     <SectionCard
       title="Metric-Level Analysis"
       description="Detailed explanations for key metric scores and how to improve them."
-      className="border-zinc-800/50"
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {recs.map(({ key, rec }) => {
@@ -1004,8 +990,12 @@ function MetricAccordion({ metricRecs }: { metricRecs: ModuleFRecommendations })
           return (
             <div key={key} className={cn(
               'group relative overflow-hidden flex flex-col rounded-2xl border transition-all duration-300',
-              isOpen ? 'bg-zinc-800/40 border-zinc-600 shadow-xl' : 'bg-zinc-900/40 border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900/60'
-            )}>
+              isOpen ? 'border-amber-300 shadow-sm' : 'border-nd-border'
+            )}
+            style={isOpen
+              ? { background: 'var(--nd-purple-subtle)', borderColor: 'var(--nd-purple)' }
+              : { background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }
+            }>
               <button 
                 onClick={() => setOpen(isOpen ? null : key)}
                 className="w-full flex items-center justify-between p-5 transition-colors"
@@ -1013,44 +1003,46 @@ function MetricAccordion({ metricRecs }: { metricRecs: ModuleFRecommendations })
                 <div className="flex items-center gap-4">
                   <div className={cn(
                     'w-10 h-10 rounded-xl border flex items-center justify-center transition-all group-hover:scale-110',
-                    isOpen ? 'bg-amber-500/20 border-amber-500/30 text-amber-400' : 'bg-zinc-800 border-zinc-700 text-zinc-400'
-                  )}>
+                    isOpen ? 'bg-amber-50 border-amber-200 text-amber-700' : 'border-gray-200'
+                  )}
+                  style={!isOpen ? { background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-muted)' } : {}}>
                     {meta.icon}
                   </div>
-                  <span className={cn('text-sm font-bold tracking-tight', isOpen ? 'text-white' : 'text-zinc-200 group-hover:text-white')}>
+                  <span className="text-sm font-bold tracking-tight" style={{ color: 'var(--nd-text-primary)' }}>
                     {meta.label}
                   </span>
                 </div>
                 <div className={cn(
-                  'p-1.5 rounded-lg bg-zinc-800/50 text-zinc-500 transition-all',
-                  isOpen && 'bg-amber-500/10 text-amber-400 rotate-180'
-                )}>
+                  'p-1.5 rounded-lg transition-all',
+                  isOpen ? 'bg-amber-50 text-amber-700 rotate-180' : ''
+                )}
+                style={!isOpen ? { background: 'var(--nd-bg)', color: 'var(--nd-text-muted)' } : {}}>
                   <ChevronDown className="w-4 h-4" />
                 </div>
               </button>
               
               {isOpen && (
                 <div className="px-5 pb-5 space-y-4 animate-in slide-in-from-top-4 duration-500">
-                  <div className="h-px bg-zinc-800/50 w-full" />
+                  <div className="h-px w-full" style={{ background: 'var(--nd-border)' }} />
                   {rec.why && (
-                    <div className="relative overflow-hidden flex items-start gap-4 text-sm text-zinc-400 bg-zinc-950/50 p-4 rounded-xl border border-zinc-800/50 shadow-inner">
-                      <div className="p-1.5 bg-blue-500/10 rounded-lg border border-blue-500/20 shrink-0 mt-0.5">
-                        <HelpCircle className="w-3.5 h-3.5 text-blue-400" />
+                    <div className="flex items-start gap-4 text-sm p-4 rounded-xl" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+                      <div className="p-1.5 bg-blue-50 rounded-lg border border-blue-200 shrink-0 mt-0.5">
+                        <HelpCircle className="w-3.5 h-3.5 text-blue-700" />
                       </div>
                       <div className="space-y-1">
-                        <span className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">Root Cause Analysis</span>
-                        <p className="leading-relaxed text-zinc-300 font-medium">{rec.why}</p>
+                        <span className="text-[10px] uppercase tracking-widest font-bold" style={{ color: 'var(--nd-text-muted)' }}>Root Cause Analysis</span>
+                        <p className="leading-relaxed font-medium" style={{ color: 'var(--nd-text-secondary)' }}>{rec.why}</p>
                       </div>
                     </div>
                   )}
                   {rec.fix && (
-                    <div className="relative overflow-hidden flex items-start gap-4 text-sm text-zinc-400 bg-zinc-950/50 p-4 rounded-xl border border-zinc-800/50 shadow-inner">
-                      <div className="p-1.5 bg-emerald-500/10 rounded-lg border border-emerald-500/20 shrink-0 mt-0.5">
-                        <Settings2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <div className="flex items-start gap-4 text-sm p-4 rounded-xl" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+                      <div className="p-1.5 bg-emerald-50 rounded-lg border border-emerald-200 shrink-0 mt-0.5">
+                        <Settings2 className="w-3.5 h-3.5 text-emerald-700" />
                       </div>
                       <div className="space-y-1">
-                        <span className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">Optimization Strategy</span>
-                        <p className="leading-relaxed text-zinc-300 font-medium">{rec.fix}</p>
+                        <span className="text-[10px] uppercase tracking-widest font-bold" style={{ color: 'var(--nd-text-muted)' }}>Optimization Strategy</span>
+                        <p className="leading-relaxed font-medium" style={{ color: 'var(--nd-text-secondary)' }}>{rec.fix}</p>
                       </div>
                     </div>
                   )}
@@ -1105,11 +1097,11 @@ export function CompetitorRecommendations({
   if (isLoading) {
     return (
       <div className="space-y-8 animate-pulse">
-        <div className="h-64 rounded-[2rem] bg-zinc-900/50" />
+        <div className="h-64 rounded-[2rem]" style={{ background: 'var(--nd-border)' }} />
         <div className="grid grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map(i => <div key={i} className="h-32 rounded-2xl bg-zinc-900/50" />)}
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-32 rounded-2xl" style={{ background: 'var(--nd-border)' }} />)}
         </div>
-        <div className="h-96 rounded-[2rem] bg-zinc-900/50" />
+        <div className="h-96 rounded-[2rem]" style={{ background: 'var(--nd-border)' }} />
       </div>
     )
   }
@@ -1118,7 +1110,7 @@ export function CompetitorRecommendations({
     return <AnalysisEmptyState 
       title="No Recommendations Yet" 
       description="Run a competitive analysis to generate MOAT 4 strategic recommendations." 
-      icon={<Rocket className="w-16 h-16 text-zinc-700" />}
+      icon={<Rocket className="w-16 h-16" style={{ color: 'var(--nd-text-muted)' }} />}
     />
   }
 
@@ -1175,10 +1167,10 @@ export function CompetitorRecommendations({
       />
 
       {/* Deep Dive Analysis Section */}
-      <div className="space-y-8 pt-8 border-t border-zinc-800/50">
+      <div className="space-y-8 pt-8" style={{ borderTop: '1px solid var(--nd-border)' }}>
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-zinc-200 tracking-tight">Deep Dive Analysis</h2>
-          <p className="text-zinc-500 max-w-2xl mx-auto">Explore detailed metrics and competitive intelligence data that power the recommendations.</p>
+          <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--nd-text-primary)' }}>Deep Dive Analysis</h2>
+          <p className="max-w-2xl mx-auto" style={{ color: 'var(--nd-text-secondary)' }}>Explore detailed metrics and competitive intelligence data that power the recommendations.</p>
         </div>
         <LeaderboardDelta comparison={moduleFData?.compare_visibility_against_competitors ?? null} />
         <SourcesPanel sourceAnalysis={moduleFData?.source_analysis} />

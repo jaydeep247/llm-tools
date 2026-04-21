@@ -537,7 +537,7 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
               <div className="flex items-center gap-2 mb-1">
                 <h2 className="nd-page-title">Gap Opportunities</h2>
                 {flags.gap_opportunities === 'limited' && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-amber-300 bg-amber-50 text-amber-700">Limited View</span>
+              <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-amber-300 bg-amber-50 text-amber-700">Limited View</span>
                 )}
               </div>
               <p className="text-sm leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>
@@ -548,7 +548,7 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
           </div>
           <div className="flex flex-col items-end gap-2 md:self-start shrink-0">
             <div className="flex flex-col items-end gap-0.5 px-4 py-2 rounded-xl border" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--nd-text-muted)' }}>Total Prompts</span>
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--nd-text-muted)' }}>Total Prompts</span>
               <span className="text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>{totalPrompts}</span>
             </div>
             <Button
@@ -587,7 +587,7 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
         </div>
       ) : !hasData ? (
         <AnalysisEmptyState
-          icon={<Target className="w-8 h-8 text-zinc-400" />}
+          icon={<Target className="w-8 h-8" style={{ color: 'var(--nd-text-muted)' }} />}
           title="No Gap Data"
           description="Run Module F from the Visibility Comparison tab to generate prompt rankings and competitor coverage gaps."
         />
@@ -672,7 +672,7 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
               {/* Sidebar / Selector */}
               <div className="w-full lg:w-72 shrink-0 space-y-6">
                 <div>
-                  <div className="text-[10px] font-bold uppercase tracking-[0.2em] mb-4" style={{ color: 'var(--nd-text-muted)' }}>Competitors</div>
+                  <div className="text-xs font-bold uppercase tracking-[0.2em] mb-4" style={{ color: 'var(--nd-text-muted)' }}>Competitors</div>
                   <div className="flex flex-col gap-2">
                     {rows.map((row) => (
                       <button
@@ -697,7 +697,7 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
 
                 {activeRow && (
                   <div className="rounded-xl border p-4 space-y-4" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
-                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest border-b pb-3" style={{ color: 'var(--nd-text-muted)', borderColor: 'var(--nd-border)' }}>
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest border-b pb-3" style={{ color: 'var(--nd-text-muted)', borderColor: 'var(--nd-border)' }}>
                       <BarChart3 className="w-3.5 h-3.5" style={{ color: 'var(--nd-teal)' }} /> Performance
                     </div>
                     <div className="space-y-3">
@@ -709,8 +709,8 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
                       ))}
                     </div>
                     <div className="pt-3 border-t space-y-2" style={{ borderColor: 'var(--nd-border)' }}>
-                      <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--nd-text-muted)' }}>Opportunity Summary</div>
-                      <p className="text-[11px] leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>
+                      <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--nd-text-muted)' }}>Opportunity Summary</div>
+                      <p className="text-xs leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>
                         Addressing these{' '}
                         <span className="font-bold" style={{ color: 'var(--nd-text-primary)' }}>{activeRow.missingPrompts}</span>{' '}
                         gaps could improve{' '}
@@ -760,12 +760,12 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-3">
                                 <Badge className={cn(
-                                  'px-2 py-0.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider',
+                                  'px-2 py-0.5 rounded-lg border text-xs font-bold uppercase tracking-wider',
                                   isMissing ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-200'
                                 )}>
                                   {isMissing ? 'High Priority Gap' : 'Moderate Opportunity'}
                                 </Badge>
-                                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[10px] font-bold uppercase" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)', color: 'var(--nd-text-muted)' }}>
+                                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-xs font-bold uppercase" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)', color: 'var(--nd-text-muted)' }}>
                                   <MousePointer2 className="w-3 h-3" style={{ color: 'var(--nd-teal)' }} />
                                   Score: {round1(o.opportunityScore)}
                                 </div>
@@ -775,7 +775,7 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
                               </h4>
                               <div className="flex items-center gap-4">
                                 <div className="flex-1 max-w-xs space-y-1.5">
-                                  <div className="flex justify-between text-[10px] font-bold uppercase tracking-tighter" style={{ color: 'var(--nd-text-muted)' }}>
+                                  <div className="flex justify-between text-[11px] font-bold uppercase tracking-tighter" style={{ color: 'var(--nd-text-muted)' }}>
                                     <span>Opportunity Strength</span>
                                     <span>{round1(o.opportunityScore)}%</span>
                                   </div>
@@ -793,13 +793,13 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
                             </div>
                             <div className="flex items-center gap-4 shrink-0 border px-4 py-3 rounded-xl w-full md:w-auto" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
                               <div className="flex flex-col items-center border-r pr-4" style={{ borderColor: 'var(--nd-border)' }}>
-                                <span className="text-[9px] font-bold uppercase tracking-tighter" style={{ color: 'var(--nd-text-muted)' }}>Comp. Rank</span>
+                                <span className="text-[11px] font-bold uppercase tracking-tighter" style={{ color: 'var(--nd-text-muted)' }}>Comp. Rank</span>
                                 <span className={cn('text-lg font-bold font-mono', isMissing ? 'text-amber-600' : '')} style={!isMissing ? { color: 'var(--nd-text-secondary)' } : {}}>
                                   {o.rank ? `#${o.rank}` : 'N/A'}
                                 </span>
                               </div>
                               <div className="flex flex-col items-end flex-1 md:flex-none">
-                                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--nd-teal)' }}>
+                                <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--nd-teal)' }}>
                                   <Lightbulb className="w-3 h-3" /> Action
                                 </div>
                                 <span className="text-xs text-right font-medium" style={{ color: 'var(--nd-text-secondary)' }}>Create Targeting Content</span>

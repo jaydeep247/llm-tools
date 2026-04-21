@@ -68,24 +68,24 @@ function LLMConnectPrompt() {
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-700/60 bg-[#0D0D10] overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-800/60">
-        <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-          <Bot className="w-4 h-4 text-emerald-400" />
+    <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-(--nd-border)">
+        <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+          <Bot className="w-4 h-4 text-emerald-600" />
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-white">LLM Traffic</h3>
-          <p className="text-xs text-zinc-400">Connect Google Analytics to reveal hidden AI referral channels</p>
+          <h3 className="text-sm font-semibold text-(--nd-text-primary)">LLM Traffic</h3>
+          <p className="text-xs text-(--nd-text-muted)">Connect Google Analytics to reveal hidden AI referral channels</p>
         </div>
       </div>
 
       <div className="px-5 py-10 flex flex-col items-center text-center gap-5">
-        <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-          <Bot className="w-8 h-8 text-emerald-400" />
+        <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+          <Bot className="w-8 h-8 text-emerald-600" />
         </div>
         <div>
-          <p className="text-white font-semibold text-sm mb-1">Connect your Google Analytics account</p>
-          <p className="text-zinc-400 text-xs max-w-sm leading-relaxed">
+          <p className="text-(--nd-text-primary) font-semibold text-sm mb-1">Connect your Google Analytics account</p>
+          <p className="text-(--nd-text-muted) text-xs max-w-sm leading-relaxed">
             Reveal exactly how much real website traffic is arriving from AI platforms. ChatGPT referrals are invisible in standard GA4 — this makes that hidden channel fully visible.
           </p>
         </div>
@@ -98,7 +98,7 @@ function LLMConnectPrompt() {
           ].map((f) => (
             <div key={f} className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 mt-1.5" />
-              <span className="text-zinc-300 text-xs">{f}</span>
+              <span className="text-(--nd-text-secondary) text-xs">{f}</span>
             </div>
           ))}
         </div>
@@ -131,32 +131,32 @@ function PropertySelector({
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-800/60 border border-zinc-700/60 text-sm text-zinc-200 hover:bg-zinc-700/60 transition-colors cursor-pointer"
+        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-(--nd-bg) border border-(--nd-border) text-sm text-(--nd-text-secondary) hover:bg-(--nd-border) transition-colors cursor-pointer"
       >
-        <BarChart3 className="w-4 h-4 text-emerald-400 shrink-0" />
+        <BarChart3 className="w-4 h-4 text-emerald-600 shrink-0" />
         <span className="truncate max-w-60">
           {selected ? selected.displayName : 'Select GA4 property…'}
         </span>
-        <ChevronDown className="w-3.5 h-3.5 shrink-0 text-zinc-400 ml-1" />
+          <ChevronDown className="w-3.5 h-3.5 shrink-0 text-(--nd-text-muted) ml-1" />
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full mt-1 left-0 min-w-72 max-w-sm rounded-xl bg-zinc-900 border border-zinc-700 shadow-xl overflow-hidden">
+        <div className="absolute z-50 top-full mt-1 left-0 min-w-72 max-w-sm rounded-xl bg-white border border-(--nd-border) shadow-xl overflow-hidden">
           {properties.map((prop) => (
             <button
               key={prop.id}
-              className="w-full flex flex-col items-start px-4 py-3 hover:bg-zinc-800 transition-colors cursor-pointer border-b border-zinc-800/60 last:border-0"
+              className="w-full flex flex-col items-start px-4 py-3 hover:bg-(--nd-bg) transition-colors cursor-pointer border-b border-(--nd-border) last:border-0"
               onClick={() => {
                 onSelect(prop.id)
                 setOpen(false)
               }}
             >
-              <span className="text-sm text-white font-medium">{prop.displayName}</span>
-              <span className="text-[11px] text-zinc-400">{prop.accountName} · {prop.id}</span>
+              <span className="text-sm text-(--nd-text-primary) font-medium">{prop.displayName}</span>
+              <span className="text-[11px] text-(--nd-text-muted)">{prop.accountName} · {prop.id}</span>
             </button>
           ))}
           {properties.length === 0 && (
-            <div className="px-4 py-3 text-xs text-zinc-500">No properties found</div>
+            <div className="px-4 py-3 text-xs text-(--nd-text-muted)">No properties found</div>
           )}
         </div>
       )}
@@ -183,33 +183,33 @@ function KPICard({
   color?: string
 }) {
   const colorMap: Record<string, string> = {
-    emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
-    blue: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
-    violet: 'bg-violet-500/10 border-violet-500/20 text-violet-400',
+    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-600',
+    blue: 'bg-blue-50 border-blue-200 text-blue-600',
+    violet: 'bg-violet-50 border-violet-200 text-violet-600',
   }
   const iconClass = colorMap[color] ?? colorMap.emerald
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-5 flex flex-col gap-3">
+    <div className="rounded-2xl border border-(--nd-border) bg-white p-5 flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-zinc-400 font-medium">{label}</span>
+        <span className="text-xs text-(--nd-text-muted) font-medium">{label}</span>
         <div className={`w-8 h-8 rounded-xl border flex items-center justify-center ${iconClass}`}>
           <Icon className="w-4 h-4" />
         </div>
       </div>
       <div>
-        <p className="text-3xl font-bold text-white leading-none">{value}</p>
-        {sub && <p className="text-xs text-zinc-500 mt-1">{sub}</p>}
+        <p className="text-3xl font-bold text-(--nd-text-primary) leading-none">{value}</p>
+        {sub && <p className="text-xs text-(--nd-text-muted) mt-1">{sub}</p>}
       </div>
       <div className="flex items-center gap-2">
         {delta !== undefined && (
           <span
             className={`flex items-center gap-1 text-xs font-medium ${
               delta.value > 0
-                ? 'text-emerald-400'
+                ? 'text-emerald-600'
                 : delta.value < 0
-                ? 'text-rose-400'
-                : 'text-zinc-500'
+                ? 'text-rose-600'
+                : 'text-(--nd-text-muted)'
             }`}
           >
             {delta.value > 0 ? (
@@ -224,7 +224,7 @@ function KPICard({
           </span>
         )}
         {tooltip && (
-          <span className="text-[11px] text-zinc-500">{tooltip}</span>
+          <span className="text-[11px] text-(--nd-text-muted)">{tooltip}</span>
         )}
       </div>
     </div>
@@ -242,19 +242,19 @@ function PlatformBarChart({ breakdown }: { breakdown: LLMPlatformBreakdown[] }) 
   return (
     <ResponsiveContainer width="100%" height={Math.max(breakdown.length * 52, 120)}>
       <BarChart data={data} layout="vertical" margin={{ top: 0, right: 24, left: 8, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#27272a" />
-        <XAxis type="number" dataKey="sessions" tick={{ fill: '#71717a', fontSize: 11 }} axisLine={false} tickLine={false} />
+        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E8E9EF" />
+        <XAxis type="number" dataKey="sessions" tick={{ fill: '#737890', fontSize: 11 }} axisLine={false} tickLine={false} />
         <YAxis
           type="category"
           dataKey="platform"
-          tick={{ fill: '#a1a1aa', fontSize: 12 }}
+          tick={{ fill: '#4A5068', fontSize: 12 }}
           axisLine={false}
           tickLine={false}
           width={90}
         />
         <RechartsTooltip
-          cursor={{ fill: 'rgba(255,255,255,0.04)' }}
-          contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: 12, fontSize: 12 }}
+          cursor={{ fill: 'rgba(83,71,206,0.06)' }}
+          contentStyle={{ background: '#ffffff', border: '1px solid #E8E9EF', borderRadius: 12, fontSize: 12 }}
           formatter={(value: number, _name: string, entry: any) => {
             const pct = breakdown.find((b) => b.platform === entry.payload.platform)?.percentOfLLMTotal
             return [`${value.toLocaleString()} sessions (${pct ?? 0}% of LLM total)`, entry.payload.platform]
@@ -298,8 +298,8 @@ function TrendLineChart({
             onClick={() => toggle(p)}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs transition-colors cursor-pointer ${
               hidden.has(p)
-                ? 'border-zinc-700 bg-zinc-800/40 text-zinc-500'
-                : 'border-zinc-700 bg-zinc-800 text-zinc-200'
+                ? 'border-(--nd-border) bg-(--nd-bg) text-(--nd-text-muted)'
+                : 'border-(--nd-border) bg-white text-(--nd-text-secondary)'
             }`}
           >
             <span
@@ -313,23 +313,23 @@ function TrendLineChart({
 
       <ResponsiveContainer width="100%" height={260}>
         <LineChart data={trend} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#E8E9EF" />
           <XAxis
             dataKey="date"
-            tick={{ fill: '#71717a', fontSize: 10 }}
+            tick={{ fill: '#737890', fontSize: 10 }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(v: string) => v.slice(5)} // MM-DD
+            tickFormatter={(v: string) => v.slice(5)}
             interval="preserveStartEnd"
           />
           <YAxis
-            tick={{ fill: '#71717a', fontSize: 11 }}
+            tick={{ fill: '#737890', fontSize: 11 }}
             axisLine={false}
             tickLine={false}
             width={36}
           />
           <RechartsTooltip
-            contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: 12, fontSize: 12 }}
+            contentStyle={{ background: '#ffffff', border: '1px solid #E8E9EF', borderRadius: 12, fontSize: 12 }}
             formatter={(value: number, name: string) => [`${value.toLocaleString()} sessions`, name]}
           />
           {platforms.map((p) => (
@@ -382,12 +382,12 @@ function BreakdownTable({ breakdown }: { breakdown: LLMPlatformBreakdown[] }) {
     const active = sortCol === col
     return (
       <th
-        className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider cursor-pointer select-none hover:text-zinc-300 transition-colors"
+        className="px-4 py-3 text-left text-[11px] font-medium text-(--nd-text-muted) uppercase tracking-wider cursor-pointer select-none hover:text-(--nd-text-secondary) transition-colors"
         onClick={() => handleSort(col)}
       >
         {c.label}
         {active && (
-          <span className="ml-1 text-zinc-400">{sortDir === 'asc' ? '↑' : '↓'}</span>
+          <span className="ml-1 text-(--nd-text-muted)">{sortDir === 'asc' ? '↑' : '↓'}</span>
         )}
       </th>
     )
@@ -397,11 +397,11 @@ function BreakdownTable({ breakdown }: { breakdown: LLMPlatformBreakdown[] }) {
     s < 60 ? `${Math.round(s)}s` : `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-zinc-800">
+    <div className="overflow-x-auto rounded-xl border border-(--nd-border)">
       <table className="w-full min-w-max">
         <thead>
-          <tr className="border-b border-zinc-800 bg-zinc-900/50">
-            <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
+          <tr className="border-b border-(--nd-border) bg-(--nd-bg)">
+            <th className="px-4 py-3 text-left text-[11px] font-medium text-(--nd-text-muted) uppercase tracking-wider">
               Platform
             </th>
             {cols.map((c) => (
@@ -409,26 +409,26 @@ function BreakdownTable({ breakdown }: { breakdown: LLMPlatformBreakdown[] }) {
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-800/60">
+        <tbody className="divide-y divide-(--nd-border)">
           {sorted.map((row) => (
-            <tr key={row.platform} className="hover:bg-zinc-800/30 transition-colors">
+            <tr key={row.platform} className="hover:bg-(--nd-bg) transition-colors">
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2">
                   <span
                     className="w-2.5 h-2.5 rounded-full shrink-0"
                     style={{ background: platformColor(row.platform) }}
                   />
-                  <span className="text-sm text-white font-medium">{row.platform}</span>
-                  <span className="text-[11px] text-zinc-500">({row.sourceDomain})</span>
+                  <span className="text-sm text-(--nd-text-primary) font-medium">{row.platform}</span>
+                  <span className="text-[11px] text-(--nd-text-muted)">({row.sourceDomain})</span>
                 </div>
               </td>
-              <td className="px-4 py-3 text-sm text-zinc-200">{row.sessions.toLocaleString()}</td>
-              <td className="px-4 py-3 text-sm text-zinc-200">{row.users.toLocaleString()}</td>
-              <td className="px-4 py-3 text-sm text-zinc-200">{fmtDuration(row.avgSessionDuration)}</td>
-              <td className="px-4 py-3 text-sm text-zinc-200">{row.bounceRate.toFixed(1)}%</td>
+              <td className="px-4 py-3 text-sm text-(--nd-text-secondary)">{row.sessions.toLocaleString()}</td>
+              <td className="px-4 py-3 text-sm text-(--nd-text-secondary)">{row.users.toLocaleString()}</td>
+              <td className="px-4 py-3 text-sm text-(--nd-text-secondary)">{fmtDuration(row.avgSessionDuration)}</td>
+              <td className="px-4 py-3 text-sm text-(--nd-text-secondary)">{row.bounceRate.toFixed(1)}%</td>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-20 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div className="w-20 h-1.5 bg-(--nd-border) rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full"
                       style={{
@@ -437,14 +437,14 @@ function BreakdownTable({ breakdown }: { breakdown: LLMPlatformBreakdown[] }) {
                       }}
                     />
                   </div>
-                  <span className="text-sm text-zinc-200">{row.percentOfLLMTotal.toFixed(1)}%</span>
+                  <span className="text-sm text-(--nd-text-secondary)">{row.percentOfLLMTotal.toFixed(1)}%</span>
                 </div>
               </td>
             </tr>
           ))}
           {sorted.length === 0 && (
             <tr>
-              <td colSpan={6} className="px-4 py-8 text-center text-zinc-500 text-sm">
+              <td colSpan={6} className="px-4 py-8 text-center text-(--nd-text-muted) text-sm">
                 No data available
               </td>
             </tr>
@@ -461,12 +461,12 @@ function LLMSkeleton() {
     <div className="space-y-4 animate-pulse">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {[1, 2].map((i) => (
-          <div key={i} className="rounded-2xl border border-zinc-800 bg-[#111113] p-5 h-32" />
+          <div key={i} className="rounded-2xl border border-(--nd-border) bg-(--nd-bg) p-5 h-32" />
         ))}
       </div>
-      <div className="rounded-2xl border border-zinc-800 bg-[#111113] h-48" />
-      <div className="rounded-2xl border border-zinc-800 bg-[#111113] h-72" />
-      <div className="rounded-2xl border border-zinc-800 bg-[#111113] h-40" />
+      <div className="rounded-2xl border border-(--nd-border) bg-(--nd-bg) h-48" />
+      <div className="rounded-2xl border border-(--nd-border) bg-(--nd-bg) h-72" />
+      <div className="rounded-2xl border border-(--nd-border) bg-(--nd-bg) h-40" />
     </div>
   )
 }
@@ -474,13 +474,13 @@ function LLMSkeleton() {
 // ── No LLM traffic info state ─────────────────────────────────────────────────
 function NoLLMTrafficState({ onNavigate }: { onNavigate?: (section: string) => void }) {
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-[#111113] px-6 py-14 flex flex-col items-center text-center gap-4">
-      <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-        <Bot className="w-7 h-7 text-blue-400" />
+    <div className="rounded-2xl border border-(--nd-border) bg-white px-6 py-14 flex flex-col items-center text-center gap-4">
+      <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center">
+        <Bot className="w-7 h-7 text-blue-600" />
       </div>
       <div>
-        <p className="text-white font-semibold mb-1">No AI platform traffic detected in this period</p>
-        <p className="text-zinc-400 text-sm max-w-sm leading-relaxed">
+        <p className="text-(--nd-text-primary) font-semibold mb-1">No AI platform traffic detected in this period</p>
+        <p className="text-(--nd-text-muted) text-sm max-w-sm leading-relaxed">
           This may mean your content is not yet being cited by AI platforms.
           Review your AI Visibility score for guidance.
         </p>
@@ -488,7 +488,7 @@ function NoLLMTrafficState({ onNavigate }: { onNavigate?: (section: string) => v
       {onNavigate && (
         <button
           onClick={() => onNavigate('ai-visibility-scorecards')}
-          className="text-sm text-blue-400 hover:text-blue-300 transition-colors underline underline-offset-2 cursor-pointer"
+          className="text-sm text-blue-600 hover:text-blue-700 transition-colors underline underline-offset-2 cursor-pointer"
         >
           View AI Visibility →
         </button>
@@ -505,14 +505,14 @@ function TokenExpiredBanner() {
   }
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10">
-      <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-      <p className="text-sm text-amber-300 flex-1">
+    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50">
+      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+      <p className="text-sm text-amber-700 flex-1">
         Your Google Analytics connection has expired. Please reconnect to continue seeing traffic data.
       </p>
       <button
         onClick={handleReconnect}
-        className="text-xs text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded-lg hover:bg-amber-500/20 transition-colors cursor-pointer shrink-0"
+        className="text-xs text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors cursor-pointer shrink-0"
       >
         Reconnect
       </button>
@@ -579,8 +579,8 @@ export function LLMTrafficPanel({ onNavigate }: LLMTrafficPanelProps) {
   if (statusLoading || propsLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
-        <span className="ml-2 text-zinc-400 text-sm">Fetching your traffic data from Google Analytics...</span>
+        <Loader2 className="w-6 h-6 animate-spin text-(--nd-text-muted)" />
+        <span className="ml-2 text-(--nd-text-muted) text-sm">Fetching your traffic data from Google Analytics...</span>
       </div>
     )
   }
@@ -593,15 +593,15 @@ export function LLMTrafficPanel({ onNavigate }: LLMTrafficPanelProps) {
   return (
     <div className="space-y-6">
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-zinc-800 bg-[#111113]">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-zinc-800/60 relative">
+      <div className="rounded-2xl border border-(--nd-border) bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-(--nd-border) relative">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-              <Bot className="w-4 h-4 text-emerald-400" />
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+              <Bot className="w-4 h-4 text-emerald-600" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">LLM Traffic</h3>
-              <p className="text-xs text-zinc-400">AI-referred sessions from ChatGPT, Gemini, Perplexity & more</p>
+              <h3 className="text-sm font-semibold text-(--nd-text-primary)">LLM Traffic</h3>
+              <p className="text-xs text-(--nd-text-muted)">AI-referred sessions from ChatGPT, Gemini, Perplexity &amp; more</p>
             </div>
           </div>
 
@@ -616,15 +616,15 @@ export function LLMTrafficPanel({ onNavigate }: LLMTrafficPanelProps) {
             )}
 
             {/* Date range toggle */}
-            <div className="flex items-center rounded-xl border border-zinc-700/60 bg-zinc-800/60 overflow-hidden">
+            <div className="flex items-center rounded-xl border border-(--nd-border) bg-(--nd-bg) overflow-hidden">
               {DATE_RANGES.map((r, i) => (
                 <button
                   key={r.label}
                   onClick={() => setDateRangeIdx(i)}
                   className={`px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
                     dateRangeIdx === i
-                      ? 'bg-emerald-600 text-white'
-                      : 'text-zinc-400 hover:text-zinc-200'
+                      ? 'bg-(--nd-purple) text-white'
+                      : 'text-(--nd-text-muted) hover:text-(--nd-text-secondary)'
                   }`}
                 >
                   {r.label}
@@ -636,7 +636,7 @@ export function LLMTrafficPanel({ onNavigate }: LLMTrafficPanelProps) {
             <button
               onClick={handleSync}
               disabled={syncing || isFetching || !resolvedPropertyId}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-700/60 bg-zinc-800/60 text-xs text-zinc-300 hover:bg-zinc-700/60 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-(--nd-border) bg-(--nd-bg) text-xs text-(--nd-text-secondary) hover:bg-(--nd-border) transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncing || isFetching ? 'animate-spin' : ''}`} />
               Sync Now
@@ -646,9 +646,9 @@ export function LLMTrafficPanel({ onNavigate }: LLMTrafficPanelProps) {
 
         {/* Last synced */}
         {llmData && (
-          <div className="px-5 py-2.5 flex items-center gap-2 border-b border-zinc-800/40 bg-zinc-900/30">
-            <Clock className="w-3.5 h-3.5 text-zinc-500" />
-            <span className="text-[11px] text-zinc-500">
+          <div className="px-5 py-2.5 flex items-center gap-2 border-b border-(--nd-border) bg-(--nd-bg)">
+            <Clock className="w-3.5 h-3.5 text-(--nd-text-muted)" />
+            <span className="text-[11px] text-(--nd-text-muted)">
               {llmData.fromCache
                 ? `Data last synced ${Math.round((Date.now() - new Date(llmData.lastSyncedAt).getTime()) / 60_000)} min ago. Click 'Sync Now' for fresh data.`
                 : `Synced just now · ${new Date(llmData.lastSyncedAt).toLocaleTimeString()}`}
@@ -662,9 +662,9 @@ export function LLMTrafficPanel({ onNavigate }: LLMTrafficPanelProps) {
 
       {/* ── No property selected ──────────────────────────────────────────── */}
       {!resolvedPropertyId && !llmLoading && (
-        <div className="rounded-2xl border border-zinc-800 bg-[#111113] px-6 py-10 flex flex-col items-center text-center gap-3">
-          <AlertCircle className="w-8 h-8 text-zinc-500" />
-          <p className="text-sm text-zinc-400">Select a GA4 property above to load LLM traffic data.</p>
+        <div className="rounded-2xl border border-(--nd-border) bg-white px-6 py-10 flex flex-col items-center text-center gap-3">
+          <AlertCircle className="w-8 h-8 text-(--nd-text-muted)" />
+          <p className="text-sm text-(--nd-text-muted)">Select a GA4 property above to load LLM traffic data.</p>
         </div>
       )}
 
@@ -723,14 +723,14 @@ export function LLMTrafficPanel({ onNavigate }: LLMTrafficPanelProps) {
               </div>
 
               {/* ── Sessions by Platform (horizontal bar) ─────────────────── */}
-              <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800/60">
-                  <h4 className="text-sm font-semibold text-white">Sessions by Platform</h4>
+              <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-(--nd-border)">
+                  <h4 className="text-sm font-semibold text-(--nd-text-primary)">Sessions by Platform</h4>
                   <div className="flex flex-wrap gap-2">
                     {llmData.breakdown.map((p) => (
                       <span
                         key={p.platform}
-                        className="flex items-center gap-1.5 text-[11px] text-zinc-400"
+                        className="flex items-center gap-1.5 text-[11px] text-(--nd-text-muted)"
                       >
                         <span
                           className="w-2 h-2 rounded-full"
@@ -760,10 +760,10 @@ export function LLMTrafficPanel({ onNavigate }: LLMTrafficPanelProps) {
                   .map(([date, vals]) => ({ date, ...vals }))
 
                 return (
-                  <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden">
-                    <div className="px-5 py-4 border-b border-zinc-800/60">
-                      <h4 className="text-sm font-semibold text-white">LLM Traffic Trend</h4>
-                      <p className="text-xs text-zinc-500 mt-0.5">Daily sessions per platform — click legend to toggle</p>
+                  <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
+                    <div className="px-5 py-4 border-b border-(--nd-border)">
+                      <h4 className="text-sm font-semibold text-(--nd-text-primary)">LLM Traffic Trend</h4>
+                      <p className="text-xs text-(--nd-text-muted) mt-0.5">Daily sessions per platform — click legend to toggle</p>
                     </div>
                     <div className="px-4 pt-4 pb-5">
                       <TrendLineChart trend={trendPivoted} platforms={platformsInTrend} />
@@ -773,10 +773,10 @@ export function LLMTrafficPanel({ onNavigate }: LLMTrafficPanelProps) {
               })()}
 
               {/* ── Platform Breakdown Table ───────────────────────────────── */}
-              <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden">
-                <div className="px-5 py-4 border-b border-zinc-800/60">
-                  <h4 className="text-sm font-semibold text-white">Platform Breakdown</h4>
-                  <p className="text-xs text-zinc-500 mt-0.5">Click column headers to sort</p>
+              <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
+                <div className="px-5 py-4 border-b border-(--nd-border)">
+                  <h4 className="text-sm font-semibold text-(--nd-text-primary)">Platform Breakdown</h4>
+                  <p className="text-xs text-(--nd-text-muted) mt-0.5">Click column headers to sort</p>
                 </div>
                 <div className="p-4">
                   <BreakdownTable breakdown={llmData.breakdown} />
@@ -784,11 +784,11 @@ export function LLMTrafficPanel({ onNavigate }: LLMTrafficPanelProps) {
               </div>
 
               {/* ── Insight callout ────────────────────────────────────────── */}
-              <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 px-5 py-4 flex gap-3">
-                <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+              <div className="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 flex gap-3">
+                <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm text-blue-200 font-medium mb-1">About LLM Traffic data</p>
-                  <p className="text-xs text-blue-300/70 leading-relaxed">
+                  <p className="text-sm text-blue-700 font-medium mb-1">About LLM Traffic data</p>
+                  <p className="text-xs text-blue-600/80 leading-relaxed">
                     AI platforms like ChatGPT do not send HTTP referer headers, so their traffic
                     is normally invisible in GA4 — appearing as direct or unattributed traffic.
                     This panel identifies sessions where the GA4 session source dimension matches

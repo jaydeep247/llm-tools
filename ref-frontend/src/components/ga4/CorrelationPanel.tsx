@@ -47,28 +47,28 @@ const BADGE_CONFIG: Record<
   { bg: string; text: string; border: string; dot: string }
 > = {
   'STRONG POSITIVE': {
-    bg: 'bg-emerald-500/10',
-    text: 'text-emerald-400',
-    border: 'border-emerald-500/30',
-    dot: 'bg-emerald-400',
+    bg: 'bg-emerald-50',
+    text: 'text-emerald-600',
+    border: 'border-emerald-200',
+    dot: 'bg-emerald-500',
   },
   MODERATE: {
-    bg: 'bg-amber-500/10',
-    text: 'text-amber-400',
-    border: 'border-amber-500/30',
-    dot: 'bg-amber-400',
+    bg: 'bg-amber-50',
+    text: 'text-amber-600',
+    border: 'border-amber-200',
+    dot: 'bg-amber-500',
   },
   WEAK: {
-    bg: 'bg-zinc-500/10',
-    text: 'text-zinc-400',
-    border: 'border-zinc-600/30',
-    dot: 'bg-zinc-400',
+    bg: 'bg-(--nd-bg)',
+    text: 'text-(--nd-text-muted)',
+    border: 'border-(--nd-border)',
+    dot: 'bg-(--nd-text-muted)',
   },
   INVERSE: {
-    bg: 'bg-red-500/10',
-    text: 'text-red-400',
-    border: 'border-red-500/30',
-    dot: 'bg-red-400',
+    bg: 'bg-red-50',
+    text: 'text-red-600',
+    border: 'border-red-200',
+    dot: 'bg-red-500',
   },
 }
 
@@ -91,30 +91,30 @@ function GA4ConnectPrompt() {
     window.location.href = `${API_BASE_URL}/auth/google/analytics?returnUrl=${encodeURIComponent(returnUrl)}`
   }
   return (
-    <div className="rounded-2xl border border-zinc-700/60 bg-[#0D0D10] overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-800/60">
-        <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-          <ArrowLeftRight className="w-4 h-4 text-amber-400" />
+    <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-(--nd-border)">
+        <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
+          <ArrowLeftRight className="w-4 h-4 text-amber-600" />
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-white">Visibility ↔ Traffic Correlation</h3>
-          <p className="text-xs text-zinc-400">Connect Google Analytics 4 to unlock statistical correlation</p>
+          <h3 className="text-sm font-semibold text-(--nd-text-primary)">Visibility ↔ Traffic Correlation</h3>
+          <p className="text-xs text-(--nd-text-muted)">Connect Google Analytics 4 to unlock statistical correlation</p>
         </div>
       </div>
       <div className="px-5 py-8 flex flex-col items-center text-center gap-4">
-        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-          <AlertCircle className="w-7 h-7 text-amber-400" />
+        <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center">
+          <AlertCircle className="w-7 h-7 text-amber-600" />
         </div>
         <div>
-          <p className="text-white font-semibold text-sm mb-1">Google Analytics 4 not connected</p>
-          <p className="text-zinc-400 text-xs max-w-xs">
+          <p className="text-(--nd-text-primary) font-semibold text-sm mb-1">Google Analytics 4 not connected</p>
+          <p className="text-(--nd-text-muted) text-xs max-w-xs">
             Connect GA4 to see the statistical correlation between your AI citation visibility and
             website traffic from LLMs.
           </p>
         </div>
         <Button
           onClick={handleConnect}
-          className="bg-amber-500 hover:bg-amber-600 text-black font-semibold text-sm px-6 py-2 rounded-xl"
+          className="bg-amber-600 hover:bg-amber-500 text-white font-semibold text-sm px-6 py-2 rounded-xl"
         >
           Connect Google Analytics
         </Button>
@@ -141,51 +141,51 @@ function AddEventModal({ onClose, onSave, isSaving }: AddEventModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#111113] border border-zinc-700/60 rounded-2xl w-full max-w-sm mx-4 p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="bg-white border border-(--nd-border) rounded-2xl w-full max-w-sm mx-4 p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-white font-semibold text-sm">Add Correlation Event</h3>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 transition-colors">
+          <h3 className="text-(--nd-text-primary) font-semibold text-sm">Add Correlation Event</h3>
+          <button onClick={onClose} className="text-(--nd-text-muted) hover:text-(--nd-text-primary) transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-xs text-zinc-400 mb-1.5">Event Date</label>
+            <label className="block text-xs text-(--nd-text-muted) mb-1.5">Event Date</label>
             <Input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="bg-zinc-900 border-zinc-700 text-white text-sm rounded-xl h-9"
+              className="bg-(--nd-bg) border-(--nd-border) text-(--nd-text-primary) text-sm rounded-xl h-9"
             />
           </div>
 
           <div>
-            <label className="block text-xs text-zinc-400 mb-1.5">Event Type</label>
+            <label className="block text-xs text-(--nd-text-muted) mb-1.5">Event Type</label>
             <div className="relative">
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as AddContentEventPayload['event_type'])}
-                className="w-full appearance-none bg-zinc-900 border border-zinc-700 text-white text-sm rounded-xl px-3 h-9 pr-8 focus:outline-none focus:border-zinc-500"
+                className="w-full appearance-none bg-(--nd-bg) border border-(--nd-border) text-(--nd-text-primary) text-sm rounded-xl px-3 h-9 pr-8 focus:outline-none focus:border-(--nd-purple)"
               >
                 <option value="content_published">Content Published</option>
                 <option value="schema_added">Schema Added</option>
                 <option value="score_change">Score Change</option>
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-(--nd-text-muted) pointer-events-none" />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs text-zinc-400 mb-1.5">Label</label>
+            <label className="block text-xs text-(--nd-text-muted) mb-1.5">Label</label>
             <Input
               type="text"
               placeholder="e.g. Published AI SEO Guide"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               maxLength={200}
-              className="bg-zinc-900 border-zinc-700 text-white text-sm rounded-xl h-9 placeholder:text-zinc-600"
+              className="bg-(--nd-bg) border-(--nd-border) text-(--nd-text-primary) text-sm rounded-xl h-9 placeholder:text-(--nd-text-muted)"
             />
           </div>
         </div>
@@ -194,14 +194,14 @@ function AddEventModal({ onClose, onSave, isSaving }: AddEventModalProps) {
           <Button
             variant="outline"
             onClick={onClose}
-            className="flex-1 border-zinc-700 text-zinc-300 hover:text-white bg-transparent text-sm h-9 rounded-xl"
+            className="flex-1 border-(--nd-border) text-(--nd-text-secondary) hover:text-(--nd-text-primary) bg-transparent text-sm h-9 rounded-xl"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!date || !label.trim() || isSaving}
-            className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-semibold text-sm h-9 rounded-xl disabled:opacity-50"
+            className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-semibold text-sm h-9 rounded-xl disabled:opacity-50"
           >
             {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save Event'}
           </Button>
@@ -217,17 +217,17 @@ function CorrelationTooltip({ active, payload, label }: any) {
   const citations = payload.find((p: any) => p.dataKey === 'citations')?.value ?? 0
   const sessions = payload.find((p: any) => p.dataKey === 'llm_sessions')?.value ?? 0
   return (
-    <div className="bg-[#1A1A1F] border border-zinc-700/60 rounded-xl px-4 py-3 text-xs shadow-xl">
-      <p className="text-zinc-400 mb-2 font-medium">Week of {label}</p>
+    <div className="bg-white border border-(--nd-border) rounded-xl px-4 py-3 text-xs shadow-xl">
+      <p className="text-(--nd-text-muted) mb-2 font-medium">Week of {label}</p>
       <div className="flex items-center gap-2 mb-1">
-        <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-        <span className="text-zinc-300">Citations: </span>
-        <span className="text-white font-semibold ml-auto">{citations}</span>
+        <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+        <span className="text-(--nd-text-secondary)">Citations: </span>
+        <span className="text-(--nd-text-primary) font-semibold ml-auto">{citations}</span>
       </div>
       <div className="flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-white shrink-0" />
-        <span className="text-zinc-300">LLM Sessions: </span>
-        <span className="text-white font-semibold ml-auto">{sessions}</span>
+        <span className="w-2 h-2 rounded-full bg-(--nd-purple) shrink-0" />
+        <span className="text-(--nd-text-secondary)">LLM Sessions: </span>
+        <span className="text-(--nd-text-primary) font-semibold ml-auto">{sessions}</span>
       </div>
     </div>
   )
@@ -247,7 +247,7 @@ function PropertySelector({ properties, selectedId, onSelect }: PropertySelector
       <select
         value={selectedId}
         onChange={(e) => onSelect(e.target.value)}
-        className="appearance-none bg-zinc-900 border border-zinc-700 text-white text-xs rounded-xl px-3 h-8 pr-7 focus:outline-none focus:border-zinc-500"
+        className="appearance-none bg-(--nd-bg) border border-(--nd-border) text-(--nd-text-primary) text-xs rounded-xl px-3 h-8 pr-7 focus:outline-none focus:border-(--nd-purple)"
       >
         {properties.map((p) => (
           <option key={p.id} value={p.id}>
@@ -255,7 +255,7 @@ function PropertySelector({ properties, selectedId, onSelect }: PropertySelector
           </option>
         ))}
       </select>
-      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-500 pointer-events-none" />
+      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-(--nd-text-muted) pointer-events-none" />
     </div>
   )
 }
@@ -363,8 +363,8 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
   // ── Render states ─────────────────────────────────────────────────────────
   if (statusLoading) {
     return (
-      <div className="rounded-2xl border border-zinc-800 bg-[#0D0D10] p-8 flex items-center justify-center">
-        <Loader2 className="w-5 h-5 text-zinc-500 animate-spin" />
+      <div className="rounded-2xl border border-(--nd-border) bg-white p-8 flex items-center justify-center">
+        <Loader2 className="w-5 h-5 text-(--nd-text-muted) animate-spin" />
       </div>
     )
   }
@@ -380,15 +380,15 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
   return (
     <div className="space-y-4">
       {/* ── Header ── */}
-      <div className="rounded-2xl border border-zinc-800/60 bg-[#0D0D10] overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800/60">
+      <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-(--nd-border)">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-              <ArrowLeftRight className="w-4 h-4 text-amber-400" />
+            <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
+              <ArrowLeftRight className="w-4 h-4 text-amber-600" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">Visibility ↔ Traffic Correlation</h3>
-              <p className="text-xs text-zinc-400">
+              <h3 className="text-sm font-semibold text-(--nd-text-primary)">Visibility ↔ Traffic Correlation</h3>
+              <p className="text-xs text-(--nd-text-muted)">
                 Statistical proof that AI citations drive LLM traffic
               </p>
             </div>
@@ -401,7 +401,7 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
             />
             <button
               onClick={() => setShowAddEvent(true)}
-              className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white bg-zinc-800/60 hover:bg-zinc-700/60 border border-zinc-700/60 rounded-xl px-3 py-1.5 transition-colors"
+              className="flex items-center gap-1.5 text-xs font-medium text-(--nd-text-muted) hover:text-(--nd-text-primary) bg-(--nd-bg) hover:bg-(--nd-border) border border-(--nd-border) rounded-xl px-3 py-1.5 transition-colors"
             >
               <Plus className="w-3 h-3" />
               Add Event
@@ -412,8 +412,8 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
         {/* ── Loading skeleton ── */}
         {isLoading && (
           <div className="p-8 flex flex-col items-center gap-3">
-            <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />
-            <p className="text-zinc-400 text-xs">Computing correlation analysis…</p>
+            <Loader2 className="w-6 h-6 text-amber-600 animate-spin" />
+            <p className="text-(--nd-text-muted) text-xs">Computing correlation analysis…</p>
           </div>
         )}
 
@@ -421,23 +421,23 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
         {!isLoading && corrData?.status === 'insufficient_data' && (
           <div className="p-8">
             <div className="max-w-md mx-auto text-center space-y-5">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto">
-                <CalendarDays className="w-6 h-6 text-amber-400" />
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto">
+                <CalendarDays className="w-6 h-6 text-amber-600" />
               </div>
               <div>
-                <p className="text-white font-semibold text-sm mb-1">Building your correlation dataset</p>
-                <p className="text-zinc-400 text-xs leading-relaxed">
+                <p className="text-(--nd-text-primary) font-semibold text-sm mb-1">Building your correlation dataset</p>
+                <p className="text-(--nd-text-muted) text-xs leading-relaxed">
                   Correlation analysis unlocks with{' '}
-                  <span className="text-white font-medium">{corrData.min_weeks_required} weeks</span> of
+                  <span className="text-(--nd-text-primary) font-medium">{corrData.min_weeks_required} weeks</span> of
                   data. Currently:{' '}
-                  <span className="text-amber-400 font-semibold">
+                  <span className="text-amber-600 font-semibold">
                     {corrData.weeks_collected}/{corrData.min_weeks_required} weeks
                   </span>{' '}
                   collected.
                 </p>
               </div>
               {/* Progress bar */}
-              <div className="w-full bg-zinc-800 rounded-full h-2.5 overflow-hidden">
+              <div className="w-full bg-(--nd-border) rounded-full h-2.5 overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all duration-700"
                   style={{
@@ -448,7 +448,7 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
                   }}
                 />
               </div>
-              <p className="text-zinc-500 text-xs">
+              <p className="text-(--nd-text-muted) text-xs">
                 Keep running scans weekly to build your correlation dataset
               </p>
             </div>
@@ -467,11 +467,11 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
                 <div className="h-48 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart data={partialData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
-                      <XAxis dataKey="week" tick={{ fill: '#71717A', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#3F3F46' }} />
-                      <YAxis domain={[0, 110]} tickFormatter={(v) => `${v}%`} tick={{ fill: '#71717A', fontSize: 10 }} tickLine={false} axisLine={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E8E9EF" />
+                      <XAxis dataKey="week" tick={{ fill: '#737890', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#E8E9EF' }} />
+                      <YAxis domain={[0, 110]} tickFormatter={(v) => `${v}%`} tick={{ fill: '#737890', fontSize: 10 }} tickLine={false} axisLine={false} />
                       <Line type="monotone" dataKey="cit_norm" name="Citations" stroke="#F59E0B" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="ses_norm" name="LLM Sessions" stroke="#E4E4E7" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="ses_norm" name="LLM Sessions" stroke="#5347CE" strokeWidth={2} dot={false} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
@@ -482,22 +482,22 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
             {/* Show saved events even while still building the dataset */}
             {corrData.annotations.length > 0 && (
               <div className="mt-6 text-left">
-                <p className="text-xs text-zinc-400 font-medium mb-2">Saved Events</p>
+                <p className="text-xs text-(--nd-text-muted) font-medium mb-2">Saved Events</p>
                 <div className="space-y-2">
                   {corrData.annotations.map((ann, i) => (
                     <div
                       key={i}
-                      className="flex items-center gap-3 rounded-xl border border-zinc-800/60 bg-zinc-900/30 px-4 py-2.5"
+                      className="flex items-center gap-3 rounded-xl border border-(--nd-border) bg-(--nd-bg) px-4 py-2.5"
                     >
                       <span
                         className="w-2 h-2 rounded-full shrink-0"
                         style={{ background: EVENT_TYPE_COLOR[ann.type] ?? '#F59E0B' }}
                       />
-                      <span className="text-xs text-zinc-400">{ann.date}</span>
-                      <span className="text-xs text-zinc-500">
+                      <span className="text-xs text-(--nd-text-muted)">{ann.date}</span>
+                      <span className="text-xs text-(--nd-text-muted)">
                         {EVENT_TYPE_LABEL[ann.type] ?? ann.type}
                       </span>
-                      <span className="text-xs text-zinc-200 ml-auto truncate max-w-[200px]">
+                      <span className="text-xs text-(--nd-text-secondary) ml-auto truncate max-w-[200px]">
                         {ann.label}
                       </span>
                     </div>
@@ -512,13 +512,13 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
         {!isLoading && corrData?.status === 'no_citation_data' && (
           <div className="p-8">
             <div className="max-w-md mx-auto text-center space-y-5">
-              <div className="w-12 h-12 rounded-2xl bg-zinc-800/60 border border-zinc-700/40 flex items-center justify-center mx-auto">
-                <AlertCircle className="w-6 h-6 text-zinc-400" />
+              <div className="w-12 h-12 rounded-2xl bg-(--nd-bg) border border-(--nd-border) flex items-center justify-center mx-auto">
+                <AlertCircle className="w-6 h-6 text-(--nd-text-muted)" />
               </div>
               <div>
-                <p className="text-white font-semibold text-sm mb-1">No citation data yet</p>
-                <p className="text-zinc-400 text-xs leading-relaxed">
-                  You have <span className="text-white font-medium">{corrData.weeks_collected} weeks</span> of LLM
+                <p className="text-(--nd-text-primary) font-semibold text-sm mb-1">No citation data yet</p>
+                <p className="text-(--nd-text-muted) text-xs leading-relaxed">
+                  You have <span className="text-(--nd-text-primary) font-medium">{corrData.weeks_collected} weeks</span> of LLM
                   traffic data but no AI citation snapshots recorded yet. Run weekly scans so citations
                   can be tracked — correlation analysis will unlock once both signals have data.
                 </p>
@@ -537,14 +537,14 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
                   <div className="h-48 w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={partialData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
-                        <XAxis dataKey="week" tick={{ fill: '#71717A', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#3F3F46' }} />
-                        <YAxis domain={[0, 110]} tickFormatter={(v) => `${v}%`} tick={{ fill: '#71717A', fontSize: 10 }} tickLine={false} axisLine={false} />
-                        <Line type="monotone" dataKey="ses_norm" name="LLM Sessions" stroke="#E4E4E7" strokeWidth={2} dot={false} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#E8E9EF" />
+                        <XAxis dataKey="week" tick={{ fill: '#737890', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#E8E9EF' }} />
+                        <YAxis domain={[0, 110]} tickFormatter={(v) => `${v}%`} tick={{ fill: '#737890', fontSize: 10 }} tickLine={false} axisLine={false} />
+                        <Line type="monotone" dataKey="ses_norm" name="LLM Sessions" stroke="#5347CE" strokeWidth={2} dot={false} />
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>
-                  <p className="text-center text-[10px] text-zinc-500 mt-2">LLM Sessions (no citation data to correlate yet)</p>
+                  <p className="text-center text-[10px] text-(--nd-text-muted) mt-2">LLM Sessions (no citation data to correlate yet)</p>
                 </div>
               )
             })()}
@@ -552,14 +552,14 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
             {/* Saved events */}
             {corrData.annotations.length > 0 && (
               <div className="mt-6 text-left">
-                <p className="text-xs text-zinc-400 font-medium mb-2">Saved Events</p>
+                <p className="text-xs text-(--nd-text-muted) font-medium mb-2">Saved Events</p>
                 <div className="space-y-2">
                   {corrData.annotations.map((ann, i) => (
-                    <div key={i} className="flex items-center gap-3 rounded-xl border border-zinc-800/60 bg-zinc-900/30 px-4 py-2.5">
+                    <div key={i} className="flex items-center gap-3 rounded-xl border border-(--nd-border) bg-(--nd-bg) px-4 py-2.5">
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ background: EVENT_TYPE_COLOR[ann.type] ?? '#F59E0B' }} />
-                      <span className="text-xs text-zinc-400">{ann.date}</span>
-                      <span className="text-xs text-zinc-500">{EVENT_TYPE_LABEL[ann.type] ?? ann.type}</span>
-                      <span className="text-xs text-zinc-200 ml-auto truncate max-w-[200px]">{ann.label}</span>
+                      <span className="text-xs text-(--nd-text-muted)">{ann.date}</span>
+                      <span className="text-xs text-(--nd-text-muted)">{EVENT_TYPE_LABEL[ann.type] ?? ann.type}</span>
+                      <span className="text-xs text-(--nd-text-secondary) ml-auto truncate max-w-[200px]">{ann.label}</span>
                     </div>
                   ))}
                 </div>
@@ -578,10 +578,10 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
                 className={`rounded-xl border p-4 flex flex-col gap-2 ${badge!.bg} ${badge!.border}`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-400 font-medium">Pearson r</span>
+                  <span className="text-xs text-(--nd-text-muted) font-medium">Pearson r</span>
                   <div className="group relative">
-                    <Info className="w-3.5 h-3.5 text-zinc-500 cursor-help" />
-                    <div className="absolute right-0 top-5 w-64 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-300 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 leading-relaxed">
+                    <Info className="w-3.5 h-3.5 text-(--nd-text-muted) cursor-help" />
+                    <div className="absolute right-0 top-5 w-64 bg-white border border-(--nd-border) rounded-lg px-3 py-2 text-xs text-(--nd-text-secondary) opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 leading-relaxed">
                       Pearson correlation coefficient between citation count and LLM traffic
                     </div>
                   </div>
@@ -600,17 +600,17 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
               </div>
 
               {/* Lag insight */}
-              <div className="rounded-xl border border-zinc-700/60 bg-zinc-900/40 p-4 flex flex-col gap-2">
-                <span className="text-xs text-zinc-400 font-medium">Lag Effect</span>
+              <div className="rounded-xl border border-(--nd-border) bg-(--nd-bg) p-4 flex flex-col gap-2">
+                <span className="text-xs text-(--nd-text-muted) font-medium">Lag Effect</span>
                 <div className="flex items-end gap-1">
-                  <span className="text-3xl font-bold text-white tabular-nums">
+                  <span className="text-3xl font-bold text-(--nd-text-primary) tabular-nums">
                     {corrData.correlation.primary_lag}
                   </span>
-                  <span className="text-zinc-400 text-sm mb-1">
+                  <span className="text-(--nd-text-muted) text-sm mb-1">
                     {corrData.correlation.primary_lag === 1 ? 'week' : 'weeks'}
                   </span>
                 </div>
-                <p className="text-xs text-zinc-400 leading-relaxed">
+                <p className="text-xs text-(--nd-text-muted) leading-relaxed">
                   {corrData.correlation.primary_lag === 0
                     ? 'Citations and traffic move together in the same week'
                     : `Citations predict LLM traffic with a ${corrData.correlation.primary_lag}-week delay`}
@@ -618,13 +618,13 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
               </div>
 
               {/* Data points */}
-              <div className="rounded-xl border border-zinc-700/60 bg-zinc-900/40 p-4 flex flex-col gap-2">
-                <span className="text-xs text-zinc-400 font-medium">Data Points</span>
+              <div className="rounded-xl border border-(--nd-border) bg-(--nd-bg) p-4 flex flex-col gap-2">
+                <span className="text-xs text-(--nd-text-muted) font-medium">Data Points</span>
                 <div className="flex items-end gap-1">
-                  <span className="text-3xl font-bold text-white tabular-nums">
+                  <span className="text-3xl font-bold text-(--nd-text-primary) tabular-nums">
                     {corrData.correlation.data_points}
                   </span>
-                  <span className="text-zinc-400 text-sm mb-1">weeks</span>
+                  <span className="text-(--nd-text-muted) text-sm mb-1">weeks</span>
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   {corrData.correlation.lag_details.map(({ lag, r }) => (
@@ -632,8 +632,8 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
                       key={lag}
                       className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
                         lag === corrData.correlation!.primary_lag
-                          ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                          : 'bg-zinc-800 border-zinc-700 text-zinc-400'
+                          ? 'bg-amber-50 border-amber-200 text-amber-600'
+                          : 'bg-(--nd-bg) border-(--nd-border) text-(--nd-text-muted)'
                       }`}
                     >
                       lag{lag}: {r.toFixed(2)}
@@ -645,10 +645,10 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
 
             {/* ── Weak correlation warning ── */}
             {corrData.correlation.r < 0.4 && corrData.correlation.r >= 0 && (
-              <div className="flex items-start gap-3 rounded-xl border border-zinc-700/60 bg-zinc-900/40 p-4">
-                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <p className="text-xs text-zinc-300 leading-relaxed">
-                  <span className="text-white font-semibold">Low correlation detected.</span> Your
+              <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-xs text-(--nd-text-secondary) leading-relaxed">
+                  <span className="text-(--nd-text-primary) font-semibold">Low correlation detected.</span> Your
                   cited pages may not be converting visibility into clicks. Review Top Landing Pages
                   to identify opportunity gaps.
                 </p>
@@ -657,10 +657,10 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
 
             {/* ── Inverse warning ── */}
             {corrData.correlation.r < 0 && (
-              <div className="flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                <p className="text-xs text-zinc-300 leading-relaxed">
-                  <span className="text-red-400 font-semibold">Inverse correlation detected.</span>{' '}
+              <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <p className="text-xs text-(--nd-text-secondary) leading-relaxed">
+                  <span className="text-red-600 font-semibold">Inverse correlation detected.</span>{' '}
                   Traffic appears to decrease as citations increase — this may indicate audience
                   mismatch, seasonality, or a data anomaly worth investigating.
                 </p>
@@ -669,12 +669,12 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
 
             {/* ── Auto insight box ── */}
             {corrData.auto_insight && (
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
                 <div className="flex items-start gap-3">
-                  <Zap className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <Zap className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-xs text-amber-400 font-semibold mb-1">AI Insight</p>
-                    <p className="text-sm text-zinc-200 leading-relaxed">{corrData.auto_insight}</p>
+                    <p className="text-xs text-amber-700 font-semibold mb-1">AI Insight</p>
+                    <p className="text-sm text-(--nd-text-secondary) leading-relaxed">{corrData.auto_insight}</p>
                   </div>
                 </div>
               </div>
@@ -683,16 +683,16 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
             {/* ── Dual-axis chart ── */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs text-zinc-400 font-medium">
+                <p className="text-xs text-(--nd-text-muted) font-medium">
                   Weekly Citations vs LLM Sessions (normalised)
                 </p>
-                <div className="flex items-center gap-4 text-[10px] text-zinc-400">
+                <div className="flex items-center gap-4 text-[10px] text-(--nd-text-muted)">
                   <span className="flex items-center gap-1.5">
-                    <span className="w-5 h-0.5 bg-amber-400 inline-block rounded" />
+                    <span className="w-5 h-0.5 bg-amber-500 inline-block rounded" />
                     Citations
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="w-5 h-0.5 bg-white inline-block rounded" />
+                    <span className="w-5 h-0.5 bg-(--nd-purple) inline-block rounded" />
                     LLM Sessions
                   </span>
                   {corrData.annotations.length > 0 && (
@@ -707,16 +707,16 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E8E9EF" />
                     <XAxis
                       dataKey="week"
-                      tick={{ fill: '#71717A', fontSize: 10 }}
+                      tick={{ fill: '#737890', fontSize: 10 }}
                       tickLine={false}
-                      axisLine={{ stroke: '#3F3F46' }}
+                      axisLine={{ stroke: '#E8E9EF' }}
                     />
                     <YAxis
                       domain={[0, 110]}
-                      tick={{ fill: '#71717A', fontSize: 10 }}
+                      tick={{ fill: '#737890', fontSize: 10 }}
                       tickLine={false}
                       axisLine={false}
                       tickFormatter={(v) => `${v}%`}
@@ -760,10 +760,10 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
                       type="monotone"
                       dataKey="ses_norm"
                       name="LLM Sessions"
-                      stroke="#E4E4E7"
+                      stroke="#5347CE"
                       strokeWidth={2}
                       dot={false}
-                      activeDot={{ r: 4, fill: '#E4E4E7' }}
+                      activeDot={{ r: 4, fill: '#5347CE' }}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -773,22 +773,22 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
             {/* ── Annotation list ── */}
             {corrData.annotations.length > 0 && (
               <div>
-                <p className="text-xs text-zinc-400 font-medium mb-2">Correlation Events</p>
+                <p className="text-xs text-(--nd-text-muted) font-medium mb-2">Correlation Events</p>
                 <div className="space-y-2">
                   {corrData.annotations.map((ann, i) => (
                     <div
                       key={i}
-                      className="flex items-center gap-3 rounded-xl border border-zinc-800/60 bg-zinc-900/30 px-4 py-2.5"
+                      className="flex items-center gap-3 rounded-xl border border-(--nd-border) bg-(--nd-bg) px-4 py-2.5"
                     >
                       <span
                         className="w-2 h-2 rounded-full shrink-0"
                         style={{ background: EVENT_TYPE_COLOR[ann.type] ?? '#F59E0B' }}
                       />
-                      <span className="text-xs text-zinc-400">{ann.date}</span>
-                      <span className="text-xs text-zinc-500">
+                      <span className="text-xs text-(--nd-text-muted)">{ann.date}</span>
+                      <span className="text-xs text-(--nd-text-muted)">
                         {EVENT_TYPE_LABEL[ann.type] ?? ann.type}
                       </span>
-                      <span className="text-xs text-zinc-200 ml-auto truncate max-w-[200px]">
+                      <span className="text-xs text-(--nd-text-secondary) ml-auto truncate max-w-[200px]">
                         {ann.label}
                       </span>
                     </div>
@@ -803,24 +803,24 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
       {/* ── Active annotation popover ── */}
       {activeAnnotation && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-[#111113] border border-zinc-700/60 rounded-2xl w-full max-w-xs mx-4 p-5 shadow-2xl">
+          <div className="bg-white border border-(--nd-border) rounded-2xl w-full max-w-xs mx-4 p-5 shadow-2xl">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span
                   className="w-2.5 h-2.5 rounded-full shrink-0"
                   style={{ background: EVENT_TYPE_COLOR[activeAnnotation.type] ?? '#F59E0B' }}
                 />
-                <span className="text-white text-sm font-semibold">{activeAnnotation.label}</span>
+                <span className="text-(--nd-text-primary) text-sm font-semibold">{activeAnnotation.label}</span>
               </div>
               <button
                 onClick={() => setActiveAnnotation(null)}
-                className="text-zinc-500 hover:text-zinc-300 transition-colors ml-2"
+                className="text-(--nd-text-muted) hover:text-(--nd-text-primary) transition-colors ml-2"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs text-zinc-400">
-              <span className="text-zinc-300">{EVENT_TYPE_LABEL[activeAnnotation.type]}</span>
+            <p className="text-xs text-(--nd-text-muted)">
+              <span className="text-(--nd-text-secondary)">{EVENT_TYPE_LABEL[activeAnnotation.type]}</span>
               {' · '}
               {activeAnnotation.date}
             </p>

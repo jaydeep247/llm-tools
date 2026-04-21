@@ -436,7 +436,7 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <h2 className="nd-page-title">Competitor Cited URLs</h2>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border" style={{ borderColor: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)' }}>Source Analysis</span>
+                <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border" style={{ borderColor: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)' }}>Source Analysis</span>
               </div>
               <p className="text-sm leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>
                 Evaluate the authority and influence of domains cited by or associated with competitors in AI responses.
@@ -445,7 +445,7 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
           </div>
           <div className="flex flex-col items-end gap-2 md:self-start shrink-0">
             <div className="flex flex-col items-end gap-0.5 px-4 py-2 rounded-xl border" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--nd-text-muted)' }}>Tracking</span>
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--nd-text-muted)' }}>Tracking</span>
               <span className="text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>{sourceData.length} Competitors</span>
             </div>
             <Button
@@ -484,7 +484,7 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
         </div>
       ) : !hasData ? (
         <AnalysisEmptyState
-          icon={<Link2 className="w-8 h-8 text-zinc-400" />}
+          icon={<Link2 className="w-8 h-8" style={{ color: 'var(--nd-text-muted)' }} />}
           title="No Source Analysis Data"
           description="Run Module F from the Visibility Comparison tab to generate source analysis data for competitors."
         />
@@ -569,7 +569,7 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
               {/* Sidebar / Selector */}
               <div className="w-full lg:w-72 shrink-0 space-y-6">
                 <div>
-                  <div className="text-[10px] font-bold uppercase tracking-[0.2em] mb-4" style={{ color: 'var(--nd-text-muted)' }}>Competitors</div>
+                  <div className="text-xs font-bold uppercase tracking-[0.2em] mb-4" style={{ color: 'var(--nd-text-muted)' }}>Competitors</div>
                   <div className="flex flex-col gap-2">
                     {sourceData.map((row) => (
                       <button
@@ -594,7 +594,7 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
 
                 {activeRow && (
                   <div className="rounded-xl border p-4 space-y-4" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
-                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest border-b pb-3" style={{ color: 'var(--nd-text-muted)', borderColor: 'var(--nd-border)' }}>
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest border-b pb-3" style={{ color: 'var(--nd-text-muted)', borderColor: 'var(--nd-border)' }}>
                       <BarChart3 className="w-3.5 h-3.5" style={{ color: 'var(--nd-purple)' }} /> Performance
                     </div>
                     <div className="space-y-3">
@@ -606,11 +606,11 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
                       ))}
                     </div>
                     <div className="pt-3 border-t" style={{ borderColor: 'var(--nd-border)' }}>
-                      <div className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--nd-text-muted)' }}>Top Domains</div>
+                      <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--nd-text-muted)' }}>Top Domains</div>
                       <div className="space-y-2">
                         {(activeRow.citation_frequency ?? []).slice(0, 3).map((freq, i) => (
                           <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg border" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
-                            <span className="text-[11px] truncate max-w-[120px]" style={{ color: 'var(--nd-text-secondary)' }} title={freq.domain}>{freq.domain}</span>
+                            <span className="text-xs truncate max-w-[120px]" style={{ color: 'var(--nd-text-secondary)' }} title={freq.domain}>{freq.domain}</span>
                             <Badge className="text-[9px] h-4" style={{ background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)', border: '1px solid var(--nd-purple)' }}>{freq.count}</Badge>
                           </div>
                         ))}
@@ -662,7 +662,7 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
                                   <Badge className="text-[9px] h-4 uppercase" style={{ background: 'var(--nd-bg)', color: 'var(--nd-text-muted)', border: '1px solid var(--nd-border)' }}>{citation.content_type}</Badge>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2 text-[11px] font-mono truncate" style={{ color: 'var(--nd-text-muted)' }}>
+                              <div className="flex items-center gap-2 text-xs font-mono truncate" style={{ color: 'var(--nd-text-muted)' }}>
                                 <Link2 className="w-3 h-3 shrink-0" />
                                 <a href={citation.url || '#'} target="_blank" rel="noopener noreferrer" className="truncate hover:underline transition-colors" style={{ color: 'var(--nd-blue)' }}>
                                   {citation.url || citation.domain}
@@ -673,7 +673,7 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
                           </div>
                           <div className="flex items-center gap-4 shrink-0 border px-4 py-2 rounded-xl w-full md:w-auto" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
                             <div className="flex flex-col items-center border-r pr-4" style={{ borderColor: 'var(--nd-border)' }}>
-                              <span className="text-[9px] font-bold uppercase tracking-tighter" style={{ color: 'var(--nd-text-muted)' }}>Frequency</span>
+                              <span className="text-[11px] font-bold uppercase tracking-tighter" style={{ color: 'var(--nd-text-muted)' }}>Frequency</span>
                               <span className="text-sm font-bold font-mono" style={{ color: 'var(--nd-text-primary)' }}>
                                 {activeRow?.citation_frequency?.find(f => f.domain === citation.domain)?.count ?? 1}x
                               </span>
@@ -681,7 +681,7 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
                             <div className="flex flex-col items-end flex-1 md:flex-none">
                               <Link
                                 href={`/dashboard/module_C/generate?url=${encodeURIComponent(citation.url || citation.domain)}`}
-                                className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors group/link"
+                                className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider transition-colors group/link"
                                 style={{ color: 'var(--nd-purple)' }}
                               >
                                 Create Competing Content
