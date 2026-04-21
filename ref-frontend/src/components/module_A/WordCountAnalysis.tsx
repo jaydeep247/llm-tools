@@ -256,8 +256,8 @@ export function WordCountAnalysis({
     return (
       <th
         key={String(column)}
-        className={`px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap ${
-          isSortable ? 'cursor-pointer hover:bg-zinc-800/50' : ''
+        className={`px-3 py-2 text-center text-xs font-semibold text-(--nd-text-secondary) whitespace-nowrap ${
+          isSortable ? 'cursor-pointer hover:bg-(--nd-bg)' : ''
         } ${
           isMinWidthColumn ? 'min-w-50' : ''
         }`}
@@ -285,7 +285,7 @@ export function WordCountAnalysis({
             href={item.url} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 flex items-center gap-1"
+            className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
           >
             <span>{item.url}</span>
             <ExternalLink className="h-3 w-3 shrink-0" />
@@ -293,13 +293,13 @@ export function WordCountAnalysis({
         )
       case 'thinContent':
         return (
-          <Badge className={item.thinContent ? 'bg-red-500/20 text-red-300' : 'bg-green-500/20 text-green-300'}>
+          <Badge className={item.thinContent ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}>
             {item.thinContent ? 'Yes' : 'No'}
           </Badge>
         )
       case 'duplicateContent':
         return (
-          <Badge className={item.duplicateContent ? 'bg-yellow-500/20 text-yellow-300' : 'bg-green-500/20 text-green-300'}>
+          <Badge className={item.duplicateContent ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' : 'bg-green-50 text-green-700 border border-green-200'}>
             {item.duplicateContent ? 'Yes' : 'No'}
           </Badge>
         )
@@ -317,11 +317,11 @@ export function WordCountAnalysis({
         return <span title={item.thinContentReason || ''}>{item.thinContentReason || 'N/A'}</span>
       case 'duplicateWithUrls': {
         const urls = item.duplicateWithUrls
-        if (!urls || urls.length === 0) return <span className="text-zinc-500">None</span>
+        if (!urls || urls.length === 0) return <span className="text-(--nd-text-muted)">None</span>
         return (
           <div className="flex flex-col gap-1 max-w-xs">
             {urls.map((u, i) => (
-              <a key={i} href={u} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 text-xs truncate flex items-center gap-1">
+              <a key={i} href={u} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 text-xs truncate flex items-center gap-1">
                 <span className="truncate">{u}</span>
                 <ExternalLink className="h-2.5 w-2.5 shrink-0" />
               </a>
@@ -334,13 +334,13 @@ export function WordCountAnalysis({
       case 'headingWordCountMapping':
       case 'wordCountDistribution': {
         const mapping = item[column] as Record<string, number> | undefined
-        if (!mapping || Object.keys(mapping).length === 0) return <span className="text-zinc-500">N/A</span>
+        if (!mapping || Object.keys(mapping).length === 0) return <span className="text-(--nd-text-muted)">N/A</span>
         return (
           <div className="flex flex-col gap-0.5 text-xs max-w-xs">
             {Object.entries(mapping).map(([key, count]) => (
               <div key={key} className="flex justify-between gap-2">
-                <span className="text-zinc-400 truncate">{key}</span>
-                <span className="text-zinc-200 font-mono shrink-0">{count}</span>
+                <span className="text-(--nd-text-secondary) truncate">{key}</span>
+                <span className="text-(--nd-text-primary) font-mono shrink-0">{count}</span>
               </div>
             ))}
           </div>
@@ -356,14 +356,14 @@ export function WordCountAnalysis({
       {/* Sidebar Filter Panel */}
       <div className={`${sidebarOpen ? 'w-70' : 'w-0'} transition-all duration-300 overflow-hidden shrink-0`}>
         {sidebarOpen && (
-          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-4 h-[calc(100vh-120px)] overflow-y-auto">
+          <div className="bg-white border border-(--nd-border) rounded-lg p-4 h-[calc(100vh-120px)] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-white">Column Filters</h3>
+              <h3 className="text-sm font-semibold text-(--nd-text-primary)">Column Filters</h3>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSidebarOpen(false)}
-                className="text-zinc-400 hover:text-white p-1 h-auto"
+                className="text-(--nd-text-muted) hover:text-(--nd-text-primary) p-1 h-auto hover:bg-(--nd-bg)"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -371,7 +371,7 @@ export function WordCountAnalysis({
 
             {/* URL Filter */}
             <div className="mb-4">
-              <label className="text-xs text-zinc-400 mb-1 block">Filter by URL</label>
+              <label className="text-xs text-(--nd-text-secondary) mb-1 block">Filter by URL</label>
               <Input
                 placeholder="URL..."
                 value={urlFilter}
@@ -379,7 +379,7 @@ export function WordCountAnalysis({
                   setUrlFilter(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 text-xs h-8"
+                className="bg-(--nd-bg) border-(--nd-border) text-(--nd-text-primary) placeholder:text-(--nd-text-muted) text-xs h-8"
               />
             </div>
 
@@ -391,22 +391,22 @@ export function WordCountAnalysis({
                   <div key={category.name} className="space-y-2">
                     <button
                       onClick={() => toggleCategoryColumns(category)}
-                      className="flex items-center justify-between w-full text-xs font-medium text-zinc-200 hover:text-white"
+                      className="flex items-center justify-between w-full text-xs font-medium text-(--nd-text-primary) hover:text-(--nd-text-primary)"
                     >
                       <span>{category.name}</span>
-                      <span className="text-zinc-500">{visible}/{total}</span>
+                      <span className="text-(--nd-text-muted)">{visible}/{total}</span>
                     </button>
                     <div className="space-y-1 pl-2">
                       {category.columns.map((column) => (
                         <label
                           key={String(column)}
-                          className="flex items-center gap-2 text-xs text-zinc-300 hover:text-white cursor-pointer"
+                          className="flex items-center gap-2 text-xs text-(--nd-text-secondary) hover:text-(--nd-text-primary) cursor-pointer"
                         >
                           <input
                             type="checkbox"
                             checked={visibleColumns.has(column)}
                             onChange={() => toggleColumn(column)}
-                            className="rounded border-zinc-700 bg-zinc-800/50 text-blue-500 focus:ring-blue-500/50 focus:ring-offset-0"
+                            className="rounded border-(--nd-border) bg-white text-(--nd-purple) focus:ring-(--nd-purple)/50 focus:ring-offset-0"
                           />
                           <span className="truncate">{getColumnLabel(column)}</span>
                         </label>
@@ -429,7 +429,7 @@ export function WordCountAnalysis({
               variant="outline"
               size="sm"
               onClick={() => setSidebarOpen(true)}
-              className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800"
+              className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg)"
             >
               <ChevronRight className="h-4 w-4 mr-2" />
               Show Filters
@@ -441,7 +441,7 @@ export function WordCountAnalysis({
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between mb-4">
           <div className="flex-1 w-full sm:max-w-md">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-(--nd-text-muted)" />
               <Input
                 placeholder="Search by URL..."
                 value={searchQuery}
@@ -449,7 +449,7 @@ export function WordCountAnalysis({
                   setSearchQuery(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="pl-10 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 text-sm"
+                className="pl-10 bg-(--nd-bg) border-(--nd-border) text-(--nd-text-primary) placeholder:text-(--nd-text-muted) text-sm"
               />
             </div>
           </div>
@@ -459,7 +459,7 @@ export function WordCountAnalysis({
                 onClick={onRefresh}
                 variant="outline"
                 size="sm"
-                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg)"
                 disabled={isLoading}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -471,7 +471,7 @@ export function WordCountAnalysis({
                 onClick={onExport}
                 variant="outline"
                 size="sm"
-                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg)"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export
@@ -482,45 +482,45 @@ export function WordCountAnalysis({
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-            <div className="text-xs text-zinc-400">Total Pages</div>
-            <div className="text-xl font-bold text-white mt-1">{data.length}</div>
+          <div className="bg-white border border-(--nd-border) rounded-lg p-3">
+            <div className="text-xs text-(--nd-text-muted)">Total Pages</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">{data.length}</div>
           </div>
-          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-            <div className="text-xs text-zinc-400">Filtered</div>
-            <div className="text-xl font-bold text-white mt-1">{filteredData.length}</div>
+          <div className="bg-white border border-(--nd-border) rounded-lg p-3">
+            <div className="text-xs text-(--nd-text-muted)">Filtered</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">{filteredData.length}</div>
           </div>
-          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-            <div className="text-xs text-zinc-400">Avg Visible Words</div>
-            <div className="text-xl font-bold text-white mt-1">
+          <div className="bg-white border border-(--nd-border) rounded-lg p-3">
+            <div className="text-xs text-(--nd-text-muted)">Avg Visible Words</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">
               {data.length > 0 ? Math.round(data.reduce((sum, p) => sum + (p.visibleWordCount || 0), 0) / data.length) : 0}
             </div>
           </div>
-          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-            <div className="text-xs text-zinc-400">Avg Text Ratio</div>
-            <div className="text-xl font-bold text-white mt-1">
+          <div className="bg-white border border-(--nd-border) rounded-lg p-3">
+            <div className="text-xs text-(--nd-text-muted)">Avg Text Ratio</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">
               {data.length > 0 ? `${(data.reduce((sum, p) => sum + (p.textToHtmlRatio || 0), 0) / data.length).toFixed(1)}%` : '0%'}
             </div>
           </div>
         </div>
 
         {/* Table */}
-        <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 overflow-hidden flex-1">
+        <div className="rounded-lg border border-(--nd-border) bg-white overflow-hidden flex-1">
           <div 
             ref={tableContainerRef} 
             className="overflow-x-auto overflow-y-auto max-w-full h-full custom-scrollbar"
           >
             <table className="w-full text-sm">
-              <thead className="bg-gray-900 border-b border-zinc-700 sticky top-0 z-10">
+              <thead className="bg-(--nd-bg) border-b border-(--nd-border) sticky top-0 z-10">
                 <tr>
                   {orderedVisibleColumns.map(column => renderTableHeader(column))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-800">
+              <tbody className="divide-y divide-(--nd-border)">
                 {isLoading ? (
                   <tr>
                     <td colSpan={visibleColumns.size} className="px-4 py-12 text-center">
-                      <div className="flex items-center justify-center gap-2 text-zinc-400">
+                      <div className="flex items-center justify-center gap-2 text-(--nd-text-muted)">
                         <RefreshCw className="h-5 w-5 animate-spin" />
                         <span>Loading data...</span>
                       </div>
@@ -528,7 +528,7 @@ export function WordCountAnalysis({
                   </tr>
                 ) : paginatedData.length === 0 ? (
                   <tr>
-                    <td colSpan={visibleColumns.size} className="px-4 py-12 text-center text-zinc-400">
+                    <td colSpan={visibleColumns.size} className="px-4 py-12 text-center text-(--nd-text-muted)">
                       No pages found. {(searchQuery || urlFilter) && 'Try adjusting your filters.'}
                     </td>
                   </tr>
@@ -536,10 +536,10 @@ export function WordCountAnalysis({
                   paginatedData.map((item) => (
                     <tr 
                       key={item.id}
-                      className="hover:bg-zinc-800/50 transition-colors"
+                      className="hover:bg-(--nd-bg) transition-colors"
                     >
                       {orderedVisibleColumns.map((column) => (
-                        <td key={String(column)} className="px-3 py-2 text-zinc-200 text-center whitespace-normal overflow-wrap-break-word">
+                        <td key={String(column)} className="px-3 py-2 text-(--nd-text-secondary) text-center whitespace-normal overflow-wrap-break-word">
                           {renderCellContent(item, column)}
                         </td>
                       ))}
@@ -554,7 +554,7 @@ export function WordCountAnalysis({
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-4">
-            <div className="text-sm text-zinc-400">
+            <div className="text-sm text-(--nd-text-muted)">
               Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, sortedData.length)} of {sortedData.length} results
             </div>
             <div className="flex gap-2">
@@ -563,7 +563,7 @@ export function WordCountAnalysis({
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800 disabled:opacity-50"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) disabled:opacity-50 rounded-xl"
               >
                 Previous
               </Button>
@@ -588,8 +588,8 @@ export function WordCountAnalysis({
                       onClick={() => setCurrentPage(pageNum)}
                       className={`${
                         currentPage === pageNum
-                          ? 'bg-white text-black'
-                          : 'bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800'
+                          ? 'bg-(--nd-purple) text-white border-(--nd-purple)'
+                          : 'bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg)'
                       }`}
                     >
                       {pageNum}
@@ -602,7 +602,7 @@ export function WordCountAnalysis({
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800 disabled:opacity-50"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) disabled:opacity-50 rounded-xl"
               >
                 Next
               </Button>

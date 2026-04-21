@@ -524,8 +524,8 @@ export function CrawledDataTable({
     return (
       <th
         key={String(column)}
-        className={`px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap ${
-          isSortable ? 'cursor-pointer hover:bg-zinc-800/50' : ''
+        className={`px-3 py-2 text-center text-xs font-semibold text-(--nd-text-secondary) whitespace-nowrap ${
+          isSortable ? 'cursor-pointer hover:bg-(--nd-bg)' : ''
         } ${
           isMinWidthColumn 
             ? column === 'url' || column === 'description' 
@@ -545,10 +545,10 @@ export function CrawledDataTable({
   }
 
   const getStatusColor = (statusCode: number) => {
-    if (statusCode >= 200 && statusCode < 300) return 'bg-green-500/20 text-green-300 border-green-500/30'
-    if (statusCode >= 300 && statusCode < 400) return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
-    if (statusCode >= 400 && statusCode < 500) return 'bg-orange-500/20 text-orange-300 border-orange-500/30'
-    return 'bg-red-500/20 text-red-300 border-red-500/30'
+    if (statusCode >= 200 && statusCode < 300) return 'bg-green-50 text-green-700 border border-green-200'
+    if (statusCode >= 300 && statusCode < 400) return 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+    if (statusCode >= 400 && statusCode < 500) return 'bg-orange-50 text-orange-700 border border-orange-200'
+    return 'bg-red-50 text-red-700 border border-red-200'
   }
 
   const formatBytes = (bytes?: number) => {
@@ -574,7 +574,7 @@ export function CrawledDataTable({
             href={page.url} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 flex items-center gap-1"
+            className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
           >
             <span>{page.url}</span>
             <ExternalLink className="h-3 w-3 shrink-0" />
@@ -586,13 +586,13 @@ export function CrawledDataTable({
         return <Badge className={getStatusColor(page.statusCode)}>{page.statusCode}</Badge>
       case 'success':
         return (
-          <Badge className={page.success ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}>
+          <Badge className={page.success ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}>
             {page.success ? 'Yes' : 'No'}
           </Badge>
         )
       case 'indexable':
         return (
-          <Badge className={page.indexable ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}>
+          <Badge className={page.indexable ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}>
             {page.indexable ? 'Yes' : 'No'}
           </Badge>
         )
@@ -615,14 +615,14 @@ export function CrawledDataTable({
       case 'co2Mg':
         return page.co2Mg != null ? Number(page.co2Mg).toFixed(2) : '-'
       case 'carbonRating':
-        return page.carbonRating ? <Badge className="bg-green-500/20 text-green-300">{page.carbonRating}</Badge> : '-'
+        return page.carbonRating ? <Badge className="bg-green-50 text-green-700 border border-green-200">{page.carbonRating}</Badge> : '-'
       case 'semanticSimilarityScore':
         return page.semanticSimilarityScore != null ? Number(page.semanticSimilarityScore).toFixed(2) : '-'
       case 'semanticRelevanceScore':
         return page.semanticRelevanceScore != null ? Number(page.semanticRelevanceScore).toFixed(2) : '-'
       case 'closestSemanticallySimilarAddress':
         return page.closestSemanticallySimilarAddress ? (
-          <a href={page.closestSemanticallySimilarAddress} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.closestSemanticallySimilarAddress}>
+          <a href={page.closestSemanticallySimilarAddress} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700" title={page.closestSemanticallySimilarAddress}>
             {page.closestSemanticallySimilarAddress}
           </a>
         ) : '-'
@@ -638,7 +638,7 @@ export function CrawledDataTable({
         ) : '-'
       case 'canonicalUrl':
         return page.canonicalUrl ? (
-          <a href={page.canonicalUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.canonicalUrl}>
+          <a href={page.canonicalUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700" title={page.canonicalUrl}>
             {page.canonicalUrl}
           </a>
         ) : '-'
@@ -648,7 +648,7 @@ export function CrawledDataTable({
         return <span title={page.description}>{page.description || '-'}</span>
       case 'errorMessage':
         return page.errorMessage ? (
-          <span className="text-red-300" title={page.errorMessage}>{page.errorMessage}</span>
+          <span className="text-red-600" title={page.errorMessage}>{page.errorMessage}</span>
         ) : '-'
       case 'ogTitle':
         return page.ogTitle ? <span title={page.ogTitle}>{page.ogTitle}</span> : '-'
@@ -656,7 +656,7 @@ export function CrawledDataTable({
         return page.ogDescription ? <span title={page.ogDescription}>{page.ogDescription}</span> : '-'
       case 'ogImage':
         return page.ogImage ? (
-          <a href={page.ogImage} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.ogImage}>
+          <a href={page.ogImage} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700" title={page.ogImage}>
             {page.ogImage}
           </a>
         ) : '-'
@@ -669,7 +669,7 @@ export function CrawledDataTable({
             <Button
               variant="ghost"
               size="sm"
-              className="text-blue-400 hover:text-blue-300 hover:bg-zinc-800/60 h-6 px-2 text-xs"
+              className="text-blue-600 hover:text-blue-700 hover:bg-(--nd-bg) h-6 px-2 text-xs"
               onClick={(e) => {
                 e.stopPropagation()
                 setHeadingDialogData({ url: page.url, headings })
@@ -701,15 +701,15 @@ export function CrawledDataTable({
         return page.cookies ? <span className="text-[10px]" title={page.cookies}>{page.cookies}</span> : '-'
       case 'amphtmlUrl':
         return page.amphtmlUrl ? (
-          <a href={page.amphtmlUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.amphtmlUrl}>{page.amphtmlUrl}</a>
+          <a href={page.amphtmlUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700" title={page.amphtmlUrl}>{page.amphtmlUrl}</a>
         ) : '-'
       case 'mobileAlternateUrl':
         return page.mobileAlternateUrl ? (
-          <a href={page.mobileAlternateUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.mobileAlternateUrl}>{page.mobileAlternateUrl}</a>
+          <a href={page.mobileAlternateUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700" title={page.mobileAlternateUrl}>{page.mobileAlternateUrl}</a>
         ) : '-'
       case 'closestDuplicateUrl':
         return page.closestDuplicateUrl ? (
-          <a href={page.closestDuplicateUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.closestDuplicateUrl}>{page.closestDuplicateUrl}</a>
+          <a href={page.closestDuplicateUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700" title={page.closestDuplicateUrl}>{page.closestDuplicateUrl}</a>
         ) : '-'
       case 'status':
         return page.status ? <Badge className={getStatusColor(page.statusCode)}>{page.status}</Badge> : '-'
@@ -752,14 +752,14 @@ export function CrawledDataTable({
       {/* Sidebar Filter Panel */}
       <div className={`${sidebarOpen ? 'w-68' : 'w-0'} transition-all duration-300 overflow-hidden shrink-0`}>
         {sidebarOpen && (
-          <div className="bg-[#0D0D10] border border-zinc-800 rounded-xl p-4 h-full overflow-y-auto custom-scrollbar">
+          <div className="bg-white border border-(--nd-border) rounded-xl p-4 h-full overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-white">Column Filters</h3>
+              <h3 className="text-sm font-semibold text-(--nd-text-primary)">Column Filters</h3>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSidebarOpen(false)}
-                className="text-zinc-500 hover:text-white p-1 h-auto hover:bg-zinc-800/60"
+                className="text-(--nd-text-muted) hover:text-(--nd-text-primary) p-1 h-auto hover:bg-(--nd-bg)"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -767,7 +767,7 @@ export function CrawledDataTable({
 
             {/* URL/Resource Filter */}
             <div className="mb-4">
-              <label className="text-[11px] text-zinc-500 uppercase tracking-wider mb-1.5 block">Filter by URL/Type</label>
+              <label className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider mb-1.5 block">Filter by URL/Type</label>
               <Input
                 placeholder="URL or content type..."
                 value={urlFilter}
@@ -775,7 +775,7 @@ export function CrawledDataTable({
                   setUrlFilter(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 text-xs h-8 rounded-lg"
+                className="bg-(--nd-bg) border-(--nd-border) text-(--nd-text-primary) placeholder:text-(--nd-text-muted) text-xs h-8 rounded-lg"
               />
             </div>
 
@@ -787,22 +787,22 @@ export function CrawledDataTable({
                   <div key={category.name} className="space-y-2">
                     <button
                       onClick={() => toggleCategoryColumns(category)}
-                      className="flex items-center justify-between w-full text-xs font-medium text-zinc-200 hover:text-white"
+                      className="flex items-center justify-between w-full text-xs font-medium text-(--nd-text-primary) hover:text-(--nd-text-primary)"
                     >
                       <span>{category.name}</span>
-                      <span className="text-zinc-500">{visible}/{total}</span>
+                      <span className="text-(--nd-text-muted)">{visible}/{total}</span>
                     </button>
                     <div className="space-y-1 pl-2">
                       {category.columns.map((column) => (
                         <label
                           key={String(column)}
-                          className="flex items-center gap-2 text-xs text-zinc-400 hover:text-white cursor-pointer"
+                          className="flex items-center gap-2 text-xs text-(--nd-text-secondary) hover:text-(--nd-text-primary) cursor-pointer"
                         >
                           <input
                             type="checkbox"
                             checked={visibleColumns.has(column)}
                             onChange={() => toggleColumn(column)}
-                            className="rounded border-zinc-700 bg-zinc-900 text-blue-500 focus:ring-blue-500/50 focus:ring-offset-0"
+                            className="rounded border-(--nd-border) bg-white text-(--nd-purple) focus:ring-(--nd-purple)/50 focus:ring-offset-0"
                           />
                           <span className="truncate">{getColumnLabel(column)}</span>
                         </label>
@@ -825,7 +825,7 @@ export function CrawledDataTable({
               variant="outline"
               size="sm"
               onClick={() => setSidebarOpen(true)}
-              className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+              className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary)"
             >
               <ChevronRight className="h-4 w-4 mr-2" />
               Show Filters
@@ -837,7 +837,7 @@ export function CrawledDataTable({
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between mb-4">
           <div className="flex-1 w-full sm:max-w-md">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-(--nd-text-muted)" />
               <Input
                 placeholder="Search by URL, title, or description..."
                 value={searchQuery}
@@ -845,7 +845,7 @@ export function CrawledDataTable({
                   setSearchQuery(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500 text-sm rounded-xl"
+                className="pl-10 bg-white border-(--nd-border) text-(--nd-text-primary) placeholder:text-(--nd-text-muted) text-sm rounded-xl"
               />
             </div>
           </div>
@@ -855,7 +855,7 @@ export function CrawledDataTable({
                 onClick={onRefresh}
                 variant="outline"
                 size="sm"
-                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) rounded-xl"
                 disabled={isLoading}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -867,7 +867,7 @@ export function CrawledDataTable({
                 onClick={onExport}
                 variant="outline"
                 size="sm"
-                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) rounded-xl"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export
@@ -878,45 +878,45 @@ export function CrawledDataTable({
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Total Pages</div>
-            <div className="text-xl font-bold text-white mt-1">{uniqueData.length}</div>
+          <div className="bg-white border border-(--nd-border) rounded-xl p-3">
+            <div className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider">Total Pages</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">{uniqueData.length}</div>
           </div>
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Filtered</div>
-            <div className="text-xl font-bold text-white mt-1">{filteredData.length}</div>
+          <div className="bg-white border border-(--nd-border) rounded-xl p-3">
+            <div className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider">Filtered</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">{filteredData.length}</div>
           </div>
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Avg Word Count</div>
-            <div className="text-xl font-bold text-white mt-1">
+          <div className="bg-white border border-(--nd-border) rounded-xl p-3">
+            <div className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider">Avg Word Count</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">
               {uniqueData.length > 0 ? Math.round(uniqueData.reduce((sum, p) => sum + p.wordCount, 0) / uniqueData.length) : 0}
             </div>
           </div>
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Success Rate</div>
-            <div className="text-xl font-bold text-white mt-1">
+          <div className="bg-white border border-(--nd-border) rounded-xl p-3">
+            <div className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider">Success Rate</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">
               {uniqueData.length > 0 ? `${((uniqueData.filter(p => p.success).length / uniqueData.length) * 100).toFixed(1)}%` : '0%'}
             </div>
           </div>
         </div>
 
         {/* Table */}
-        <div className="rounded-xl border border-zinc-800 bg-[#111113] overflow-hidden flex-1 min-h-0">
+        <div className="rounded-xl border border-(--nd-border) bg-white overflow-hidden flex-1 min-h-0">
           <div 
             ref={tableContainerRef} 
             className="overflow-x-auto overflow-y-auto max-w-full h-full custom-scrollbar"
           >
             <table className="w-full text-sm">
-              <thead className="bg-zinc-900/80 border-b border-zinc-800 sticky top-0 z-10">
+              <thead className="bg-(--nd-bg) border-b border-(--nd-border) sticky top-0 z-10">
                 <tr>
                   {orderedVisibleColumns.map(column => renderTableHeader(column))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-800">
+              <tbody className="divide-y divide-(--nd-border)">
                 {isLoading ? (
                   <tr>
                     <td colSpan={visibleColumns.size} className="px-4 py-12 text-center">
-                      <div className="flex items-center justify-center gap-2 text-zinc-400">
+                      <div className="flex items-center justify-center gap-2 text-(--nd-text-muted)">
                         <RefreshCw className="h-5 w-5 animate-spin" />
                         <span>Loading data...</span>
                       </div>
@@ -924,7 +924,7 @@ export function CrawledDataTable({
                   </tr>
                 ) : paginatedData.length === 0 ? (
                   <tr>
-                    <td colSpan={visibleColumns.size} className="px-4 py-12 text-center text-zinc-400">
+                    <td colSpan={visibleColumns.size} className="px-4 py-12 text-center text-(--nd-text-muted)">
                       No pages found. {(searchQuery || urlFilter) && 'Try adjusting your filters.'}
                     </td>
                   </tr>
@@ -932,10 +932,10 @@ export function CrawledDataTable({
                   paginatedData.map((page) => (
                     <tr 
                       key={page.id}
-                      className="hover:bg-zinc-800/50 transition-colors"
+                      className="hover:bg-(--nd-bg) transition-colors"
                     >
                       {orderedVisibleColumns.map((column) => (
-                        <td key={String(column)} className="px-3 py-2 text-zinc-200 text-center whitespace-normal overflow-wrap-break-word">
+                        <td key={String(column)} className="px-3 py-2 text-(--nd-text-secondary) text-center whitespace-normal overflow-wrap-break-word">
                           {renderCellContent(page, column)}
                         </td>
                       ))}
@@ -950,7 +950,7 @@ export function CrawledDataTable({
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-3">
-            <div className="text-sm text-zinc-500">
+            <div className="text-sm text-(--nd-text-muted)">
               Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, sortedData.length)} of {sortedData.length} results
             </div>
             <div className="flex gap-2">
@@ -959,7 +959,7 @@ export function CrawledDataTable({
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 rounded-xl"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) disabled:opacity-40 rounded-xl"
               >
                 Previous
               </Button>
@@ -984,8 +984,8 @@ export function CrawledDataTable({
                       onClick={() => setCurrentPage(pageNum)}
                       className={`rounded-xl ${
                         currentPage === pageNum
-                          ? 'bg-white text-black border-white'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white'
+                          ? 'bg-(--nd-purple) text-white border-(--nd-purple)'
+                          : 'bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary)'
                       }`}
                     >
                       {pageNum}
@@ -998,7 +998,7 @@ export function CrawledDataTable({
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 rounded-xl"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) disabled:opacity-40 rounded-xl"
               >
                 Next
               </Button>
@@ -1009,23 +1009,23 @@ export function CrawledDataTable({
 
       {/* Heading Structure Dialog */}
       <Dialog open={!!headingDialogData} onOpenChange={(open) => { if (!open) setHeadingDialogData(null) }}>
-        <DialogContent className="bg-[#0D0D10] border-zinc-800 max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-4xl max-h-150 overflow-hidden flex flex-col p-0 border-(--nd-border) bg-white gap-0">
           <DialogHeader>
-            <DialogTitle className="text-white text-sm font-semibold">Heading Structure</DialogTitle>
+            <DialogTitle className="text-(--nd-text-primary) text-sm font-semibold">Heading Structure</DialogTitle>
             {headingDialogData && (
-              <p className="text-zinc-400 text-xs truncate mt-1" title={headingDialogData.url}>{headingDialogData.url}</p>
+              <p className="text-(--nd-text-muted) text-xs truncate mt-1" title={headingDialogData.url}>{headingDialogData.url}</p>
             )}
           </DialogHeader>
           {headingDialogData && (
             <div className="overflow-y-auto flex-1 pr-2 custom-scrollbar py-3 space-y-3">
               {headingDialogData.headings.map((h, i) => {
                 const textStyles: Record<number, string> = {
-                  1: 'text-2xl font-bold text-white',
-                  2: 'text-xl font-semibold text-white',
-                  3: 'text-lg font-semibold text-zinc-200',
-                  4: 'text-base font-medium text-zinc-300',
-                  5: 'text-sm font-medium text-zinc-400',
-                  6: 'text-xs font-medium text-zinc-400',
+                  1: 'text-2xl font-bold text-(--nd-text-primary)',
+                  2: 'text-xl font-semibold text-(--nd-text-primary)',
+                  3: 'text-lg font-semibold text-(--nd-text-secondary)',
+                  4: 'text-base font-medium text-(--nd-text-secondary)',
+                  5: 'text-sm font-medium text-(--nd-text-muted)',
+                  6: 'text-xs font-medium text-(--nd-text-muted)',
                 }
                 const tagColors: Record<number, string> = {
                   1: 'text-blue-400',

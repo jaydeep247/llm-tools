@@ -159,12 +159,8 @@ function MetricAskButton({
         onClick()
       }}
       disabled={disabled}
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10',
-        'px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300',
-        'hover:bg-violet-500/18 transition-colors cursor-pointer shrink-0',
-        'disabled:opacity-40 disabled:cursor-not-allowed',
-      )}
+      className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+      style={{ borderColor: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)' }}
     >
       <MessageSquare className="size-3 shrink-0" aria-hidden />
       Ask AI
@@ -377,14 +373,14 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
 
   if (isLoading || isFetchingModuleF) {
     return (
-      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="h-32 bg-[#111113] rounded-3xl border border-zinc-800 animate-pulse" />
+      <div className="space-y-8 animate-pulse">
+        <div className="h-32 rounded-3xl border" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-border)' }} />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-[#111113] rounded-2xl p-5 border border-zinc-800 animate-pulse h-32" />
+            <div key={i} className="rounded-2xl p-5 border h-32" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-border)' }} />
           ))}
         </div>
-        <div className="h-96 bg-[#111113] rounded-2xl border border-zinc-800 animate-pulse" />
+        <div className="h-96 rounded-2xl border" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-border)' }} />
       </div>
     )
   }
@@ -430,76 +426,59 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
         </DialogContent>
       </Dialog>
 
-      {/* Premium Header */}
-      <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-6 sm:p-8 relative overflow-hidden group">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 blur-[100px] -mr-32 -mt-32" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/5 blur-[100px] -ml-32 -mb-32" />
-        
-        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-start gap-5">
-            <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-xl group-hover:border-purple-500/30 transition-colors">
-              <Globe className="w-8 h-8 text-purple-400 animate-pulse" />
+      {/* Header */}
+      <div className="rounded-2xl border p-5 sm:p-6" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-xl border shrink-0" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+              <Globe className="w-6 h-6" style={{ color: 'var(--nd-purple)' }} />
             </div>
             <div>
-              <div className="flex items-center gap-3 mb-1">
-                <h2 className="text-2xl font-bold text-white tracking-tight">Competitor Cited URLs</h2>
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20">
-                  <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
-                  <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider">Source Analysis</span>
-                </div>
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="nd-page-title">Competitor Cited URLs</h2>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border" style={{ borderColor: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)' }}>Source Analysis</span>
               </div>
-              <p className="text-sm text-zinc-400 max-w-2xl leading-relaxed">
-                Evaluate the authority and influence of domains cited by or associated with competitors in AI responses. Track source diversity and credibility.
+              <p className="text-sm leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>
+                Evaluate the authority and influence of domains cited by or associated with competitors in AI responses.
               </p>
             </div>
           </div>
-          
-          <div className="flex flex-col items-end gap-3 md:self-start">
-            <div className="flex flex-col items-end gap-1 bg-zinc-900/50 px-4 py-2 rounded-2xl border border-zinc-800">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tracking</span>
-              <span className="text-sm font-bold text-zinc-200">{sourceData.length} Competitors</span>
+          <div className="flex flex-col items-end gap-2 md:self-start shrink-0">
+            <div className="flex flex-col items-end gap-0.5 px-4 py-2 rounded-xl border" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--nd-text-muted)' }}>Tracking</span>
+              <span className="text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>{sourceData.length} Competitors</span>
             </div>
-
             <Button
               type="button"
               onClick={openAskAiDialog}
               disabled={isAskingAI}
-              className={cn(
-                'rounded-full border-0 shadow-lg shadow-fuchsia-950/30',
-                'text-sm font-extrabold uppercase tracking-wider sm:text-base',
-                'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300',
-                'text-black hover:opacity-95 hover:shadow-xl',
-                'h-auto min-h-[48px] px-6 py-3 sm:min-h-[52px] sm:px-8 sm:py-3.5',
-                'gap-2.5',
-              )}
+              className="rounded-xl text-xs font-bold uppercase tracking-wider px-4 py-2 border-0"
+              style={{ background: 'var(--nd-purple)', color: '#fff' }}
             >
-              <MessageSquare className="size-5 shrink-0 sm:size-6" strokeWidth={2.25} aria-hidden />
-              ASK AI
+              <MessageSquare className="size-4 shrink-0 mr-1.5" strokeWidth={2.25} aria-hidden />
+              Ask AI
             </Button>
           </div>
         </div>
       </div>
 
       {!flags.competitor_cited_urls ? (
-        <div className="bg-[#111113] rounded-3xl border border-zinc-800 p-20 text-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-purple-500/5 to-transparent" />
-          <div className="relative">
-            <div className="w-20 h-20 rounded-3xl bg-zinc-800/50 border border-zinc-700/50 flex items-center justify-center mx-auto mb-6 shadow-2xl">
-              <Lock className="w-10 h-10 text-zinc-600" />
+        <div className="rounded-2xl border p-16 text-center" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+          <div className="w-16 h-16 rounded-2xl border flex items-center justify-center mx-auto mb-5" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+            <Lock className="w-8 h-8" style={{ color: 'var(--nd-text-muted)' }} />
+          </div>
+          <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--nd-text-primary)' }}>Source Authority Tracking</h3>
+          <p className="text-sm max-w-sm mx-auto leading-relaxed mb-6" style={{ color: 'var(--nd-text-secondary)' }}>
+            Upgrade to Agency or Enterprise to unlock source analysis, domain authority tracking, and citation frequency data.
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl border" style={{ borderColor: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)' }}>
+              <Shield className="w-4 h-4" style={{ color: 'var(--nd-purple)' }} />
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--nd-purple)' }}>Agency</span>
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">Source Authority Tracking</h3>
-            <p className="text-sm text-zinc-500 max-w-sm mx-auto leading-relaxed mb-8">
-              Upgrade to Agency or Enterprise to unlock source analysis, domain authority tracking, and citation frequency data for your competitors.
-            </p>
-            <div className="flex items-center justify-center gap-3">
-              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-500/5 border border-purple-500/10">
-                <Shield className="w-4 h-4 text-purple-500" />
-                <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">Agency</span>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/5 border border-amber-500/10">
-                <Zap className="w-4 h-4 text-amber-500" />
-                <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">Enterprise</span>
-              </div>
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-200 bg-amber-50">
+              <Zap className="w-4 h-4 text-amber-600" />
+              <span className="text-xs font-bold text-amber-700 uppercase tracking-widest">Enterprise</span>
             </div>
           </div>
         </div>
@@ -576,10 +555,9 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
             />
           </div>
 
-          <SectionCard 
-            title="Source Domain Analysis" 
+          <SectionCard
+            title="Source Domain Analysis"
             description="Deep dive into the domains and specific URLs cited by AI models for each competitor."
-            className="bg-[#111113]"
             actionSlot={
               <MetricAskButton
                 disabled={!jobId || isAskingAI}
@@ -591,63 +569,49 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
               {/* Sidebar / Selector */}
               <div className="w-full lg:w-72 shrink-0 space-y-6">
                 <div>
-                  <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-4">Competitors</div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.2em] mb-4" style={{ color: 'var(--nd-text-muted)' }}>Competitors</div>
                   <div className="flex flex-col gap-2">
                     {sourceData.map((row) => (
                       <button
                         key={row.competitor}
                         onClick={() => setSelectedCompetitor(row.competitor)}
-                        className={cn(
-                          "flex items-center justify-between px-4 py-3 rounded-2xl border transition-all duration-300 text-left group",
-                          activeCompetitor === row.competitor 
-                            ? "bg-purple-500/10 border-purple-500/30 text-white shadow-lg shadow-purple-500/5" 
-                            : "bg-zinc-900/40 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:bg-zinc-900/60"
-                        )}
+                        className="flex items-center justify-between px-4 py-3 rounded-xl border transition-all duration-200 text-left group"
+                        style={activeCompetitor === row.competitor
+                          ? { background: 'var(--nd-purple-subtle)', borderColor: 'var(--nd-purple)', color: 'var(--nd-text-primary)' }
+                          : { background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-secondary)' }}
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className={cn(
-                            "w-2 h-2 rounded-full shrink-0 transition-all",
-                            activeCompetitor === row.competitor ? "bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.6)]" : "bg-zinc-700 group-hover:bg-zinc-500"
-                          )} />
+                          <div className="w-2 h-2 rounded-full shrink-0 transition-all"
+                            style={{ background: activeCompetitor === row.competitor ? 'var(--nd-purple)' : 'var(--nd-border)' }}
+                          />
                           <span className="font-bold truncate text-sm">{row.competitor}</span>
                         </div>
-                        <ChevronRight className={cn(
-                          "w-4 h-4 shrink-0 transition-transform",
-                          activeCompetitor === row.competitor ? "translate-x-0 opacity-100" : "-translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100"
-                        )} />
+                        <ChevronRight className="w-4 h-4 shrink-0 transition-transform" style={{ color: activeCompetitor === row.competitor ? 'var(--nd-purple)' : 'var(--nd-text-muted)' }} />
                       </button>
                     ))}
                   </div>
                 </div>
 
                 {activeRow && (
-                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 space-y-5">
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-3">
-                      <BarChart3 className="w-3.5 h-3.5 text-purple-400" /> Performance
+                  <div className="rounded-xl border p-4 space-y-4" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest border-b pb-3" style={{ color: 'var(--nd-text-muted)', borderColor: 'var(--nd-border)' }}>
+                      <BarChart3 className="w-3.5 h-3.5" style={{ color: 'var(--nd-purple)' }} /> Performance
                     </div>
-                    
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-zinc-500">Credibility Score</span>
-                        <span className="text-sm font-bold font-mono text-zinc-200">{activeRow.credibility_score}/100</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-zinc-500">Unique Domains</span>
-                        <span className="text-sm font-bold font-mono text-zinc-200">{activeRow.unique_domains}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-zinc-500">Source Diversity</span>
-                        <span className="text-sm font-bold font-mono text-zinc-200">{round1((activeRow.source_diversity ?? 0) * 100)}%</span>
-                      </div>
+                    <div className="space-y-3">
+                      {[['Credibility Score', `${activeRow.credibility_score}/100`], ['Unique Domains', String(activeRow.unique_domains)], ['Source Diversity', `${Math.round((activeRow.source_diversity ?? 0) * 100)}%`]].map(([label, val]) => (
+                        <div key={label} className="flex items-center justify-between">
+                          <span className="text-xs" style={{ color: 'var(--nd-text-muted)' }}>{label}</span>
+                          <span className="text-sm font-bold font-mono" style={{ color: 'var(--nd-text-primary)' }}>{val}</span>
+                        </div>
+                      ))}
                     </div>
-
-                    <div className="pt-4 border-t border-zinc-800">
-                      <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Top Domains</div>
+                    <div className="pt-3 border-t" style={{ borderColor: 'var(--nd-border)' }}>
+                      <div className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--nd-text-muted)' }}>Top Domains</div>
                       <div className="space-y-2">
                         {(activeRow.citation_frequency ?? []).slice(0, 3).map((freq, i) => (
-                          <div key={i} className="flex items-center justify-between bg-zinc-950/40 px-3 py-2 rounded-xl border border-zinc-800/50">
-                            <span className="text-[11px] text-zinc-400 truncate max-w-[120px]" title={freq.domain}>{freq.domain}</span>
-                            <Badge className="bg-zinc-800 text-zinc-400 border-zinc-700 text-[9px] h-4">{freq.count}</Badge>
+                          <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg border" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+                            <span className="text-[11px] truncate max-w-[120px]" style={{ color: 'var(--nd-text-secondary)' }} title={freq.domain}>{freq.domain}</span>
+                            <Badge className="text-[9px] h-4" style={{ background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)', border: '1px solid var(--nd-purple)' }}>{freq.count}</Badge>
                           </div>
                         ))}
                       </div>
@@ -660,21 +624,21 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
               <div className="flex-1 min-w-0 space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-zinc-900 border border-zinc-800">
-                      <Link2 className="w-5 h-5 text-purple-400" />
+                    <div className="p-2 rounded-xl border" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+                      <Link2 className="w-5 h-5" style={{ color: 'var(--nd-purple)' }} />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-white leading-tight">{activeCompetitor} Citations</h3>
-                      <p className="text-xs text-zinc-500">Showing {filteredCitations.length} cited sources</p>
+                      <h3 className="text-base font-bold leading-tight" style={{ color: 'var(--nd-text-primary)' }}>{activeCompetitor} Citations</h3>
+                      <p className="text-xs" style={{ color: 'var(--nd-text-muted)' }}>Showing {filteredCitations.length} cited sources</p>
                     </div>
                   </div>
-
-                  <div className="relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-purple-400 transition-colors" />
-                    <input 
-                      type="text" 
-                      placeholder="Filter by domain..." 
-                      className="bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 w-full md:w-64 transition-all"
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--nd-text-muted)' }} />
+                    <input
+                      type="text"
+                      placeholder="Filter by domain..."
+                      className="rounded-xl pl-10 pr-4 py-2 text-sm w-full md:w-64 outline-none border transition-all"
+                      style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}
                       value={searchDomain}
                       onChange={(e) => setSearchDomain(e.target.value)}
                     />
@@ -684,41 +648,41 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
                 <ScrollArea className="h-[600px] pr-4 -mr-2">
                   <div className="space-y-3 pb-4">
                     {filteredCitations.map((citation, idx) => (
-                      <div key={idx} className="group relative bg-zinc-900/20 border border-zinc-800 rounded-2xl p-4 hover:border-zinc-700 hover:bg-zinc-900/40 transition-all duration-300">
+                      <div key={idx} className="group relative border rounded-xl p-4 transition-all duration-200 hover:shadow-sm" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
                         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
                           <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className="w-10 h-10 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center shrink-0 group-hover:border-purple-500/30 transition-colors">
-                              <Globe className="w-5 h-5 text-zinc-500 group-hover:text-purple-400" />
+                            <div className="w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 transition-colors" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+                              <Globe className="w-4 h-4" style={{ color: 'var(--nd-purple)' }} />
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-bold text-zinc-100 truncate">{citation.domain}</span>
-                                <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[9px] font-bold h-4">DA {citation.authority_score}</Badge>
+                                <span className="text-sm font-bold truncate" style={{ color: 'var(--nd-text-primary)' }}>{citation.domain}</span>
+                                <Badge className="text-[9px] font-bold h-4 bg-blue-50 text-blue-700 border-blue-200">DA {citation.authority_score}</Badge>
                                 {citation.content_type && (
-                                  <Badge className="bg-zinc-800 text-zinc-500 border-zinc-700 text-[9px] h-4 uppercase">{citation.content_type}</Badge>
+                                  <Badge className="text-[9px] h-4 uppercase" style={{ background: 'var(--nd-bg)', color: 'var(--nd-text-muted)', border: '1px solid var(--nd-border)' }}>{citation.content_type}</Badge>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2 text-[11px] text-zinc-500 font-mono truncate hover:text-blue-400 transition-colors">
+                              <div className="flex items-center gap-2 text-[11px] font-mono truncate" style={{ color: 'var(--nd-text-muted)' }}>
                                 <Link2 className="w-3 h-3 shrink-0" />
-                                <a href={citation.url || '#'} target="_blank" rel="noopener noreferrer" className="truncate underline underline-offset-4 decoration-zinc-800 group-hover:decoration-blue-500/30">
+                                <a href={citation.url || '#'} target="_blank" rel="noopener noreferrer" className="truncate hover:underline transition-colors" style={{ color: 'var(--nd-blue)' }}>
                                   {citation.url || citation.domain}
                                 </a>
                                 <ExternalLink className="w-2.5 h-2.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                               </div>
                             </div>
                           </div>
-
-                          <div className="flex items-center gap-4 shrink-0 bg-zinc-950/40 px-4 py-2 rounded-xl border border-zinc-800/50 w-full md:w-auto">
-                            <div className="flex flex-col items-center border-r border-zinc-800 pr-4">
-                              <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-tighter">Frequency</span>
-                              <span className="text-sm font-bold font-mono text-zinc-300">
+                          <div className="flex items-center gap-4 shrink-0 border px-4 py-2 rounded-xl w-full md:w-auto" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+                            <div className="flex flex-col items-center border-r pr-4" style={{ borderColor: 'var(--nd-border)' }}>
+                              <span className="text-[9px] font-bold uppercase tracking-tighter" style={{ color: 'var(--nd-text-muted)' }}>Frequency</span>
+                              <span className="text-sm font-bold font-mono" style={{ color: 'var(--nd-text-primary)' }}>
                                 {activeRow?.citation_frequency?.find(f => f.domain === citation.domain)?.count ?? 1}x
                               </span>
                             </div>
                             <div className="flex flex-col items-end flex-1 md:flex-none">
-                              <Link 
+                              <Link
                                 href={`/dashboard/module_C/generate?url=${encodeURIComponent(citation.url || citation.domain)}`}
-                                className="flex items-center gap-1.5 text-[10px] font-bold text-purple-400 hover:text-purple-300 transition-colors uppercase tracking-wider group/link"
+                                className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors group/link"
+                                style={{ color: 'var(--nd-purple)' }}
                               >
                                 Create Competing Content
                                 <ChevronRight className="w-3 h-3 group-hover/link:translate-x-1 transition-transform" />
@@ -730,12 +694,12 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
                     ))}
 
                     {filteredCitations.length === 0 && (
-                      <div className="text-center py-20 bg-zinc-900/20 rounded-3xl border border-dashed border-zinc-800">
-                        <div className="w-16 h-16 rounded-2xl bg-zinc-900/50 flex items-center justify-center mx-auto mb-4">
-                          <Search className="w-8 h-8 text-zinc-700" />
+                      <div className="text-center py-16 border rounded-2xl border-dashed" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+                        <div className="w-12 h-12 rounded-xl border flex items-center justify-center mx-auto mb-4" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+                          <Search className="w-6 h-6" style={{ color: 'var(--nd-text-muted)' }} />
                         </div>
-                        <h3 className="text-white font-bold mb-1">No domains found</h3>
-                        <p className="text-zinc-500 text-sm">Try adjusting your search filter.</p>
+                        <h3 className="font-bold mb-1" style={{ color: 'var(--nd-text-primary)' }}>No domains found</h3>
+                        <p className="text-sm" style={{ color: 'var(--nd-text-muted)' }}>Try adjusting your search filter.</p>
                       </div>
                     )}
                   </div>

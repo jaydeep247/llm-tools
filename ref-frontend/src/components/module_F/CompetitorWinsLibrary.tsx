@@ -208,12 +208,8 @@ function MetricAskButton({
         onClick()
       }}
       disabled={disabled}
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10',
-        'px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300',
-        'hover:bg-violet-500/18 transition-colors cursor-pointer shrink-0',
-        'disabled:opacity-40 disabled:cursor-not-allowed',
-      )}
+      className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+      style={{ borderColor: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)' }}
     >
       <MessageSquare className="size-3 shrink-0" aria-hidden />
       Ask AI
@@ -245,50 +241,46 @@ function TopicGrid({ topicWins, brandName: _brandName, onSelectTopic }: TopicGri
             key={tw.topic}
             type="button"
             onClick={() => onSelectTopic(tw.topic)}
-            className={cn(
-              'group text-left flex flex-col gap-4 p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800',
-              'hover:border-blue-500/30 hover:bg-zinc-900/70 hover:shadow-[0_0_24px_rgba(59,130,246,0.08)]',
-              'transition-all duration-200 cursor-pointer'
-            )}
+            className="group text-left flex flex-col gap-4 p-5 rounded-xl border transition-all duration-200 cursor-pointer hover:shadow-md"
+            style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
-                  <BookOpen className="w-4 h-4 text-blue-400" />
+                <div className="w-8 h-8 rounded-xl border flex items-center justify-center shrink-0" style={{ borderColor: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)' }}>
+                  <BookOpen className="w-4 h-4" style={{ color: 'var(--nd-purple)' }} />
                 </div>
-                <h4 className="text-sm font-bold text-white leading-snug line-clamp-2 group-hover:text-blue-300 transition-colors">
+                <h4 className="text-sm font-bold leading-snug line-clamp-2" style={{ color: 'var(--nd-text-primary)' }}>
                   {tw.topic}
                 </h4>
               </div>
-              <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-blue-400 transition-colors shrink-0 mt-0.5" />
+              <ChevronRight className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--nd-text-muted)' }} />
             </div>
 
             <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-500">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: 'var(--nd-text-muted)' }}>
                 <Layers className="w-3 h-3" />
                 {total} analyzed
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-500">
-                <Target className="w-3 h-3 text-zinc-600" />
+              <div className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: 'var(--nd-text-muted)' }}>
+                <Target className="w-3 h-3" />
                 {tw.prompts_total} total
               </div>
             </div>
 
-            {/* Win-rate bar */}
             <div className="space-y-1.5">
               <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider">
-                <span className="text-zinc-500">Brand Win Rate</span>
+                <span style={{ color: 'var(--nd-text-muted)' }}>Brand Win Rate</span>
                 <span className={cn(
-                  winColor === 'emerald' ? 'text-emerald-400' :
-                  winColor === 'amber'   ? 'text-amber-400'   : 'text-rose-400'
+                  winColor === 'emerald' ? 'text-emerald-600' :
+                  winColor === 'amber' ? 'text-amber-600' : 'text-rose-600'
                 )}>{winRate}%</span>
               </div>
-              <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--nd-border)' }}>
                 <div
                   className={cn(
                     'h-full rounded-full transition-all',
                     winColor === 'emerald' ? 'bg-emerald-500' :
-                    winColor === 'amber'   ? 'bg-amber-500'   : 'bg-rose-500'
+                    winColor === 'amber' ? 'bg-amber-500' : 'bg-rose-500'
                   )}
                   style={{ width: `${winRate}%` }}
                 />
@@ -338,84 +330,66 @@ function PromptResultList({
   normalizeKey,
 }: PromptResultListProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {results.map((result, idx) => {
         const isExpanded = expandedPrompt === idx
-
         return (
-          <div key={idx} className={cn(
-            "group relative bg-zinc-900/20 border border-zinc-800 rounded-2xl transition-all duration-300",
-            isExpanded ? "bg-zinc-900/40 border-zinc-700 shadow-2xl" : "hover:border-zinc-700 hover:bg-zinc-900/30"
-          )}>
-            <div
-              className="p-5 cursor-pointer"
-              onClick={() => onToggleExpand(idx)}
-            >
-              <div className="flex flex-col md:flex-row gap-6 justify-between items-start">
+          <div key={idx} className="border rounded-xl transition-all duration-200" style={{
+            borderColor: isExpanded ? 'var(--nd-purple)' : 'var(--nd-border)',
+            background: 'var(--nd-card-bg)',
+          }}>
+            <div className="p-4 cursor-pointer" onClick={() => onToggleExpand(idx)}>
+              <div className="flex flex-col md:flex-row gap-4 justify-between items-start">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center flex-wrap gap-2 mb-3">
-                    <Badge
-                      className={cn(
-                        "px-2 py-0.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider",
-                        result.winner === 'brand'
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                          : result.winner === 'competitor'
-                            ? "bg-rose-500/10 text-red-400 border-rose-500/20"
-                            : "bg-zinc-800/50 text-zinc-400 border-zinc-700"
-                      )}
-                    >
+                    <Badge className={cn(
+                      'px-2 py-0.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider',
+                      result.winner === 'brand'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : result.winner === 'competitor'
+                          ? 'bg-red-50 text-red-700 border-red-200'
+                          : 'bg-gray-50 text-gray-500 border-gray-200'
+                    )}>
                       {result.winner === 'brand' ? (
-                        <div className="flex items-center gap-1.5">
-                          <Trophy className="w-3 h-3" /> Brand Win
-                        </div>
+                        <div className="flex items-center gap-1.5"><Trophy className="w-3 h-3" /> Brand Win</div>
                       ) : result.winner === 'competitor' ? (
-                        <div className="flex items-center gap-1.5">
-                          <Sword className="w-3 h-3" /> {result.winner_name} Win
-                        </div>
+                        <div className="flex items-center gap-1.5"><Sword className="w-3 h-3" /> {result.winner_name} Win</div>
                       ) : 'No Clear Winner'}
                     </Badge>
-
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-zinc-800/50 border border-zinc-700/50 text-[10px] font-bold text-zinc-500 uppercase">
-                      <Activity className="w-3 h-3 text-blue-400" />
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[10px] font-bold uppercase" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)', color: 'var(--nd-text-muted)' }}>
+                      <Activity className="w-3 h-3" style={{ color: 'var(--nd-blue)' }} />
                       Gap: {result.coverage_gap_score}%
                     </div>
                   </div>
-
-                  <h4 className="text-zinc-100 font-bold text-base mb-3 leading-snug group-hover:text-blue-400 transition-colors">
+                  <h4 className="font-bold text-base mb-2 leading-snug" style={{ color: 'var(--nd-text-primary)' }}>
                     {result.prompt}
                   </h4>
-
-                  <div className="flex items-center gap-2 text-zinc-500 text-xs italic line-clamp-1">
+                  <div className="flex items-center gap-2 text-xs italic line-clamp-1" style={{ color: 'var(--nd-text-muted)' }}>
                     <MessageSquare className="w-3.5 h-3.5 shrink-0" />
                     "{result.text_snippet}"
                   </div>
                 </div>
-
-                <div className="flex flex-col gap-3 shrink-0 min-w-50 bg-zinc-950/40 p-4 rounded-xl border border-zinc-800/50">
-                  <div className="flex items-center justify-between text-[10px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-2">
+                <div className="flex flex-col gap-2 shrink-0 min-w-44 border p-3 rounded-xl" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest border-b pb-2" style={{ color: 'var(--nd-text-muted)', borderColor: 'var(--nd-border)' }}>
                     <span>Ranking Analysis</span>
                     {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Target className="w-3.5 h-3.5 text-blue-400" />
-                        <span className="text-xs font-bold text-zinc-300">Your Rank</span>
+                        <Target className="w-3.5 h-3.5" style={{ color: 'var(--nd-blue)' }} />
+                        <span className="text-xs font-bold" style={{ color: 'var(--nd-text-secondary)' }}>Your Rank</span>
                       </div>
-                      <span className={cn(
-                        "font-mono font-bold text-sm",
-                        result.brand_rank ? "text-emerald-400" : "text-zinc-600"
-                      )}>
+                      <span className={cn('font-mono font-bold text-sm', result.brand_rank ? 'text-emerald-600' : '')} style={!result.brand_rank ? { color: 'var(--nd-text-muted)' } : {}}>
                         {result.brand_rank ? `#${result.brand_rank}` : 'UNRANKED'}
                       </span>
                     </div>
-
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Trophy className="w-3.5 h-3.5 text-yellow-500" />
-                        <span className="text-xs font-bold text-zinc-300">Winner</span>
+                        <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="text-xs font-bold" style={{ color: 'var(--nd-text-secondary)' }}>Winner</span>
                       </div>
-                      <span className="text-xs font-bold text-zinc-400 font-mono truncate max-w-25">
+                      <span className="text-xs font-bold font-mono truncate max-w-25" style={{ color: 'var(--nd-text-secondary)' }}>
                         {result.winner === 'brand' ? 'YOU' : result.winner_name || 'NONE'}
                       </span>
                     </div>
@@ -425,29 +399,28 @@ function PromptResultList({
             </div>
 
             {isExpanded && (
-              <div className="px-5 pb-5 animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="pt-5 border-t border-zinc-800 grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-xs font-bold text-zinc-500 uppercase tracking-widest">
+              <div className="px-4 pb-4">
+                <div className="pt-4 border-t grid grid-cols-1 md:grid-cols-2 gap-6" style={{ borderColor: 'var(--nd-border)' }}>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--nd-text-muted)' }}>
                       <Search className="w-3.5 h-3.5" /> Full Response Context
                     </div>
-                    <div className="bg-zinc-950/60 rounded-xl p-4 border border-zinc-800 text-sm text-zinc-400 leading-relaxed font-light italic">
+                    <div className="rounded-xl p-4 border text-sm leading-relaxed font-light italic" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)', color: 'var(--nd-text-secondary)' }}>
                       "{result.text_snippet}"
                     </div>
                     {result.intent_coverage && (
                       <div className="flex flex-wrap gap-2">
                         {result.intent_coverage.direct_answer && (
-                          <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[9px] font-bold uppercase">Direct Answer</Badge>
+                          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] font-bold uppercase">Direct Answer</Badge>
                         )}
                         {result.intent_coverage.has_list && (
-                          <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[9px] font-bold uppercase">List Format</Badge>
+                          <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-[9px] font-bold uppercase">List Format</Badge>
                         )}
                       </div>
                     )}
                   </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--nd-text-muted)' }}>
                       <BarChart3 className="w-3.5 h-3.5" /> Competitive Rankings
                     </div>
                     <div className="space-y-2">
@@ -456,26 +429,17 @@ function PromptResultList({
                         .map(([name, rank]) => {
                           const isBrand = normalizeKey(name) === normalizeKey(brandName)
                           return (
-                            <div key={name} className={cn(
-                              "flex items-center justify-between p-2.5 rounded-xl border transition-all",
-                              isBrand ? "bg-blue-500/5 border-blue-500/20 shadow-lg" : "bg-zinc-900/40 border-zinc-800/50"
-                            )}>
+                            <div key={name} className="flex items-center justify-between p-2.5 rounded-xl border transition-all" style={{
+                              borderColor: isBrand ? 'var(--nd-blue)' : 'var(--nd-border)',
+                              background: isBrand ? '#EFF6FF' : 'var(--nd-bg)',
+                            }}>
                               <div className="flex items-center gap-2">
-                                <div className={cn(
-                                  "w-2 h-2 rounded-full",
-                                  isBrand ? "bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.4)]" : "bg-zinc-700"
-                                )} />
-                                <span className={cn(
-                                  "text-xs font-bold truncate max-w-37.5",
-                                  isBrand ? "text-blue-400" : "text-zinc-400"
-                                )} title={name}>
+                                <div className="w-2 h-2 rounded-full" style={{ background: isBrand ? 'var(--nd-blue)' : 'var(--nd-border)' }} />
+                                <span className="text-xs font-bold truncate max-w-37.5" style={{ color: isBrand ? 'var(--nd-blue)' : 'var(--nd-text-secondary)' }} title={name}>
                                   {name} {isBrand && '(You)'}
                                 </span>
                               </div>
-                              <span className={cn(
-                                "text-xs font-bold font-mono",
-                                rank === 1 ? "text-yellow-500" : isBrand ? "text-blue-400" : "text-zinc-500"
-                              )}>
+                              <span className="text-xs font-bold font-mono" style={{ color: rank === 1 ? '#d97706' : isBrand ? 'var(--nd-blue)' : 'var(--nd-text-muted)' }}>
                                 #{rank}
                               </span>
                             </div>

@@ -28,11 +28,16 @@ export function ModuleEMetricAskButton({
       }}
       disabled={disabled}
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10',
-        'px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300',
-        'hover:bg-violet-500/18 transition-colors cursor-pointer shrink-0',
-        'disabled:opacity-40 disabled:cursor-not-allowed',
+        'inline-flex items-center gap-1 rounded-full border',
+        'px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider',
+        'transition-opacity cursor-pointer shrink-0',
+        'disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-80',
       )}
+      style={{
+        borderColor: 'var(--nd-purple)',
+        background: 'var(--nd-purple-subtle)',
+        color: 'var(--nd-purple)',
+      }}
     >
       <MessageSquare className="size-3 shrink-0" aria-hidden />
       Ask AI

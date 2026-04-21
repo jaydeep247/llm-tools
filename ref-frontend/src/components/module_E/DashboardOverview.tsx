@@ -21,7 +21,6 @@ import {
   Cell,
 } from 'recharts'
 import {
-  Loader2,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -34,23 +33,22 @@ import {
   Globe,
 } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
-import { cn } from '@/lib/utils'
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                           */
 /* ------------------------------------------------------------------ */
 
-const MODEL_META: Record<string, { label: string; color: string }> = {
-  chat_gpt: { label: 'ChatGPT', color: '#10a37f' },
-  gemini:   { label: 'Gemini',  color: '#4285f4' },
-  claude:   { label: 'Claude',  color: '#d97706' },
+const MODEL_META: Record<string, { label: string; color: string; bg: string }> = {
+  chat_gpt: { label: 'ChatGPT', color: 'var(--nd-blue)', bg: 'var(--nd-purple-subtle)' },
+  gemini:   { label: 'Gemini',  color: 'var(--nd-emerald)', bg: 'var(--nd-purple-subtle)' },
+  claude:   { label: 'Claude',  color: 'var(--nd-purple)', bg: 'var(--nd-purple-subtle)' },
 }
 const MODEL_KEYS = ['chat_gpt', 'gemini', 'claude'] as const
 
 const SENTIMENT_COLORS: Record<string, string> = {
-  positive: '#22c55e',
-  negative: '#ef4444',
-  neutral:  '#6b7280',
+  positive: '#059669', // Emerald-600
+  negative: '#dc2626', // Rose-600
+  neutral:  '#6b7280', // Gray-500
 }
 
 /* ------------------------------------------------------------------ */
@@ -71,15 +69,18 @@ interface DashboardOverviewProps {
 
 function SentimentBadge({ label }: { label?: string }) {
   if (!label) return null
-  const map: Record<string, { bg: string; text: string; icon: React.ElementType }> = {
-    positive: { bg: 'bg-emerald-500/10 border border-emerald-500/20', text: 'text-emerald-400', icon: TrendingUp },
-    negative: { bg: 'bg-rose-500/10 border border-rose-500/20',       text: 'text-rose-400',    icon: TrendingDown },
-    neutral:  { bg: 'bg-zinc-500/10 border border-zinc-500/20',       text: 'text-zinc-400',    icon: Minus },
+  const map: Record<string, { bg: string; border: string; text: string; icon: React.ElementType }> = {
+    positive: { bg: '#ecfdf5', border: '#a7f3d0', text: '#059669', icon: TrendingUp },
+    negative: { bg: '#fef2f2', border: '#fecaca', text: '#dc2626', icon: TrendingDown },
+    neutral:  { bg: 'var(--nd-bg)', border: 'var(--nd-border)', text: 'var(--nd-text-secondary)', icon: Minus },
   }
   const s = map[label.toLowerCase()] ?? map.neutral
   const SIcon = s.icon
   return (
-    <span className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-0.5 text-xs font-medium ${s.bg} ${s.text}`}>
+    <span
+      className="inline-flex items-center gap-1 rounded-lg px-2.5 py-0.5 font-bold uppercase tracking-tight"
+      style={{ fontSize: 10, background: s.bg, border: `1px solid ${s.border}`, color: s.text }}
+    >
       <SIcon className="h-3 w-3" />
       {label}
     </span>
@@ -122,32 +123,32 @@ export default function DashboardOverview({
     return (
       <div className="space-y-6">
         <div>
-          <div className="h-7 w-48 mb-2 rounded-lg bg-zinc-800/50 animate-pulse" />
-          <div className="h-4 w-72 rounded-lg bg-zinc-800/50 animate-pulse" />
+          <div className="h-7 w-48 mb-2 rounded-lg animate-pulse" style={{ background: 'var(--nd-border)' }} />
+          <div className="h-4 w-72 rounded-lg animate-pulse" style={{ background: 'var(--nd-border)' }} />
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="rounded-2xl border border-zinc-800 bg-[#111113] p-5">
-              <div className="h-10 w-10 rounded-xl mb-4 bg-zinc-800/50 animate-pulse" />
-              <div className="h-8 w-20 mb-2 rounded bg-zinc-800/50 animate-pulse" />
-              <div className="h-3 w-full rounded bg-zinc-800/50 animate-pulse" />
-              <div className="h-3 w-3/4 mt-1 rounded bg-zinc-800/50 animate-pulse" />
+            <div key={i} className="rounded-2xl border p-5" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+              <div className="h-10 w-10 rounded-xl mb-4 animate-pulse" style={{ background: 'var(--nd-border)' }} />
+              <div className="h-8 w-20 mb-2 rounded animate-pulse" style={{ background: 'var(--nd-border)' }} />
+              <div className="h-3 w-full rounded animate-pulse" style={{ background: 'var(--nd-border)' }} />
+              <div className="h-3 w-3/4 mt-1 rounded animate-pulse" style={{ background: 'var(--nd-border)' }} />
             </div>
           ))}
         </div>
         <div className="grid grid-cols-3 gap-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-xl border border-zinc-800 bg-[#111113] p-3 sm:p-4">
-              <div className="h-3 w-16 mb-2 rounded bg-zinc-800/50 animate-pulse" />
-              <div className="h-7 w-14 rounded bg-zinc-800/50 animate-pulse" />
+            <div key={i} className="rounded-xl border p-3 sm:p-4" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+              <div className="h-3 w-16 mb-2 rounded animate-pulse" style={{ background: 'var(--nd-border)' }} />
+              <div className="h-7 w-14 rounded animate-pulse" style={{ background: 'var(--nd-border)' }} />
             </div>
           ))}
         </div>
-        <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden">
-          <div className="p-5 border-b border-zinc-800">
-            <div className="h-5 w-40 rounded bg-zinc-800/50 animate-pulse" />
+        <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+          <div className="p-5 border-b" style={{ borderColor: 'var(--nd-border)' }}>
+            <div className="h-5 w-40 rounded animate-pulse" style={{ background: 'var(--nd-border)' }} />
           </div>
-          <div className="h-55 bg-zinc-800/20 animate-pulse" />
+          <div className="h-55 animate-pulse" style={{ background: 'var(--nd-bg)' }} />
         </div>
       </div>
     )
@@ -156,7 +157,7 @@ export default function DashboardOverview({
   if (!d) {
     return (
       <AnalysisEmptyState
-        icon={<Brain className="w-8 h-8 text-zinc-400" />}
+        icon={<Brain className="w-8 h-8" style={{ color: 'var(--nd-text-muted)' }} />}
         title="No Analysis Data Available"
         description="Run a Quick Start analysis to populate the dashboard."
       />
@@ -360,14 +361,22 @@ export default function DashboardOverview({
 
       {/* ── Header ── */}
       <div>
-        <h2 className="text-lg sm:text-xl font-bold text-white">Dashboard</h2>
-        <p className="text-xs sm:text-sm text-zinc-500 mt-1">
+        <h2 className="nd-page-title">Dashboard</h2>
+        <p className="mt-1.5" style={{ fontSize: 'var(--font-base)', color: 'var(--nd-text-secondary)' }}>
           Quick overview of AI visibility for{' '}
-          <span className="text-zinc-300 font-medium">{brandName}</span>
+          <span style={{ color: 'var(--nd-text-primary)', fontWeight: 600 }}>{brandName}</span>
           {url && (
             <>
               {' · '}
-              <span className="text-zinc-400">{url}</span>
+              <a
+                href={url.startsWith('http') ? url : `https://${url}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors"
+                style={{ color: 'var(--nd-purple)' }}
+              >
+                {url}
+              </a>
             </>
           )}
         </p>
@@ -419,7 +428,7 @@ export default function DashboardOverview({
       </div>
 
       {/* ── 2. Per-LLM Strip ── */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
         {MODEL_KEYS.map((key) => {
           const meta      = MODEL_META[key]
           const modelData = byModel[key]
@@ -434,63 +443,56 @@ export default function DashboardOverview({
               key={key}
               type="button"
               onClick={() => setSelectedModel(selectedModel === key ? null : key)}
-              className={cn(
-                'rounded-xl border p-3 sm:p-4 text-left transition-all duration-200',
-                'flex flex-col gap-1.5 min-w-0',
-                isActive
-                  ? 'border-zinc-600 bg-zinc-800/60 shadow-md'
-                  : 'border-zinc-800 bg-[#111113] hover:border-zinc-700 hover:bg-zinc-900/60',
-              )}
+              className="rounded-xl border p-3 sm:p-4 text-left transition-all duration-200 flex flex-col gap-2 min-w-0 cursor-pointer"
+              style={{
+                borderColor: isActive ? 'var(--nd-purple)' : 'var(--nd-border)',
+                background: isActive ? 'var(--nd-purple-subtle)' : 'var(--nd-card-bg)',
+                boxShadow: isActive ? '0 1px 4px rgba(83,71,206,0.08)' : undefined,
+              }}
             >
               <div className="flex items-center justify-between gap-1">
-                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider truncate">
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--nd-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }} className="truncate">
                   {meta.label}
                 </span>
-                {isActive && <span className="text-[10px] text-zinc-600 shrink-0">filtered</span>}
+                {isActive && <span style={{ fontSize: 10, color: 'var(--nd-purple)' }} className="shrink-0">filtered</span>}
               </div>
 
               {hasModuleCData ? (
-                /* ── Module C view: mirrors Model Comparison per-model row ── */
                 <>
-                  {/* Avg of Accuracy + Completeness + Friendliness = primary big number */}
-                  <p className="text-2xl sm:text-3xl font-bold tabular-nums" style={{ color: meta.color }}>
+                  <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--nd-text-primary)' }}>
                     {Math.round((moduleCPerModel[key].accuracy + moduleCPerModel[key].completeness + moduleCPerModel[key].friendliness) / 3)}
                   </p>
-                  {/* Accuracy + Completeness + Friendliness row */}
-                  <div className="flex items-center gap-1 mt-0.5">
+                  <div className="flex items-center gap-1.5">
                     {([
-                      { label: 'Acc',  val: moduleCPerModel[key].accuracy,     color: '#3b82f6' },
-                      { label: 'Comp', val: moduleCPerModel[key].completeness,  color: '#10b981' },
-                      { label: 'Fri',  val: moduleCPerModel[key].friendliness,  color: '#8b5cf6' },
+                      { label: 'Acc',  val: moduleCPerModel[key].accuracy,     color: 'var(--nd-blue)' },
+                      { label: 'Comp', val: moduleCPerModel[key].completeness,  color: '#059669' },
+                      { label: 'Fri',  val: moduleCPerModel[key].friendliness,  color: 'var(--nd-purple)' },
                     ] as const).map(({ label, val, color }) => (
-                      <div key={label} className="flex-1 text-center bg-zinc-800/50 rounded-lg py-1 px-0.5">
-                        <div className="text-[9px] text-zinc-500 mb-0.5">{label}</div>
-                        <div className="text-[11px] font-bold tabular-nums" style={{ color }}>{val}</div>
+                      <div key={label} className="flex-1 text-center rounded-lg py-1.5 px-1" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+                        <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--nd-text-primary)', marginBottom: 2 }}>{label}</div>
+                        <div className="font-semibold tabular-nums" style={{ fontSize: 13, color }}>{val}</div>
                       </div>
                     ))}
                   </div>
-                  {/* SOV as a small secondary below */}
                   {sovVal != null && (
-                    <div className="flex items-center justify-between text-[10px] text-zinc-500 mt-1">
-                      <span>SOV</span>
-                      <span className="tabular-nums">{sovVal}%</span>
+                    <div className="flex items-center justify-between" style={{ fontSize: 12, color: 'var(--nd-text-primary)' }}>
+                      <span style={{ fontWeight: 500 }}>SOV</span>
+                      <span className="tabular-nums font-bold" style={{ color: 'var(--nd-text-primary)' }}>{sovVal}%</span>
                     </div>
                   )}
                 </>
               ) : (
-                /* ── Fallback: SOV only (no Module C data yet) ── */
                 <>
-                  <p className="text-xl sm:text-2xl font-bold tabular-nums" style={{ color: meta.color }}>
+                  <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--nd-text-primary)' }}>
                     {sovVal != null ? `${sovVal}%` : '—'}
                   </p>
                   {modelDelta !== null && (
                     <span
-                      className={cn(
-                        'text-[10px] font-medium',
-                        modelDelta > 0 && 'text-emerald-400',
-                        modelDelta < 0 && 'text-rose-400',
-                        modelDelta === 0 && 'text-zinc-500',
-                      )}
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 500,
+                        color: modelDelta > 0 ? '#059669' : modelDelta < 0 ? '#ef4444' : 'var(--nd-text-muted)',
+                      }}
                     >
                       {modelDelta > 0 ? '↑' : modelDelta < 0 ? '↓' : '→'}
                       {modelDelta > 0 ? '+' : ''}{modelDelta.toFixed(1)}%
@@ -532,17 +534,17 @@ export default function DashboardOverview({
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={trendData} margin={{ top: 8, right: 16, left: -8, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                    <XAxis dataKey="date" tick={{ fill: '#71717a', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--nd-border)" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fill: 'var(--nd-text-muted)', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
                     <YAxis
-                      tick={{ fill: '#71717a', fontSize: 11 }}
+                      tick={{ fill: 'var(--nd-text-muted)', fontSize: 10, fontWeight: 700 }}
                       axisLine={false} tickLine={false}
                       tickFormatter={fmtValue}
                       domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} width={44}
                     />
                     <RechartsTooltip
-                      contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: '8px', fontSize: 12, padding: '8px 12px' }}
-                      labelStyle={{ color: '#a1a1aa', fontSize: 11, marginBottom: 4 }}
+                      contentStyle={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)', borderRadius: '12px', fontSize: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                      labelStyle={{ color: 'var(--nd-text-muted)', fontSize: 10, fontWeight: 700, marginBottom: 4, textTransform: 'uppercase' }}
                       formatter={(value: number, name: string) =>
                         trendSource === 'module_c'
                           ? [String(Math.round(Number(value))), MODEL_META[name]?.label ?? name]
@@ -561,9 +563,9 @@ export default function DashboardOverview({
                             if (value == null) return <g key={props.key} />
                             return <circle key={props.key} cx={cx} cy={cy} r={visible ? 5 : 3}
                               fill={meta.color} fillOpacity={visible ? 1 : 0.2}
-                              stroke={visible ? '#18181b' : 'none'} strokeWidth={visible ? 2 : 0} />
+                              stroke={visible ? '#ffffff' : 'none'} strokeWidth={visible ? 2 : 0} />
                           }}
-                          activeDot={{ r: 7, strokeWidth: 2, stroke: '#18181b' }}
+                          activeDot={{ r: 7, strokeWidth: 2, stroke: '#ffffff' }}
                           connectNulls
                         />
                       )
@@ -571,7 +573,7 @@ export default function DashboardOverview({
                   </LineChart>
                 </ResponsiveContainer>
                 {!selectedHasData && selectedModel && (
-                  <p className="text-[11px] text-zinc-600 mt-1">
+                  <p style={{ fontSize: 12, color: 'var(--nd-text-secondary)', marginTop: 4 }}>
                     No data for {MODEL_META[selectedModel]?.label ?? selectedModel} — showing all models
                   </p>
                 )}
@@ -588,28 +590,28 @@ export default function DashboardOverview({
                 barGap={4}
                 margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: '#a1a1aa', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--nd-border)" vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: 'var(--nd-text-muted)', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
                 <YAxis
                   domain={[0, 100]} ticks={[0, 25, 50, 75, 100]}
-                  tick={{ fill: '#a1a1aa', fontSize: 11 }} axisLine={false} tickLine={false}
+                  tick={{ fill: 'var(--nd-text-muted)', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false}
                   tickFormatter={(v: number) => String(v)}
                   width={32}
                 />
                 <RechartsTooltip
-                  contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: '8px', fontSize: 12, padding: '8px 12px' }}
-                  labelStyle={{ color: '#a1a1aa', fontSize: 11, marginBottom: 4 }}
+                  contentStyle={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)', borderRadius: '12px', fontSize: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  labelStyle={{ color: 'var(--nd-text-muted)', fontSize: 10, fontWeight: 700, marginBottom: 4, textTransform: 'uppercase' }}
                   formatter={(value: number, name: string) => [String(Math.round(Number(value))), name]}
-                  cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                  cursor={{ fill: 'rgba(0,0,0,0.03)' }}
                 />
-                <Legend wrapperStyle={{ fontSize: 11, color: '#a1a1aa' }} />
-                <Bar key="Accuracy"     dataKey="Accuracy"     fill="#3b82f6" radius={[3, 3, 0, 0]} />
-                <Bar key="Completeness" dataKey="Completeness" fill="#10b981" radius={[3, 3, 0, 0]} />
-                <Bar key="Friendliness" dataKey="Friendliness" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
+                <Legend wrapperStyle={{ fontSize: 10, fontWeight: 700, color: 'var(--nd-text-muted)', textTransform: 'uppercase' }} />
+                <Bar key="Accuracy"     dataKey="Accuracy"     fill="var(--nd-blue)" radius={[3, 3, 0, 0]} />
+                <Bar key="Completeness" dataKey="Completeness" fill="#059669" radius={[3, 3, 0, 0]} />
+                <Bar key="Friendliness" dataKey="Friendliness" fill="var(--nd-purple)" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
             {trendData.length <= 1 && (
-              <p className="text-[11px] text-zinc-600 mt-1 text-center">
+              <p style={{ fontSize: 12, color: 'var(--nd-text-secondary)', marginTop: 4, textAlign: 'center' }}>
                 {hasModuleCData
                   ? 'Single snapshot — run AI Intelligence again to build a trend'
                   : 'Based on current SOV — run AI Intelligence for citation-based scores'}
@@ -618,19 +620,22 @@ export default function DashboardOverview({
           </div>
         ) : (
           <div className="h-40 flex items-center justify-center">
-            <p className="text-sm text-zinc-600 text-center max-w-70 leading-relaxed">
+            <p className="max-w-70 leading-relaxed text-center" style={{ fontSize: 'var(--font-sm)', color: 'var(--nd-text-secondary)' }}>
               Run AI Intelligence analysis to see per-model visibility scores here
             </p>
           </div>
         )}
         {/* Source badge */}
         <div className="flex justify-end mt-2">
-          <span className={cn(
-            'text-[10px] px-2 py-0.5 rounded-full border',
-            trendSource === 'module_c'
-              ? 'text-violet-400 border-violet-500/20 bg-violet-500/10'
-              : 'text-zinc-500 border-zinc-700/50 bg-zinc-800/30',
-          )}>
+          <span
+            className="px-2 py-0.5 rounded-full border"
+            style={{
+              fontSize: 11,
+              color: trendSource === 'module_c' ? 'var(--nd-purple)' : 'var(--nd-text-secondary)',
+              borderColor: trendSource === 'module_c' ? 'rgba(83,71,206,0.2)' : 'var(--nd-border)',
+              background: trendSource === 'module_c' ? 'var(--nd-purple-subtle)' : 'var(--nd-bg)',
+            }}
+          >
             {trendSource === 'module_c' ? 'AI Intelligence (C9)' : 'SOV History'}
           </span>
         </div>
@@ -650,7 +655,7 @@ export default function DashboardOverview({
           {brand ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-zinc-300">Overall Sentiment</span>
+                <span style={{ fontSize: 'var(--font-base)', color: 'var(--nd-text-secondary)', fontWeight: 500 }}>Overall Sentiment</span>
                 <SentimentBadge label={sentimentLabel} />
               </div>
 
@@ -686,14 +691,14 @@ export default function DashboardOverview({
                     ].map(({ key, label, val }) => {
                       const pct = totalSentiment ? Math.round((val / totalSentiment) * 100) : 0
                       return (
-                        <div key={key} className="flex items-center gap-2 text-xs">
+                        <div key={key} className="flex items-center gap-2" style={{ fontSize: 'var(--font-sm)' }}>
                           <span
                             className="w-2.5 h-2.5 rounded-full shrink-0"
                             style={{ background: SENTIMENT_COLORS[key] }}
                           />
-                          <span className="text-zinc-400 w-14">{label}</span>
-                          <span className="text-white font-semibold tabular-nums">{val}</span>
-                          <span className="text-zinc-600">({pct}%)</span>
+                          <span className="w-14" style={{ color: 'var(--nd-text-secondary)' }}>{label}</span>
+                          <span className="font-semibold tabular-nums" style={{ color: 'var(--nd-text-primary)' }}>{val}</span>
+                          <span style={{ color: 'var(--nd-text-muted)' }}>({pct}%)</span>
                         </div>
                       )
                     })}
@@ -702,11 +707,11 @@ export default function DashboardOverview({
               ) : (
                 <div className="grid grid-cols-3 gap-2 text-center">
                   {(['positive', 'negative', 'neutral'] as const).map((key) => (
-                    <div key={key} className="rounded-xl bg-zinc-800/30 border border-zinc-800/60 py-2.5">
-                      <p className="text-base font-semibold text-white">
+                    <div key={key} className="rounded-xl py-3" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+                      <p className="text-lg font-bold" style={{ color: 'var(--nd-text-primary)' }}>
                         {brand.sentiment?.counts?.[key] ?? 0}
                       </p>
-                      <p className="text-[10px] text-zinc-500 capitalize">{key}</p>
+                      <p className="capitalize mt-0.5" style={{ fontSize: 12, color: 'var(--nd-text-secondary)' }}>{key}</p>
                     </div>
                   ))}
                 </div>
@@ -714,7 +719,7 @@ export default function DashboardOverview({
 
               {brand.top_sources && brand.top_sources.length > 0 && (
                 <div>
-                  <p className="text-[11px] text-zinc-500 mb-1.5">Top Sources</p>
+                  <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--nd-text-secondary)', marginBottom: 6 }}>Top Sources</p>
                   <div className="flex flex-wrap gap-1.5">
                     {brand.top_sources.slice(0, 5).map((src, i) => (
                       <a
@@ -722,7 +727,8 @@ export default function DashboardOverview({
                         href={src.url || `https://${src.domain}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="rounded-lg bg-zinc-800/40 border border-zinc-800 px-2.5 py-0.5 text-[11px] text-cyan-400/80 hover:text-cyan-400 hover:bg-zinc-800 transition-colors truncate max-w-[150px]"
+                        className="rounded-lg px-2.5 py-0.5 truncate max-w-37.5 transition-colors"
+                        style={{ fontSize: 12, background: 'var(--nd-purple-subtle)', border: '1px solid rgba(83,71,206,0.15)', color: 'var(--nd-purple)' }}
                         title={src.title || src.domain}
                       >
                         {src.domain}
@@ -733,7 +739,7 @@ export default function DashboardOverview({
               )}
             </div>
           ) : (
-            <p className="text-xs text-zinc-600">Not yet available</p>
+            <p style={{ fontSize: 'var(--font-sm)', color: 'var(--nd-text-secondary)' }}>Not yet available</p>
           )}
         </SectionCard>
 
@@ -756,37 +762,39 @@ export default function DashboardOverview({
                 return (
                   <div
                     key={i}
-                    className="flex items-center justify-between rounded-xl bg-zinc-900/20 border border-zinc-800/60 px-3.5 py-2.5"
+                    className="flex items-center justify-between rounded-xl px-3.5 py-3"
+                    style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-[10px] font-mono font-medium text-zinc-600 w-4">{i + 1}</span>
-                      <span className="text-sm text-zinc-300 truncate">{comp.name}</span>
+                      <span className="font-mono font-medium w-5 shrink-0" style={{ fontSize: 11, color: 'var(--nd-text-muted)' }}>{i + 1}</span>
+                      <span className="truncate font-medium" style={{ fontSize: 'var(--font-base)', color: 'var(--nd-text-primary)' }}>{comp.name}</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {rankDelta !== null && (
                         <span
-                          className={cn(
-                            'text-[10px] font-semibold tabular-nums',
-                            rankDelta > 0 ? 'text-emerald-400' : rankDelta < 0 ? 'text-rose-400' : 'text-zinc-500',
-                          )}
+                          className="font-semibold tabular-nums"
+                          style={{
+                            fontSize: 11,
+                            color: rankDelta > 0 ? '#059669' : rankDelta < 0 ? '#ef4444' : 'var(--nd-text-muted)',
+                          }}
                         >
                           {rankDelta > 0 ? `↑${rankDelta}` : rankDelta < 0 ? `↓${Math.abs(rankDelta)}` : '—'}
                         </span>
                       )}
-                      <span className="text-xs text-zinc-500">{comp.mentions} mentions</span>
+                      <span style={{ fontSize: 'var(--font-sm)', color: 'var(--nd-text-secondary)' }}>{comp.mentions} mentions</span>
                       <SentimentBadge label={comp.sentiment} />
                     </div>
                   </div>
                 )
               })}
               {competitors.data.length > 5 && (
-                <p className="text-[11px] text-zinc-600 text-center pt-1">
+                <p style={{ fontSize: 12, color: 'var(--nd-text-secondary)', textAlign: 'center', paddingTop: 4 }}>
                   +{competitors.data.length - 5} more competitors
                 </p>
               )}
             </div>
           ) : (
-            <p className="text-xs text-zinc-600">No competitor data yet</p>
+            <p style={{ fontSize: 'var(--font-sm)', color: 'var(--nd-text-secondary)' }}>No competitor data yet</p>
           )}
         </SectionCard>
       </div>
@@ -805,8 +813,8 @@ export default function DashboardOverview({
           {sov ? (
             <div className="space-y-4">
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold text-white tabular-nums">{overallSov}%</span>
-                <span className="text-xs text-zinc-500">overall share of voice</span>
+                <span className="text-3xl font-bold tabular-nums" style={{ color: 'var(--nd-text-primary)' }}>{overallSov}%</span>
+                <span style={{ fontSize: 'var(--font-sm)', color: 'var(--nd-text-secondary)' }}>overall share of voice</span>
               </div>
               <div className="space-y-3.5">
                 {MODEL_KEYS.map((key) => {
@@ -815,17 +823,17 @@ export default function DashboardOverview({
                   if (!modelData) return null
                   const pct = modelData.sov ?? 0
                   return (
-                    <div key={key} className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-zinc-400">{meta.label}</span>
-                        <span className="font-semibold tabular-nums" style={{ color: meta.color }}>
+                    <div key={key} className="space-y-1.5">
+                      <div className="flex items-center justify-between" style={{ fontSize: 'var(--font-sm)' }}>
+                        <span style={{ color: 'var(--nd-text-primary)', fontWeight: 500 }}>{meta.label}</span>
+                        <span className="font-bold tabular-nums" style={{ color: 'var(--nd-text-primary)' }}>
                           {pct}%
                         </span>
                       </div>
-                      <div className="h-2 rounded-full bg-zinc-800/60 overflow-hidden">
+                      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--nd-border)' }}>
                         <div
                           className="h-full rounded-full transition-all duration-700"
-                          style={{ width: `${Math.min(pct, 100)}%`, background: meta.color }}
+                          style={{ width: `${Math.min(pct, 100)}%`, background: 'var(--nd-purple)' }}
                         />
                       </div>
                     </div>
@@ -834,12 +842,13 @@ export default function DashboardOverview({
               </div>
               {sov.brand_known_by_models && sov.brand_known_by_models.length > 0 && (
                 <div>
-                  <p className="text-[11px] text-zinc-500 mb-1.5">Known by</p>
+                  <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--nd-text-secondary)', marginBottom: 6 }}>Known by</p>
                   <div className="flex flex-wrap gap-1.5">
                     {sov.brand_known_by_models.map((model, i) => (
                       <span
                         key={i}
-                        className="rounded-lg bg-zinc-800 border border-zinc-700/50 px-2.5 py-0.5 text-[11px] text-zinc-300"
+                        className="rounded-lg px-2.5 py-0.5"
+                        style={{ fontSize: 12, background: 'var(--nd-bg)', border: '1px solid var(--nd-border)', color: 'var(--nd-text-secondary)', fontWeight: 500 }}
                       >
                         {MODEL_META[model]?.label ?? model}
                       </span>
@@ -849,7 +858,7 @@ export default function DashboardOverview({
               )}
             </div>
           ) : (
-            <p className="text-xs text-zinc-600">Not yet available</p>
+            <p style={{ fontSize: 'var(--font-sm)', color: 'var(--nd-text-secondary)' }}>Not yet available</p>
           )}
         </SectionCard>
 
@@ -864,18 +873,18 @@ export default function DashboardOverview({
                 const pct = totalRefCount > 0 ? Math.round((domain.count / totalRefCount) * 100) : 0
                 return (
                   <div key={i} className="flex items-center gap-3">
-                    <span className="text-[10px] font-mono text-zinc-600 w-4 shrink-0 text-center">
+                    <span className="font-mono w-5 shrink-0 text-right" style={{ fontSize: 12, color: 'var(--nd-text-secondary)' }}>
                       {i + 1}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="text-zinc-300 truncate">{domain.name}</span>
-                        <span className="text-zinc-400 ml-2 shrink-0 tabular-nums">{pct}%</span>
+                      <div className="flex items-center justify-between mb-1.5" style={{ fontSize: 'var(--font-sm)' }}>
+                        <span className="truncate font-medium" style={{ color: 'var(--nd-text-primary)' }}>{domain.name}</span>
+                        <span className="ml-2 shrink-0 tabular-nums font-medium" style={{ color: 'var(--nd-text-secondary)' }}>{pct}%</span>
                       </div>
-                      <div className="h-1 rounded-full bg-zinc-800/60 overflow-hidden">
+                      <div className="h-1 rounded-full overflow-hidden" style={{ background: 'var(--nd-border)' }}>
                         <div
-                          className="h-full rounded-full bg-indigo-500/60 transition-all duration-700"
-                          style={{ width: `${pct}%` }}
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{ width: `${pct}%`, background: 'var(--nd-purple)' }}
                         />
                       </div>
                     </div>
@@ -885,8 +894,8 @@ export default function DashboardOverview({
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Globe className="h-8 w-8 text-zinc-700 mb-3" />
-              <p className="text-xs text-zinc-600 max-w-55 leading-relaxed">
+              <Globe className="h-8 w-8 mb-3" style={{ color: 'var(--nd-text-muted)' }} />
+              <p className="max-w-55 leading-relaxed" style={{ fontSize: 'var(--font-sm)', color: 'var(--nd-text-secondary)' }}>
                 No citation data yet — citations appear once LLMs reference your tracked pages
               </p>
             </div>

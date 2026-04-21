@@ -134,56 +134,44 @@ export function PdfExports({ projectId }: { projectId?: string }) {
           return (
             <div
               key={item.id}
-              className={cn(
-                'group relative rounded-2xl border bg-zinc-900/60 p-5 transition-all duration-200',
-                isError
-                  ? 'border-amber-500/40 bg-amber-500/5'
-                  : 'border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900',
-              )}
+              className={cn('group relative rounded-2xl border p-5 transition-all duration-200', isError ? 'border-amber-300' : '')}
+              style={{
+                background: isError ? '#FFFBEB' : 'var(--nd-bg)',
+                borderColor: isError ? '#FCD34D' : 'var(--nd-border)',
+              }}
+              onMouseEnter={(e) => { if (!isError) e.currentTarget.style.borderColor = 'var(--nd-border-hover)' }}
+              onMouseLeave={(e) => { if (!isError) e.currentTarget.style.borderColor = 'var(--nd-border)' }}
             >
-              {/* Icon + title */}
               <div className="mb-4 flex items-center gap-3">
-                <div
-                  className={cn(
-                    'flex h-9 w-9 items-center justify-center rounded-xl ring-1',
-                    isError
-                      ? 'bg-amber-500/10 text-amber-400 ring-amber-500/20'
-                      : 'bg-amber-500/10 text-amber-400 ring-amber-500/20',
-                  )}
-                >
-                  <FileText className="h-4 w-4" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: 'var(--nd-purple-subtle)' }}>
+                  <FileText className="h-4 w-4" style={{ color: 'var(--nd-purple)' }} />
                 </div>
                 <div>
-                  <p className="text-[13px] font-semibold text-white">{item.label}</p>
-                  <p className="text-[11px] text-zinc-500 leading-relaxed">{item.description}</p>
+                  <p className="text-[13px] font-semibold" style={{ color: 'var(--nd-text-primary)' }}>{item.label}</p>
+                  <p className="text-[11px] leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>{item.description}</p>
                 </div>
               </div>
 
-              {/* Error banner */}
               {isError && (
-                <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 space-y-1">
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 space-y-1">
                   <div className="flex items-start gap-2">
-                    <AlertTriangle className="h-3.5 w-3.5 text-amber-400 mt-0.5 shrink-0" />
-                    <p className="text-[12px] font-medium text-amber-300">{state.errorMessage}</p>
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
+                    <p className="text-[12px] font-medium text-amber-700">{state.errorMessage}</p>
                   </div>
-                  {state.errorHint && (
-                    <p className="text-[11px] text-amber-400/80 pl-5">{state.errorHint}</p>
-                  )}
+                  {state.errorHint && (<p className="text-[11px] text-amber-600 pl-5">{state.errorHint}</p>)}
                 </div>
               )}
 
-              {/* Download / Retry button */}
               <Button
                 onClick={() => handleDownload(item)}
                 disabled={isBusy || isSuccess}
                 className={cn(
-                  'w-full h-9 text-[12px] font-medium rounded-xl transition-all duration-200',
-                  isSuccess
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/10'
-                    : isError
-                    ? 'bg-zinc-800 text-amber-300 border border-amber-500/30 hover:bg-amber-500 hover:text-black hover:border-amber-500'
-                    : 'bg-zinc-800 text-white border border-zinc-700 hover:bg-amber-500 hover:text-black hover:border-amber-500',
+                  'w-full h-9 text-[12px] font-medium rounded-xl transition-all duration-200 border cursor-pointer',
+                  isSuccess ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-50'
+                  : isError ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-[#5347CE] hover:text-white hover:border-[#5347CE]'
+                  : 'text-white border-transparent hover:border-[#5347CE]',
                 )}
+                style={!isSuccess && !isError ? { background: 'var(--nd-purple)' } : {}}
                 variant="ghost"
               >
                 {isChecking ? (

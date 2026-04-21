@@ -398,8 +398,8 @@ export function PageMetrics({
     return (
       <th
         key={String(column)}
-        className={`px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap ${
-          isSortable ? 'cursor-pointer hover:bg-zinc-800/50' : ''
+        className={`px-3 py-2 text-center text-xs font-semibold text-(--nd-text-secondary) whitespace-nowrap ${
+          isSortable ? 'cursor-pointer hover:bg-(--nd-bg)' : ''
         }`}
         onClick={isSortable ? () => handleSort(column as SortField) : undefined}
       >
@@ -429,7 +429,7 @@ export function PageMetrics({
             href={String(value)} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 flex items-center justify-center gap-1"
+            className="text-blue-600 hover:text-blue-700 flex items-center justify-center gap-1"
           >
             <span className="truncate max-w-xs">{String(value)}</span>
             <ExternalLink className="h-3 w-3 shrink-0" />
@@ -438,15 +438,15 @@ export function PageMetrics({
       case 'titleStatus':
       case 'metaDescriptionStatus':
         if (!value) return 'N/A'
-        const statusColor = value === 'OK' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                           value === 'Missing' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
-                           'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+        const statusColor = value === 'OK' ? 'bg-green-50 text-green-700 border border-green-200' :
+                           value === 'Missing' ? 'bg-red-50 text-red-700 border border-red-200' :
+                           'bg-yellow-50 text-yellow-700 border border-yellow-200'
         return <Badge className={statusColor}>{String(value)}</Badge>
       case 'canonicalValidationStatus':
         if (!value) return 'N/A'
-        const validColor = value === 'Valid' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                          value === 'Missing' ? 'bg-gray-500/20 text-gray-300 border-gray-500/30' :
-                          'bg-red-500/20 text-red-300 border-red-500/30'
+        const validColor = value === 'Valid' ? 'bg-green-50 text-green-700 border border-green-200' :
+                          value === 'Missing' ? 'bg-gray-50 text-gray-700 border border-gray-200' :
+                          'bg-red-50 text-red-700 border border-red-200'
         return <Badge className={validColor}>{String(value)}</Badge>
       case 'hasTables':
       case 'hasFaqs':
@@ -454,22 +454,22 @@ export function PageMetrics({
       case 'structuredDataPresent':
         if (value === undefined || value === null) return 'N/A'
         return (
-          <Badge className={value ? 'bg-green-500/20 text-green-300 border-green-500/30' : 'bg-gray-500/20 text-gray-300 border-gray-500/30'}>
+          <Badge className={value ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-700 border border-gray-200'}>
             {value ? '✅ Yes' : '❌ No'}
           </Badge>
         )
       case 'hasMixedContent':
         if (value === undefined || value === null) return 'N/A'
         const severity = page.mixedContentSeverity
-        const mixedColor = !value ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                          severity === 'critical' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
-                          'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+        const mixedColor = !value ? 'bg-green-50 text-green-700 border border-green-200' :
+                          severity === 'critical' ? 'bg-red-50 text-red-700 border border-red-200' :
+                          'bg-yellow-50 text-yellow-700 border border-yellow-200'
         return <Badge className={mixedColor}>{value ? (severity === 'critical' ? 'Critical' : 'Warning') : 'Secure'}</Badge>
       case 'viewportStatus':
         if (!value) return 'N/A'
-        const vpColor = value === 'ok' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                       value === 'missing' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
-                       'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+        const vpColor = value === 'ok' ? 'bg-green-50 text-green-700 border border-green-200' :
+                       value === 'missing' ? 'bg-red-50 text-red-700 border border-red-200' :
+                       'bg-yellow-50 text-yellow-700 border border-yellow-200'
         return <Badge className={vpColor}>{typeof value === 'string' ? value.toUpperCase() : String(value)}</Badge>
       case 'timestamp':
       case 'lastModified':
@@ -480,14 +480,14 @@ export function PageMetrics({
         if (value === undefined || value === null) return 'N/A'
         const width = Number(value)
         const maxWidth = column === 'titlePixelWidth' ? 600 : 920
-        const badgeColor = width < maxWidth ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                          width <= maxWidth + 100 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
-                          'bg-red-500/20 text-red-300 border-red-500/30'
+        const badgeColor = width < maxWidth ? 'bg-green-50 text-green-700 border border-green-200' :
+                          width <= maxWidth + 100 ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
+                          'bg-red-50 text-red-700 border border-red-200'
         return <Badge className={badgeColor}>{width}px</Badge>
       case 'mixedContentSeverity':
         if (!value || value === 'none') return 'N/A'
-        const sevColor = value === 'critical' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
-                        'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+        const sevColor = value === 'critical' ? 'bg-red-50 text-red-700 border border-red-200' :
+                        'bg-yellow-50 text-yellow-700 border border-yellow-200'
         return <Badge className={sevColor}>{typeof value === 'string' ? value.toUpperCase() : String(value)}</Badge>
       case 'duplicateTitleCount':
       case 'duplicateMetaDescriptionCount':
@@ -496,9 +496,9 @@ export function PageMetrics({
       case 'totalInsecureResources':
         if (value === undefined || value === null) return 'N/A'
         const count = Number(value)
-        const countColor = count === 0 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                          count <= 2 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
-                          'bg-red-500/20 text-red-300 border-red-500/30'
+        const countColor = count === 0 ? 'bg-green-50 text-green-700 border border-green-200' :
+                          count <= 2 ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
+                          'bg-red-50 text-red-700 border border-red-200'
         return <Badge className={countColor}>{count}</Badge>
       case 'totalWordCount':
         if (value === undefined || value === null) return 'N/A'
@@ -512,8 +512,8 @@ export function PageMetrics({
             <div className="space-y-0.5 max-h-40 overflow-y-auto text-[10px]">
               {headings.map((h: { level: number; tag: string; text: string }, i: number) => (
                 <div key={i} className="flex items-start gap-1" style={{ paddingLeft: `${(h.level - 1) * 8}px` }}>
-                  <Badge className="shrink-0 text-[9px] px-1 py-0 bg-zinc-700 text-zinc-300">{h.tag.toUpperCase()}</Badge>
-                  <span className="text-zinc-300 truncate" title={h.text}>{h.text}</span>
+                  <Badge className="shrink-0 text-[9px] px-1 py-0 bg-zinc-100 text-zinc-700">{h.tag.toUpperCase()}</Badge>
+                  <span className="text-(--nd-text-secondary) truncate" title={h.text}>{h.text}</span>
                 </div>
               ))}
             </div>
@@ -525,9 +525,9 @@ export function PageMetrics({
       case 'statusCode':
         if (!value) return 'N/A'
         const sc = Number(value)
-        const scColor = sc >= 200 && sc < 300 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                       sc >= 300 && sc < 400 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
-                       'bg-red-500/20 text-red-300 border-red-500/30'
+        const scColor = sc >= 200 && sc < 300 ? 'bg-green-50 text-green-700 border border-green-200' :
+                       sc >= 300 && sc < 400 ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
+                       'bg-red-50 text-red-700 border border-red-200'
         return <Badge className={scColor}>{sc}</Badge>
       case 'language':
         return value ? String(value) : 'N/A'
@@ -555,7 +555,7 @@ export function PageMetrics({
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
           <div className="flex-1 w-full sm:max-w-md">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-(--nd-text-muted)" />
               <Input
                 placeholder="Search by URL or title..."
                 value={searchQuery}
@@ -563,7 +563,7 @@ export function PageMetrics({
                   setSearchQuery(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500 text-sm rounded-xl"
+                className="pl-10 bg-white border-(--nd-border) text-(--nd-text-primary) placeholder:text-(--nd-text-muted) text-sm rounded-xl"
               />
             </div>
           </div>
@@ -572,7 +572,7 @@ export function PageMetrics({
               onClick={() => metricRunner.runAll()}
               variant="outline"
               size="sm"
-              className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
+              className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) rounded-xl"
               disabled={!jobId || uniqueData.length === 0 || metricRunner.isProcessing || metricRunner.isSubmitting}
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isProcessing ? 'animate-spin' : ''}`} />
@@ -583,7 +583,7 @@ export function PageMetrics({
                 onClick={onRefresh}
                 variant="outline"
                 size="sm"
-                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) rounded-xl"
                 disabled={isLoading}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -595,7 +595,7 @@ export function PageMetrics({
                 onClick={onExport}
                 variant="outline"
                 size="sm"
-                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) rounded-xl"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export
@@ -606,23 +606,23 @@ export function PageMetrics({
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Total Pages</div>
-            <div className="text-xl font-bold text-white mt-1">{uniqueData.length}</div>
+          <div className="bg-white border border-(--nd-border) rounded-xl p-3">
+            <div className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider">Total Pages</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">{uniqueData.length}</div>
           </div>
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Filtered</div>
-            <div className="text-xl font-bold text-white mt-1">{filteredData.length}</div>
+          <div className="bg-white border border-(--nd-border) rounded-xl p-3">
+            <div className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider">Filtered</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">{filteredData.length}</div>
           </div>
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">With Tables</div>
-            <div className="text-xl font-bold text-white mt-1">
+          <div className="bg-white border border-(--nd-border) rounded-xl p-3">
+            <div className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider">With Tables</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">
               {uniqueData.filter(p => p.hasTables).length}
             </div>
           </div>
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">With FAQs</div>
-            <div className="text-xl font-bold text-white mt-1">
+          <div className="bg-white border border-(--nd-border) rounded-xl p-3">
+            <div className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider">With FAQs</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">
               {uniqueData.filter(p => p.hasFaqs).length}
             </div>
           </div>
@@ -633,14 +633,14 @@ export function PageMetrics({
         {/* Sidebar Filter Panel */}
         <div className={`${sidebarOpen ? 'w-68' : 'w-0'} transition-all duration-300 overflow-hidden shrink-0`}>
           {sidebarOpen && (
-            <div className="bg-[#0D0D10] border border-zinc-800 rounded-xl p-4 h-full overflow-y-auto custom-scrollbar">
+            <div className="bg-white border border-(--nd-border) rounded-xl p-4 h-full overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-white">Column Filters</h3>
+              <h3 className="text-sm font-semibold text-(--nd-text-primary)">Column Filters</h3>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSidebarOpen(false)}
-                className="text-zinc-500 hover:text-white p-1 h-auto hover:bg-zinc-800/60"
+                className="text-(--nd-text-muted) hover:text-(--nd-text-primary) p-1 h-auto hover:bg-(--nd-bg)"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -648,7 +648,7 @@ export function PageMetrics({
 
             {/* URL/Resource Filter */}
             <div className="mb-4">
-              <label className="text-[11px] text-zinc-500 uppercase tracking-wider mb-1.5 block">Filter by URL/Type</label>
+              <label className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider mb-1.5 block">Filter by URL/Type</label>
               <Input
                 placeholder="URL or content type..."
                 value={urlFilter}
@@ -656,7 +656,7 @@ export function PageMetrics({
                   setUrlFilter(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 text-xs h-8 rounded-lg"
+                className="bg-(--nd-bg) border-(--nd-border) text-(--nd-text-primary) placeholder:text-(--nd-text-muted) text-xs h-8 rounded-lg"
               />
             </div>
 
@@ -668,22 +668,22 @@ export function PageMetrics({
                   <div key={category.name} className="space-y-2">
                     <button
                       onClick={() => toggleCategoryColumns(category)}
-                      className="flex items-center justify-between w-full text-xs font-medium text-zinc-200 hover:text-white"
+                      className="flex items-center justify-between w-full text-xs font-medium text-(--nd-text-primary) hover:text-(--nd-text-primary)"
                     >
                       <span>{category.name}</span>
-                      <span className="text-zinc-500">{visible}/{total}</span>
+                      <span className="text-(--nd-text-muted)">{visible}/{total}</span>
                     </button>
                     <div className="space-y-1 pl-2">
                       {category.columns.map((column) => (
                         <label
                           key={String(column)}
-                          className="flex items-center gap-2 text-xs text-zinc-400 hover:text-white cursor-pointer"
+                          className="flex items-center gap-2 text-xs text-(--nd-text-secondary) hover:text-(--nd-text-primary) cursor-pointer"
                         >
                           <input
                             type="checkbox"
                             checked={visibleColumns.has(column)}
                             onChange={() => toggleColumn(column)}
-                            className="rounded border-zinc-700 bg-zinc-900 text-blue-500 focus:ring-blue-500/50 focus:ring-offset-0"
+                            className="rounded border-(--nd-border) bg-white text-(--nd-purple) focus:ring-(--nd-purple)/50 focus:ring-offset-0"
                           />
                           <span className="truncate">{getColumnLabel(column)}</span>
                         </label>
@@ -706,7 +706,7 @@ export function PageMetrics({
               variant="outline"
               size="sm"
               onClick={() => setSidebarOpen(true)}
-              className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+              className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary)"
             >
               <ChevronRight className="h-4 w-4 mr-2" />
               Show Filters
@@ -715,25 +715,25 @@ export function PageMetrics({
         )}
 
         {/* Table */}
-        <div className="rounded-xl border border-zinc-800 bg-[#111113] overflow-hidden flex-1 min-h-0">
+        <div className="rounded-xl border border-(--nd-border) bg-white overflow-hidden flex-1 min-h-0">
           <div 
             ref={tableContainerRef} 
             className="overflow-x-auto overflow-y-auto max-w-full h-full custom-scrollbar"
           >
             <table className="w-full text-sm">
-              <thead className="bg-zinc-900/80 border-b border-zinc-800 sticky top-0 z-10">
+              <thead className="bg-(--nd-bg) border-b border-(--nd-border) sticky top-0 z-10">
                 <tr>
-                  <th className="px-3 py-3 text-left font-medium text-zinc-300 uppercase tracking-wider text-xs whitespace-nowrap">
+                  <th className="px-3 py-3 text-left font-medium text-(--nd-text-secondary) uppercase tracking-wider text-xs whitespace-nowrap">
                     Action
                   </th>
                   {orderedVisibleColumns.map(column => renderTableHeader(column))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-800">
+              <tbody className="divide-y divide-(--nd-border)">
                 {isLoading || metricRunner.isBulkProcessing ? (
                   <tr>
                     <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center">
-                      <div className="flex items-center justify-center gap-2 text-zinc-400">
+                      <div className="flex items-center justify-center gap-2 text-(--nd-text-muted)">
                         <RefreshCw className="h-5 w-5 animate-spin" />
                         <span>{metricRunner.isBulkProcessing ? 'Processing page metrics...' : 'Loading data...'}</span>
                       </div>
@@ -741,7 +741,7 @@ export function PageMetrics({
                   </tr>
                 ) : paginatedData.length === 0 ? (
                   <tr>
-                    <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center text-zinc-400">
+                    <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center text-(--nd-text-muted)">
                       No pages found. {(searchQuery || urlFilter) && 'Try adjusting your filters.'}
                     </td>
                   </tr>
@@ -749,7 +749,7 @@ export function PageMetrics({
                   paginatedData.map((page, index) => (
                     <tr 
                       key={page.id ?? page.url ?? index}
-                      className="hover:bg-zinc-800/50 transition-colors"
+                      className="hover:bg-(--nd-bg) transition-colors"
                     >
                       <td className="px-3 py-2 text-center whitespace-nowrap">
                         {(metricRunner.isRunning(page.url) || !page.fields?.page_metrics_last_run_at) && (
@@ -758,7 +758,7 @@ export function PageMetrics({
                             variant="outline"
                             size="sm"
                             disabled={!jobId || metricRunner.isRunning(page.url)}
-                            className="bg-zinc-900 border-zinc-700 text-zinc-200 hover:bg-zinc-800 hover:text-white rounded-lg h-8 px-3"
+                            className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) rounded-lg h-8 px-3"
                           >
                             <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isRunning(page.url) ? 'animate-spin' : ''}`} />
                             {metricRunner.isRunning(page.url) ? 'Running' : 'Run'}
@@ -766,7 +766,7 @@ export function PageMetrics({
                         )}
                       </td>
                       {orderedVisibleColumns.map((column) => (
-                        <td key={String(column)} className="px-3 py-2 text-zinc-200 text-center whitespace-normal overflow-wrap-break-word">
+                        <td key={String(column)} className="px-3 py-2 text-(--nd-text-secondary) text-center whitespace-normal overflow-wrap-break-word">
                           {renderCellContent(page, column)}
                         </td>
                       ))}
@@ -781,7 +781,7 @@ export function PageMetrics({
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-2">
-            <div className="text-sm text-zinc-500">
+            <div className="text-sm text-(--nd-text-muted)">
               Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, sortedData.length)} of {sortedData.length} results
             </div>
             <div className="flex gap-2">
@@ -790,7 +790,7 @@ export function PageMetrics({
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 rounded-xl"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) disabled:opacity-40 rounded-xl"
               >
                 Previous
               </Button>
@@ -815,8 +815,8 @@ export function PageMetrics({
                       onClick={() => setCurrentPage(pageNum)}
                       className={`rounded-xl ${
                         currentPage === pageNum
-                          ? 'bg-white text-black border-white'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white'
+                          ? 'bg-(--nd-purple) text-white border-(--nd-purple)'
+                            : 'bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary)'
                       }`}
                     >
                       {pageNum}
@@ -829,7 +829,7 @@ export function PageMetrics({
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 rounded-xl"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) disabled:opacity-40 rounded-xl"
               >
                 Next
               </Button>

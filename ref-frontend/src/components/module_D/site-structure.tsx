@@ -228,48 +228,48 @@ function ScoreCard({ title, score, icon, color, subText, trend, className }: Sco
   }
 
   const numericScore = typeof score === 'number' ? score : parseFloat(score as string)
-  const showBadge = !isNaN(numericScore) && score !== null
+    const showBadge = !isNaN(numericScore) && score !== null
 
-  return (
-    <div className={cn("bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 hover:bg-white/5 transition-all duration-300 group flex flex-col justify-between", className)}>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className={cn("p-2.5 rounded-xl", color)}>
-            {icon}
+    return (
+      <div className={cn("rounded-2xl p-5 border transition-all duration-300 group flex flex-col justify-between", className)} style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className={cn("p-2.5 rounded-xl", color)}>
+              {icon}
+            </div>
+            <span className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>{title}</span>
           </div>
-          <span className="text-sm font-medium text-white/80">{title}</span>
+          {showBadge && (
+            <span className={cn(
+              "text-xs px-2 py-0.5 rounded-full font-bold border",
+              getScoreLabel(numericScore).color
+            )}>
+              {getScoreLabel(numericScore).text}
+            </span>
+          )}
         </div>
-        {showBadge && (
-          <span className={cn(
-            "text-[10px] px-2 py-0.5 rounded-full font-medium border border-white/5",
-            getScoreLabel(numericScore).color
-          )}>
-            {getScoreLabel(numericScore).text}
-          </span>
-        )}
+        <div>
+          <div className="flex items-baseline gap-1">
+            <div className="text-3xl font-bold" style={{ color: 'var(--nd-text-primary)' }}>{score ?? '--'}</div>
+            {typeof score === 'number' && <span className="text-sm font-medium" style={{ color: 'var(--nd-text-muted)' }}>/100</span>}
+          </div>
+          
+          <div className="flex items-center justify-between mt-2">
+             {subText && <div className="text-[11px] font-bold uppercase tracking-tight" style={{ color: 'var(--nd-text-muted)' }}>{subText}</div>}
+             {trend !== undefined && (
+                <div className={cn(
+                  "flex items-center gap-1 text-xs font-bold",
+                  trend >= 0 ? "text-emerald-600" : "text-rose-600"
+                )}>
+                  {trend >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                  <span>{trend >= 0 ? '+' : ''}{trend}%</span>
+                </div>
+             )}
+          </div>
+        </div>
       </div>
-      <div>
-        <div className="flex items-baseline gap-1">
-          <div className="text-3xl font-bold text-white">{score ?? '--'}</div>
-          {typeof score === 'number' && <span className="text-sm text-white/40">/100</span>}
-        </div>
-        
-        <div className="flex items-center justify-between mt-2">
-           {subText && <div className="text-[11px] text-white/40">{subText}</div>}
-           {trend !== undefined && (
-              <div className={cn(
-                "flex items-center gap-1 text-[10px] font-medium",
-                trend >= 0 ? "text-green-400" : "text-red-400"
-              )}>
-                {trend >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                <span>{trend >= 0 ? '+' : ''}{trend}%</span>
-              </div>
-           )}
-        </div>
-      </div>
-    </div>
-  )
-}
+    )
+  }
 
 export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
   const [promptText, setPromptText] = useState<string>('')
@@ -393,7 +393,7 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
         title="Add to Tracking"
         description="Prompt Tracking"
         action={
-          <Badge variant="outline" className="text-[11px] border-zinc-800 text-zinc-300">
+          <Badge variant="outline" className="text-xs font-bold" style={{ borderColor: 'var(--nd-border)', color: 'var(--nd-text-secondary)' }}>
             {summary.trackedCount} tracked
           </Badge>
         }
@@ -423,18 +423,21 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="absolute top-2 right-2 text-zinc-500 hover:text-zinc-200 transition-colors"
+                  className="absolute top-2 right-2 transition-colors"
+                  style={{ color: 'var(--nd-text-muted)' }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--nd-text-secondary)'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--nd-text-muted)'}
                   aria-label="Avg Visibility help"
                 >
                   <Info className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+              <TooltipContent side="top" align="end" className="max-w-64 border text-[11px] leading-relaxed rounded-2xl px-3 py-2.5" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}>
                 <div className="space-y-1.5">
                   {promptTrackingDoc.metric_help?.prompt_visibility_score && (
                     <>
-                      <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.prompt_visibility_score.meaning}</div>
-                      <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.prompt_visibility_score.improve}</div>
+                      <div><span className="font-semibold">Meaning: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.prompt_visibility_score.meaning}</span></div>
+                      <div><span className="font-semibold">Improve: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.prompt_visibility_score.improve}</span></div>
                     </>
                   )}
                 </div>
@@ -455,18 +458,21 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="absolute top-2 right-2 text-zinc-500 hover:text-zinc-200 transition-colors"
+                  className="absolute top-2 right-2 transition-colors"
+                  style={{ color: 'var(--nd-text-muted)' }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--nd-text-secondary)'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--nd-text-muted)'}
                   aria-label="Avg CTR help"
                 >
                   <Info className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+              <TooltipContent side="top" align="end" className="max-w-64 border text-[11px] leading-relaxed rounded-2xl px-3 py-2.5" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}>
                 <div className="space-y-1.5">
                   {promptTrackingDoc.metric_help?.ctr_percent && (
                     <>
-                      <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.ctr_percent.meaning}</div>
-                      <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.ctr_percent.improve}</div>
+                      <div><span className="font-semibold">Meaning: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.ctr_percent.meaning}</span></div>
+                      <div><span className="font-semibold">Improve: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.ctr_percent.improve}</span></div>
                     </>
                   )}
                 </div>
@@ -487,25 +493,28 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="absolute top-2 right-2 text-zinc-500 hover:text-zinc-200 transition-colors"
+                  className="absolute top-2 right-2 transition-colors"
+                  style={{ color: 'var(--nd-text-muted)' }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--nd-text-secondary)'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--nd-text-muted)'}
                   aria-label="Avg Engagement help"
                 >
                   <Info className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+              <TooltipContent side="top" align="end" className="max-w-64 border text-[11px] leading-relaxed rounded-2xl px-3 py-2.5" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}>
                 <div className="space-y-1.5">
                   {promptTrackingDoc.metric_help?.engagement_score && (
                     <>
-                      <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.engagement_score.meaning}</div>
-                      <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.engagement_score.improve}</div>
+                      <div><span className="font-semibold">Meaning: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.engagement_score.meaning}</span></div>
+                      <div><span className="font-semibold">Improve: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.engagement_score.improve}</span></div>
                     </>
                   )}
                   {promptTrackingDoc.metric_help?.traffic_estimate && (
                     <>
-                      <div className="pt-1.5 border-t border-zinc-700/50" />
-                      <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.traffic_estimate.meaning}</div>
-                      <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.traffic_estimate.improve}</div>
+                      <div className="pt-1.5 border-t" style={{ borderColor: 'var(--nd-border)' }} />
+                      <div><span className="font-semibold">Meaning: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.traffic_estimate.meaning}</span></div>
+                      <div><span className="font-semibold">Improve: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.traffic_estimate.improve}</span></div>
                     </>
                   )}
                 </div>
@@ -516,7 +525,7 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
         </StatCardGrid>
       ) : (
         <AnalysisEmptyState
-          icon={<Target className="w-8 h-8 text-zinc-400" />}
+          icon={<Target className="w-8 h-8" style={{ color: 'var(--nd-text-muted)' }} />}
           title="No Prompts Tracked Yet"
           description="Add prompts below to start tracking their visibility, CTR, and engagement across AI models."
         />
@@ -529,26 +538,28 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
             onChange={(e) => setPromptText(e.target.value)}
             rows={4}
             className={cn(
-              'w-full rounded-xl border border-zinc-800/70 bg-zinc-900/30 px-3 py-2',
-              'text-[12px] text-zinc-100 placeholder:text-zinc-600 outline-hidden',
+              'w-full rounded-xl border px-3 py-2',
+              'text-sm font-medium outline-hidden',
               'focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500/40'
             )}
+            style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}
             placeholder={'One prompt per line\nExample: best running shoes for flat feet'}
           />
-          <div className="text-[11px] text-zinc-500">
+          <div className="text-xs font-semibold" style={{ color: 'var(--nd-text-secondary)' }}>
             Onboarding prompts are auto-used by default when available. Add extra prompts here only if needed.
           </div>
           <div className="flex items-center gap-3">
             <Button
               size="sm"
-              className="rounded-xl bg-violet-600 hover:bg-violet-500 text-white"
+              className="rounded-xl shadow-sm"
+              style={{ background: 'var(--nd-purple)', color: '#ffffff', borderColor: 'var(--nd-purple)' }}
               disabled={!jobId || !promptText.trim() || isStartingPromptTracking}
               onClick={addPromptsToTracking}
             >
               {isStartingPromptTracking ? 'Tracking…' : 'Add to Tracking'}
             </Button>
             {(isFetchingPromptTracking || isPromptPolling) && (
-              <span className="text-xs text-zinc-500">Updating…</span>
+              <span className="text-xs" style={{ color: 'var(--nd-text-muted)' }}>Updating…</span>
             )}
           </div>
         </div>
@@ -557,25 +568,25 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
       {promptTrackingDoc?.prompt_intelligence && (
         <SectionCard title="Prompt Intelligence Summary">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-            <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
-              <div className="text-zinc-500">Source Mode</div>
-              <div className="text-zinc-200 font-mono">{promptTrackingDoc.prompt_intelligence.prompt_source_mode ?? 'unknown'}</div>
+            <div className="rounded-lg border p-3" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+              <div style={{ color: 'var(--nd-text-muted)' }}>Source Mode</div>
+              <div className="font-mono" style={{ color: 'var(--nd-text-primary)' }}>{promptTrackingDoc.prompt_intelligence.prompt_source_mode ?? 'unknown'}</div>
             </div>
-            <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
-              <div className="text-zinc-500">Onboarding Prompts</div>
-              <div className="text-zinc-200 font-mono">{promptTrackingDoc.prompt_intelligence.onboarding_prompts_count ?? 0}</div>
+            <div className="rounded-lg border p-3" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+              <div style={{ color: 'var(--nd-text-muted)' }}>Onboarding Prompts</div>
+              <div className="font-mono" style={{ color: 'var(--nd-text-primary)' }}>{promptTrackingDoc.prompt_intelligence.onboarding_prompts_count ?? 0}</div>
             </div>
-            <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
-              <div className="text-zinc-500">Manual Prompts</div>
-              <div className="text-zinc-200 font-mono">{promptTrackingDoc.prompt_intelligence.manual_prompts_count ?? 0}</div>
+            <div className="rounded-lg border p-3" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+              <div style={{ color: 'var(--nd-text-muted)' }}>Manual Prompts</div>
+              <div className="font-mono" style={{ color: 'var(--nd-text-primary)' }}>{promptTrackingDoc.prompt_intelligence.manual_prompts_count ?? 0}</div>
             </div>
-            <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
-              <div className="text-zinc-500">Final Prompts</div>
-              <div className="text-zinc-200 font-mono">{promptTrackingDoc.prompt_intelligence.total_prompts_final ?? 0}</div>
+            <div className="rounded-lg border p-3" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+              <div style={{ color: 'var(--nd-text-muted)' }}>Final Prompts</div>
+              <div className="font-mono" style={{ color: 'var(--nd-text-primary)' }}>{promptTrackingDoc.prompt_intelligence.total_prompts_final ?? 0}</div>
             </div>
-            <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3 md:col-span-2">
-              <div className="text-zinc-500">Dedup Drops</div>
-              <div className="text-zinc-200 font-mono">
+            <div className="rounded-lg border p-3 md:col-span-2" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+              <div style={{ color: 'var(--nd-text-muted)' }}>Dedup Drops</div>
+              <div className="font-mono" style={{ color: 'var(--nd-text-primary)' }}>
                 {(
                   (promptTrackingDoc.prompt_intelligence.dedup_summary?.dropped_exact_duplicates ?? 0) +
                   (promptTrackingDoc.prompt_intelligence.dedup_summary?.dropped_near_duplicates ?? 0)
@@ -583,11 +594,12 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
               </div>
             </div>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+          <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
             {Object.entries(promptTrackingDoc.prompt_intelligence.intent_cluster_distribution || {}).map(([intent, count]) => (
               <span
                 key={intent}
-                className="px-2 py-1 rounded-full border border-zinc-800 bg-zinc-900/40 text-zinc-300"
+                className="px-2 py-1 rounded-full border"
+                style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-secondary)' }}
               >
                 {intent}: {count}
               </span>
@@ -600,10 +612,10 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
         <SectionCard title="Prompt Metrics" contentClassName="p-0">
           <div className="overflow-auto custom-scrollbar">
             <table className="w-full text-left border-collapse">
-              <thead className="bg-zinc-900/40 sticky top-0 z-10 border-b border-zinc-800/60">
+              <thead className="sticky top-0 z-10 border-b" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
                 <tr>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Prompt</th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">
+                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>Prompt</th>
+                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-right" style={{ color: 'var(--nd-text-secondary)' }}>
                     <span className="inline-flex items-center justify-end gap-1 w-full">
                       Vis
                       {promptTrackingDoc?.metric_help?.prompt_visibility_score && (
@@ -611,23 +623,24 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              className="text-zinc-500 hover:text-zinc-200 transition-colors"
+                              className="transition-colors"
+                              style={{ color: 'var(--nd-text-secondary)' }}
                               aria-label="Visibility help"
                             >
                               <Info className="h-3.5 w-3.5" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                          <TooltipContent side="top" align="end" className="max-w-64 border text-[11px] leading-relaxed rounded-2xl px-3 py-2.5" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}>
                             <div className="space-y-1.5">
-                              <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.prompt_visibility_score.meaning}</div>
-                              <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.prompt_visibility_score.improve}</div>
+                              <div><span className="font-semibold">Meaning: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.prompt_visibility_score.meaning}</span></div>
+                              <div><span className="font-semibold">Improve: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.prompt_visibility_score.improve}</span></div>
                             </div>
                           </TooltipContent>
                         </Tooltip>
                       )}
                     </span>
                   </th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">
+                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-right" style={{ color: 'var(--nd-text-secondary)' }}>
                     <span className="inline-flex items-center justify-end gap-1 w-full">
                       CTR
                       {promptTrackingDoc?.metric_help?.ctr_percent && (
@@ -635,23 +648,24 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              className="text-zinc-500 hover:text-zinc-200 transition-colors"
+                              className="transition-colors"
+                              style={{ color: 'var(--nd-text-secondary)' }}
                               aria-label="CTR help"
                             >
                               <Info className="h-3.5 w-3.5" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                          <TooltipContent side="top" align="end" className="max-w-64 border text-[11px] leading-relaxed rounded-2xl px-3 py-2.5" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}>
                             <div className="space-y-1.5">
-                              <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.ctr_percent.meaning}</div>
-                              <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.ctr_percent.improve}</div>
+                              <div><span className="font-semibold">Meaning: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.ctr_percent.meaning}</span></div>
+                              <div><span className="font-semibold">Improve: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.ctr_percent.improve}</span></div>
                             </div>
                           </TooltipContent>
                         </Tooltip>
                       )}
                     </span>
                   </th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">
+                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-right" style={{ color: 'var(--nd-text-secondary)' }}>
                     <span className="inline-flex items-center justify-end gap-1 w-full">
                       Eng
                       {promptTrackingDoc?.metric_help?.engagement_score && (
@@ -659,23 +673,26 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              className="text-zinc-500 hover:text-zinc-200 transition-colors"
+                              className="transition-colors"
+                              style={{ color: 'var(--nd-text-secondary)' }}
+                              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--nd-text-primary)'}
+                              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--nd-text-secondary)'}
                               aria-label="Engagement help"
                             >
                               <Info className="h-3.5 w-3.5" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                          <TooltipContent side="top" align="end" className="max-w-64 border text-[11px] leading-relaxed rounded-2xl px-3 py-2.5" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}>
                             <div className="space-y-1.5">
-                              <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.engagement_score.meaning}</div>
-                              <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.engagement_score.improve}</div>
+                              <div><span className="font-semibold">Meaning: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.engagement_score.meaning}</span></div>
+                              <div><span className="font-semibold">Improve: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.engagement_score.improve}</span></div>
                             </div>
                           </TooltipContent>
                         </Tooltip>
                       )}
                     </span>
                   </th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">
+                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-right" style={{ color: 'var(--nd-text-secondary)' }}>
                     <span className="inline-flex items-center justify-end gap-1 w-full">
                       Traffic
                       {promptTrackingDoc?.metric_help?.traffic_estimate && (
@@ -683,23 +700,26 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              className="text-zinc-500 hover:text-zinc-200 transition-colors"
+                              className="transition-colors"
+                              style={{ color: 'var(--nd-text-secondary)' }}
+                              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--nd-text-primary)'}
+                              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--nd-text-secondary)'}
                               aria-label="Traffic help"
                             >
                               <Info className="h-3.5 w-3.5" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                          <TooltipContent side="top" align="end" className="max-w-64 border text-[11px] leading-relaxed rounded-2xl px-3 py-2.5" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}>
                             <div className="space-y-1.5">
-                              <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.traffic_estimate.meaning}</div>
-                              <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.traffic_estimate.improve}</div>
+                              <div><span className="font-semibold">Meaning: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.traffic_estimate.meaning}</span></div>
+                              <div><span className="font-semibold">Improve: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.traffic_estimate.improve}</span></div>
                             </div>
                           </TooltipContent>
                         </Tooltip>
                       )}
                     </span>
                   </th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">
+                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-right" style={{ color: 'var(--nd-text-secondary)' }}>
                     <span className="inline-flex items-center justify-end gap-1 w-full">
                       Δ
                       {promptTrackingDoc?.metric_help?.visibility_change && (
@@ -707,16 +727,19 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              className="text-zinc-500 hover:text-zinc-200 transition-colors"
+                              className="transition-colors"
+                              style={{ color: 'var(--nd-text-secondary)' }}
+                              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--nd-text-primary)'}
+                              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--nd-text-secondary)'}
                               aria-label="Visibility change help"
                             >
                               <Info className="h-3.5 w-3.5" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                          <TooltipContent side="top" align="end" className="max-w-64 border text-[11px] leading-relaxed rounded-2xl px-3 py-2.5" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}>
                             <div className="space-y-1.5">
-                              <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.visibility_change.meaning}</div>
-                              <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.visibility_change.improve}</div>
+                              <div><span className="font-semibold">Meaning: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.visibility_change.meaning}</span></div>
+                              <div><span className="font-semibold">Improve: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.visibility_change.improve}</span></div>
                             </div>
                           </TooltipContent>
                         </Tooltip>
@@ -725,32 +748,32 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-800/60">
+              <tbody className="divide-y" style={{ borderColor: 'var(--nd-border)' }}>
                 {promptTrackingDoc.metrics.map((m, idx) => {
                   const selected = selectedPromptMetric?.prompt === m.prompt
                   return (
                     <tr
                       key={idx}
                       className={cn(
-                        'hover:bg-zinc-900/30 transition-colors cursor-pointer',
-                        selected && 'bg-zinc-900/30'
+                        'transition-colors cursor-pointer',
+                        selected ? 'bg-black/10 dark:bg-white/5' : 'hover:bg-black/5 dark:hover:bg-white/5'
                       )}
                       onClick={() => setSelectedTrackedPrompt(m.prompt)}
                     >
-                      <td className="px-5 py-3 text-sm text-zinc-200 font-medium">
+                      <td className="px-5 py-3 text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>
                         <div className="truncate max-w-170" title={m.prompt}>{m.prompt}</div>
                       </td>
-                      <td className="px-5 py-3 text-right text-xs font-mono text-zinc-300">{Number(m.prompt_visibility_score ?? 0).toFixed(1)}</td>
-                      <td className="px-5 py-3 text-right text-xs font-mono text-zinc-300">{Number(m.ctr_percent ?? 0).toFixed(2)}%</td>
-                      <td className="px-5 py-3 text-right text-xs font-mono text-zinc-300">{Number(m.engagement_score ?? 0).toFixed(1)}</td>
-                      <td className="px-5 py-3 text-right text-xs font-mono text-zinc-300">{Number(m.traffic_estimate ?? 0).toFixed(1)}</td>
-                      <td className="px-5 py-3 text-right text-xs font-mono text-zinc-300">
+                      <td className="px-5 py-3 text-right text-sm font-bold font-mono" style={{ color: 'var(--nd-text-secondary)' }}>{Number(m.prompt_visibility_score ?? 0).toFixed(1)}</td>
+                      <td className="px-5 py-3 text-right text-sm font-bold font-mono" style={{ color: 'var(--nd-text-secondary)' }}>{Number(m.ctr_percent ?? 0).toFixed(2)}%</td>
+                      <td className="px-5 py-3 text-right text-sm font-bold font-mono" style={{ color: 'var(--nd-text-secondary)' }}>{Number(m.engagement_score ?? 0).toFixed(1)}</td>
+                      <td className="px-5 py-3 text-right text-sm font-bold font-mono" style={{ color: 'var(--nd-text-secondary)' }}>{Number(m.traffic_estimate ?? 0).toFixed(1)}</td>
+                      <td className="px-5 py-3 text-right text-sm font-bold font-mono" style={{ color: 'var(--nd-text-secondary)' }}>
                         {typeof m.visibility_change === 'number' ? (
-                          <span className={cn(m.visibility_change >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
+                          <span className={cn(m.visibility_change >= 0 ? 'text-emerald-600' : 'text-rose-600')}>
                             {m.visibility_change >= 0 ? '+' : ''}{m.visibility_change.toFixed(2)}
                           </span>
                         ) : (
-                          <span className="text-zinc-600">—</span>
+                          <span style={{ color: 'var(--nd-text-secondary)' }}>—</span>
                         )}
                       </td>
                     </tr>
@@ -762,7 +785,7 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
         </SectionCard>
       ) : (
         <SectionCard title="Prompt Metrics">
-          <div className="text-sm text-zinc-500">
+          <div className="text-sm font-medium" style={{ color: 'var(--nd-text-secondary)' }}>
             Add prompts to start tracking visibility, CTR, and performance trends.
           </div>
         </SectionCard>
@@ -771,37 +794,37 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
       <SectionCard title="Performance Trend">
         {selectedPromptMetric && selectedPromptTrend.length === 1 ? (
           <div className="space-y-3">
-            <div className="text-xs text-zinc-500 truncate">{selectedPromptMetric.prompt}</div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
-              <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
-                <div className="text-zinc-500">Visibility</div>
-                <div className="font-mono text-zinc-200">{selectedPromptTrend[0].visibility.toFixed(1)}</div>
+            <div className="text-xs truncate font-bold" style={{ color: 'var(--nd-text-secondary)' }}>{selectedPromptMetric.prompt}</div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="rounded-lg border p-3" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+                <div className="font-bold" style={{ color: 'var(--nd-text-secondary)' }}>Visibility</div>
+                <div className="font-mono text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>{selectedPromptTrend[0].visibility.toFixed(1)}</div>
               </div>
-              <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
-                <div className="text-zinc-500">CTR (est.)</div>
-                <div className="font-mono text-zinc-200">{selectedPromptTrend[0].ctr.toFixed(2)}%</div>
+              <div className="rounded-lg border p-3" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+                <div className="font-bold" style={{ color: 'var(--nd-text-secondary)' }}>CTR (est.)</div>
+                <div className="font-mono text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>{selectedPromptTrend[0].ctr.toFixed(2)}%</div>
               </div>
-              <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
-                <div className="text-zinc-500">Engagement</div>
-                <div className="font-mono text-zinc-200">
+              <div className="rounded-lg border p-3" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+                <div className="font-bold" style={{ color: 'var(--nd-text-secondary)' }}>Engagement</div>
+                <div className="font-mono text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>
                   {Number((selectedPromptMetric as any).engagement_score ?? 0).toFixed(1)}
                 </div>
               </div>
-              <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
-                <div className="text-zinc-500">Traffic (est.)</div>
-                <div className="font-mono text-zinc-200">
+              <div className="rounded-lg border p-3" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+                <div className="font-bold" style={{ color: 'var(--nd-text-secondary)' }}>Traffic (est.)</div>
+                <div className="font-mono text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>
                   {Number((selectedPromptMetric as any).traffic_estimate ?? 0).toFixed(1)}
                 </div>
               </div>
             </div>
-            <p className="text-[11px] text-zinc-500">
+            <p className="text-xs font-medium" style={{ color: 'var(--nd-text-secondary)' }}>
               One snapshot so far — run &quot;Add to Tracking&quot; again on this project to build a line chart over time.
             </p>
           </div>
         ) : selectedPromptMetric && selectedPromptTrend.length > 1 ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <div className="text-xs text-zinc-500 truncate">
+              <div className="text-sm truncate font-bold" style={{ color: 'var(--nd-text-secondary)' }}>
                 {selectedPromptMetric.prompt}
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -810,24 +833,25 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
                     <TooltipTrigger asChild>
                       <button
                         type="button"
-                        className="text-zinc-500 hover:text-zinc-200 transition-colors"
+                        className="transition-colors"
+                        style={{ color: 'var(--nd-text-secondary)' }}
                         aria-label="Trend chart help"
                       >
                         <Info className="h-3.5 w-3.5" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                    <TooltipContent side="top" align="end" className="max-w-64 border text-[11px] leading-relaxed rounded-2xl px-3 py-2.5" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}>
                       <div className="space-y-1.5">
-                        <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.prompt_visibility_score.meaning}</div>
-                        <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.prompt_visibility_score.improve}</div>
-                        <div className="pt-1.5 border-t border-zinc-700/50" />
-                        <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.ctr_percent.meaning}</div>
-                        <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.ctr_percent.improve}</div>
+                        <div><span className="font-semibold">Meaning: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.prompt_visibility_score.meaning}</span></div>
+                        <div><span className="font-semibold">Improve: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.prompt_visibility_score.improve}</span></div>
+                        <div className="pt-1.5 border-t" style={{ borderColor: 'var(--nd-border)' }} />
+                        <div><span className="font-semibold">Meaning: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.ctr_percent.meaning}</span></div>
+                        <div><span className="font-semibold">Improve: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{promptTrackingDoc.metric_help.ctr_percent.improve}</span></div>
                       </div>
                     </TooltipContent>
                   </Tooltip>
                 )}
-                <Badge variant="outline" className="text-[11px] border-zinc-800 text-zinc-300">
+                <Badge variant="outline" className="text-xs font-bold" style={{ borderColor: 'var(--nd-border)', color: 'var(--nd-text-secondary)' }}>
                   {selectedPromptTrend.length} points
                 </Badge>
               </div>
@@ -835,26 +859,26 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
             <div className="h-60">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={selectedPromptTrend}>
-                  <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fill: 'rgba(161,161,170,0.9)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: 'rgba(161,161,170,0.9)', fontSize: 10 }} axisLine={false} tickLine={false} width={30} />
+                  <CartesianGrid stroke="var(--nd-border)" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fill: 'var(--nd-text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: 'var(--nd-text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} width={30} />
                   <RechartsTooltip
-                    contentStyle={{ background: 'rgba(17,17,19,0.98)', border: '1px solid rgba(63,63,70,0.8)', borderRadius: 12 }}
-                    labelStyle={{ color: 'rgba(244,244,245,0.9)', fontSize: 11 }}
-                    itemStyle={{ color: 'rgba(244,244,245,0.85)', fontSize: 11 }}
+                    contentStyle={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)', borderRadius: 12 }}
+                    labelStyle={{ color: 'var(--nd-text-primary)', fontSize: 11 }}
+                    itemStyle={{ color: 'var(--nd-text-secondary)', fontSize: 11 }}
                   />
-                  <Line type="monotone" dataKey="visibility" stroke="#a78bfa" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="visibility" stroke="var(--nd-purple)" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="ctr" stroke="#34d399" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
         ) : selectedPromptMetric ? (
-          <div className="text-sm text-zinc-500">
+          <div className="text-sm" style={{ color: 'var(--nd-text-muted)' }}>
             No trend history for this prompt yet. Run tracking to record the first snapshot.
           </div>
         ) : (
-          <div className="text-sm text-zinc-500">
+          <div className="text-sm" style={{ color: 'var(--nd-text-muted)' }}>
             Select a prompt in the table above to view its trend.
           </div>
         )}
@@ -1331,9 +1355,9 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
       </Dialog>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <h3 className="text-lg sm:text-xl font-semibold text-white">Site Structure</h3>
+          <h3 className="text-lg sm:text-xl font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Site Structure</h3>
           {primaryHost && (
-            <span className="px-2 py-1 rounded-full bg-white/10 border border-white/20 text-xs sm:text-sm text-white/80">
+            <span className="px-2 py-1 rounded-full border text-xs sm:text-sm" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-secondary)' }}>
               Root: {primaryHost}
             </span>
           )}
@@ -1351,7 +1375,8 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
             <Button
               variant="outline"
               size="sm"
-              className="bg-white/5 border-white/20 text-white hover:bg-white/10"
+              className="border transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              style={{ borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}
               onClick={() => { setSiblingSeparation(0.6); setNonSiblingSeparation(0.8); setLabelMaxChars(30); }}
               title="Ultra compact - Best for 1000+ nodes"
             >
@@ -1361,7 +1386,8 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
             <Button
               variant="outline"
               size="sm"
-              className="bg-white/5 border-white/20 text-white hover:bg-white/10"
+              className="border transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              style={{ borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}
               onClick={() => { setSiblingSeparation(1.0); setNonSiblingSeparation(1.3); setLabelMaxChars(50); }}
               title="Balanced spacing - Good for 100-500 nodes"
             >
@@ -1370,8 +1396,8 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
             </Button>
           </div>
           {seoEnabled && (seoLoading || seoBatchLoading) && (
-            <span className="px-2 py-1 bg-yellow-900 text-yellow-300 rounded text-sm flex items-center gap-2">
-              <span className="inline-block w-3 h-3 border-2 border-yellow-300 border-t-transparent rounded-full animate-spin"></span>
+            <span className="px-2 py-1 rounded text-sm flex items-center gap-2" style={{ background: 'var(--nd-beta-bg)', color: 'var(--nd-beta-text)' }}>
+              <span className="inline-block w-3 h-3 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--nd-beta-text)', borderTopColor: 'transparent' }}></span>
               {seoBatchLoading && seoProgress ? (
                 <>
                   <span>Extracting {seoProgress.current}/{seoProgress.total}</span>
@@ -1383,14 +1409,15 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
             </span>
           )}
           {seoEnabled && seoError && (
-            <span className="px-2 py-1 bg-red-900 text-red-300 rounded text-sm">
+            <span className="px-2 py-1 rounded text-sm" style={{ background: 'var(--nd-negative-bg)', color: 'var(--nd-negative-text)' }}>
               {seoError}
             </span>
           )}
 
           <Button
             size="sm"
-            className="bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/30 disabled:opacity-50"
+            className="shadow-sm disabled:opacity-50"
+            style={{ background: 'var(--nd-purple)', color: '#ffffff', borderColor: 'var(--nd-purple)' }}
             onClick={handleBuild}
             disabled={!sessionId || !hasPages || loading}
           >
@@ -1401,9 +1428,15 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
             <Button
               size="sm"
               variant={viewMode === 'split' ? 'default' : 'outline'}
-              className={viewMode === 'split'
-                ? 'bg-white text-black'
-                : 'bg-white/5 border-white/20 text-white hover:bg-white/10'}
+              className={cn(
+                'border transition-colors',
+                viewMode === 'split' ? '' : 'hover:bg-black/5 dark:hover:bg-white/5'
+              )}
+              style={
+                viewMode === 'split'
+                  ? { background: 'var(--nd-text-primary)', color: 'var(--nd-bg)', borderColor: 'var(--nd-text-primary)' }
+                  : { borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }
+              }
               onClick={() => setViewMode('split')}
             >
               <Split className="w-3 h-3 mr-1.5" />
@@ -1412,9 +1445,15 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
             <Button
               size="sm"
               variant={viewMode === 'tree' ? 'default' : 'outline'}
-              className={viewMode === 'tree'
-                ? 'bg-white text-black'
-                : 'bg-white/5 border-white/20 text-white hover:bg-white/10'}
+              className={cn(
+                'border transition-colors',
+                viewMode === 'tree' ? '' : 'hover:bg-black/5 dark:hover:bg-white/5'
+              )}
+              style={
+                viewMode === 'tree'
+                  ? { background: 'var(--nd-text-primary)', color: 'var(--nd-bg)', borderColor: 'var(--nd-text-primary)' }
+                  : { borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }
+              }
               onClick={() => setViewMode('tree')}
             >
               <Layers className="w-3 h-3 mr-1.5" />
@@ -1423,9 +1462,15 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
             <Button
               size="sm"
               variant={viewMode === 'table' ? 'default' : 'outline'}
-              className={viewMode === 'table'
-                ? 'bg-white text-black'
-                : 'bg-white/5 border-white/20 text-white hover:bg-white/10'}
+              className={cn(
+                'border transition-colors',
+                viewMode === 'table' ? '' : 'hover:bg-black/5 dark:hover:bg-white/5'
+              )}
+              style={
+                viewMode === 'table'
+                  ? { background: 'var(--nd-text-primary)', color: 'var(--nd-bg)', borderColor: 'var(--nd-text-primary)' }
+                  : { borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }
+              }
               onClick={() => setViewMode('table')}
               disabled={!seoEnabled}
             >
@@ -1436,9 +1481,15 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
             <Button
               size="sm"
               variant={seoEnabled ? 'default' : 'outline'}
-              className={seoEnabled
-                ? 'bg-purple-500 text-white hover:bg-purple-600 shadow-lg shadow-purple-500/20'
-                : 'bg-white/5 border-white/20 text-white hover:bg-white/10'}
+              className={cn(
+                'border transition-colors',
+                seoEnabled ? 'shadow-lg shadow-purple-500/20' : 'hover:bg-black/5 dark:hover:bg-white/5'
+              )}
+              style={
+                seoEnabled
+                  ? { background: 'var(--nd-purple)', color: '#ffffff', borderColor: 'var(--nd-purple)' }
+                  : { borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }
+              }
               onClick={() => setSeoEnabled(prev => !prev)}
             >
               <Brain className="w-3 h-3 mr-1.5" />
@@ -1451,9 +1502,9 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
       </div>
 
       {breadcrumb.length > 0 && (
-        <div className="mb-3 text-sm text-white/70">
-          <span className="font-medium">Path:</span>{' '}
-          <span className="break-all">{breadcrumb.join(' › ')}</span>
+        <div className="mb-3 text-sm">
+          <span className="font-medium" style={{ color: 'var(--nd-text-secondary)' }}>Path:</span>{' '}
+          <span className="break-all font-bold" style={{ color: 'var(--nd-text-primary)' }}>{breadcrumb.join(' › ')}</span>
         </div>
       )}
 
@@ -1461,13 +1512,14 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
         {(viewMode === 'split' || viewMode === 'tree') && (
           <div
             ref={setContainerRef}
-            className="flex-1 rounded-2xl border border-white/10 overflow-hidden relative bg-white/5 backdrop-blur-xl transition-all duration-500"
+            className="flex-1 rounded-2xl border overflow-hidden relative transition-all duration-500"
+            style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}
           >
             {(() => {
               const isSeoBusy = seoEnabled && (seoLoading || seoBatchLoading)
               if (!treeData) {
                 return (
-                  <div className="flex items-center justify-center h-full text-white/60">
+                  <div className="flex items-center justify-center h-full" style={{ color: 'var(--nd-text-muted)' }}>
                     {loading ? 'Building tree structure...' : 'Configure options and click "Build Tree".'}
                   </div>
                 )
@@ -1489,9 +1541,9 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
               )
             })()}
             {(seoEnabled && (seoLoading || seoBatchLoading)) && (
-              <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-[1px] flex items-center justify-center z-10">
-                <div className="flex items-center gap-3 text-yellow-200">
-                  <span className="inline-block w-6 h-6 border-4 border-yellow-300 border-t-transparent rounded-full animate-spin"></span>
+              <div className="absolute inset-0 flex items-center justify-center z-10" style={{ background: 'rgba(0,0,0,0.5)' }}>
+                <div className="flex items-center gap-3" style={{ color: 'var(--nd-text-primary)' }}>
+                  <span className="inline-block w-6 h-6 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--nd-purple)', borderTopColor: 'transparent' }}></span>
                   {seoBatchLoading && seoProgress ? (
                     <div className="text-sm">
                       <div className="font-semibold">Extracting keywords…</div>
@@ -1508,18 +1560,19 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
 
         {seoEnabled && (viewMode === 'split' || viewMode === 'table') && (
           <div
-            className={`${viewMode === 'table' ? 'flex-1' : 'w-full md:w-104 lg:w-120'} h-full overflow-y-auto rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5 flex flex-col gap-5 text-xs text-white/80 shadow-[0_18px_45px_rgba(15,23,42,0.9)] animate-in slide-in-from-right duration-500`}
+            className={`${viewMode === 'table' ? 'flex-1' : 'w-full md:w-104 lg:w-120'} h-full overflow-y-auto rounded-2xl border p-5 flex flex-col gap-5 text-xs shadow-lg animate-in slide-in-from-right duration-500`}
+            style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}
           >
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-fuchsia-500/20">
-                  <Brain className="w-5 h-5 text-fuchsia-400" />
+                <div className="p-2.5 rounded-xl" style={{ background: 'rgba(167, 139, 250, 0.1)' }}>
+                  <Brain className="w-5 h-5" style={{ color: 'var(--nd-purple)' }} />
                 </div>
                 <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-wider text-fuchsia-300">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--nd-purple)' }}>
                     AI Keywords
                   </div>
-                  <div className="text-sm font-semibold text-white leading-tight">
+                  <div className="text-sm font-semibold leading-tight" style={{ color: 'var(--nd-text-primary)' }}>
                     Analysis & Scores
                   </div>
                 </div>
@@ -1552,8 +1605,8 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
             </div>
 
             {/* Selected URL Section */}
-            <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-              <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2 flex items-center gap-2">
+            <div className="rounded-2xl p-4 border" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+              <div className="text-[10px] uppercase tracking-wider mb-2 flex items-center gap-2" style={{ color: 'var(--nd-text-muted)' }}>
                 <Globe className="w-3 h-3" />
                 Selected URL
               </div>
@@ -1562,27 +1615,28 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                   href={selectedUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex items-center gap-2 text-[11px] text-sky-300 hover:text-sky-200 break-all transition-colors"
+                  className="group flex items-center gap-2 text-[11px] break-all transition-colors"
+                  style={{ color: 'var(--nd-purple)' }}
                 >
-                  <div className="p-1 rounded-md bg-sky-500/20 text-sky-300 group-hover:bg-sky-500/30 transition-colors">
+                  <div className="p-1 rounded-md transition-colors" style={{ background: 'rgba(167, 139, 250, 0.1)' }}>
                     <ArrowUpRight className="w-3 h-3" />
                   </div>
                   <span className="truncate">{selectedUrl}</span>
                 </a>
               ) : (
-                <div className="text-[11px] text-white/50 italic">Select a node in the tree to view details</div>
+                <div className="text-[11px] italic" style={{ color: 'var(--nd-text-muted)' }}>Select a node in the tree to view details</div>
               )}
             </div>
 
             {/* Main Topic & Scores */}
             <div className="space-y-3">
                {/* Main Topic */}
-               <div className="bg-linear-to-r from-slate-800 to-slate-900 rounded-2xl p-5 border border-white/10 relative overflow-hidden">
+               <div className="rounded-2xl p-5 border relative overflow-hidden" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
                  <div className="absolute top-0 right-0 p-3 opacity-10">
-                   <Target className="w-16 h-16 text-white" />
+                   <Target className="w-16 h-16" style={{ color: 'var(--nd-text-primary)' }} />
                  </div>
-                 <div className="text-[10px] uppercase tracking-wider text-white/50 mb-1">Main Topic</div>
-                 <div className="text-lg font-bold text-white relative z-10">
+                 <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--nd-text-muted)' }}>Main Topic</div>
+                 <div className="text-lg font-bold relative z-10" style={{ color: 'var(--nd-text-primary)' }}>
                    {selectedSeo?.parentText || 'Not available'}
                  </div>
                </div>
@@ -1663,7 +1717,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              className="absolute top-2 right-2 text-white/40 hover:text-white/80 transition-colors"
+                              className="absolute top-2 right-2  hover:text-zinc-200/80 transition-colors"
                               aria-label="Complexity help"
                             >
                               <Info className="h-3.5 w-3.5" />
@@ -1686,23 +1740,23 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
             {selectedKeywords.length > 0 && (
               <div className="flex flex-col shrink-0 mt-2">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-[10px] uppercase tracking-wider text-white/40">Keyword Analysis</div>
-                  <div className="text-[10px] text-white/40">{selectedKeywords.length} keywords</div>
+                  <div className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>Keyword Analysis</div>
+                  <div className="text-[10px]" style={{ color: 'var(--nd-text-muted)' }}>{selectedKeywords.length} keywords</div>
                 </div>
                 
-                <div className="rounded-2xl border border-white/10 overflow-hidden bg-white/5 flex flex-col">
+                <div className="rounded-2xl border overflow-hidden flex flex-col" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
                   <div className="overflow-auto custom-scrollbar">
                      <table className="w-full text-left border-collapse">
-                       <thead className="bg-white/5 sticky top-0 z-10 backdrop-blur-md border-b border-white/10">
+                       <thead className="sticky top-0 z-10 backdrop-blur-md border-b" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
                          <tr>
-                           <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Keyword</th>
-                          <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">
+                           <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>Keyword</th>
+                          <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-right" style={{ color: 'var(--nd-text-muted)' }}>
                             <div className="flex items-center justify-end gap-1">
                               <span>Score</span>
                               {seoMetricHelp?.score && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button type="button" className="text-white/35 hover:text-white/80 transition-colors" aria-label="Score help">
+                                    <button type="button" className=" hover:text-zinc-200/80 transition-colors" aria-label="Score help">
                                       <Info className="h-3 w-3" />
                                     </button>
                                   </TooltipTrigger>
@@ -1716,13 +1770,13 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                               )}
                             </div>
                           </th>
-                          <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">
+                          <th className="px-4 py-3 text-[10px] font-semibold  uppercase tracking-wider text-right">
                             <div className="flex items-center justify-end gap-1">
                               <span>Rel</span>
                               {seoMetricHelp?.relevance_score && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button type="button" className="text-white/35 hover:text-white/80 transition-colors" aria-label="Relevance help">
+                                    <button type="button" className=" hover:text-zinc-200/80 transition-colors" aria-label="Relevance help">
                                       <Info className="h-3 w-3" />
                                     </button>
                                   </TooltipTrigger>
@@ -1736,13 +1790,13 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                               )}
                             </div>
                           </th>
-                          <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">
+                          <th className="px-4 py-3 text-[10px] font-semibold  uppercase tracking-wider text-right">
                             <div className="flex items-center justify-end gap-1">
                               <span>Div</span>
                               {seoMetricHelp?.diversity_score && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button type="button" className="text-white/35 hover:text-white/80 transition-colors" aria-label="Diversity help">
+                                    <button type="button" className=" hover:text-zinc-200/80 transition-colors" aria-label="Diversity help">
                                       <Info className="h-3 w-3" />
                                     </button>
                                   </TooltipTrigger>
@@ -1756,13 +1810,13 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                               )}
                             </div>
                           </th>
-                          <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">
+                          <th className="px-4 py-3 text-[10px] font-semibold  uppercase tracking-wider text-right">
                             <div className="flex items-center justify-end gap-1">
                               <span>Prompt</span>
                               {seoMetricHelp?.prompt_count && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button type="button" className="text-white/35 hover:text-white/80 transition-colors" aria-label="Prompt count help">
+                                    <button type="button" className=" hover:text-zinc-200/80 transition-colors" aria-label="Prompt count help">
                                       <Info className="h-3 w-3" />
                                     </button>
                                   </TooltipTrigger>
@@ -1776,13 +1830,13 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                               )}
                             </div>
                           </th>
-                          <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">
+                          <th className="px-4 py-3 text-[10px] font-semibold  uppercase tracking-wider text-right">
                             <div className="flex items-center justify-end gap-1">
                               <span>Dif</span>
                               {seoMetricHelp?.difficulty_score && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button type="button" className="text-white/35 hover:text-white/80 transition-colors" aria-label="Difficulty help">
+                                    <button type="button" className=" hover:text-zinc-200/80 transition-colors" aria-label="Difficulty help">
                                       <Info className="h-3 w-3" />
                                     </button>
                                   </TooltipTrigger>
@@ -1796,13 +1850,13 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                               )}
                             </div>
                           </th>
-                          <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">
+                          <th className="px-4 py-3 text-[10px] font-semibold  uppercase tracking-wider text-right">
                             <div className="flex items-center justify-end gap-1">
                               <span>Feas</span>
                               {seoMetricHelp?.ai_generation_feasibility && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button type="button" className="text-white/35 hover:text-white/80 transition-colors" aria-label="Feasibility help">
+                                    <button type="button" className=" hover:text-zinc-200/80 transition-colors" aria-label="Feasibility help">
                                       <Info className="h-3 w-3" />
                                     </button>
                                   </TooltipTrigger>
@@ -1816,13 +1870,13 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                               )}
                             </div>
                           </th>
-                          <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">
+                          <th className="px-4 py-3 text-[10px] font-semibold  uppercase tracking-wider text-right">
                             <div className="flex items-center justify-end gap-1">
                               <span>Cmplx</span>
                               {seoMetricHelp?.complexity_level && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button type="button" className="text-white/35 hover:text-white/80 transition-colors" aria-label="Complexity help">
+                                    <button type="button" className=" hover:text-zinc-200/80 transition-colors" aria-label="Complexity help">
                                       <Info className="h-3 w-3" />
                                     </button>
                                   </TooltipTrigger>
@@ -1838,10 +1892,10 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                           </th>
                          </tr>
                        </thead>
-                       <tbody className="divide-y divide-white/5">
+                       <tbody className="divide-y ">
                          {selectedKeywords.map((kw: any, idx: number) => (
-                           <tr key={idx} className="hover:bg-white/5 transition-all duration-200 group">
-                             <td className="px-4 py-3 text-xs text-white/90 font-medium">
+                           <tr key={idx} className="hover: transition-all duration-200 group">
+                             <td className="px-4 py-3 text-xs  font-medium">
                                <div className="flex items-center gap-2">
                                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400/50 group-hover:bg-indigo-400 transition-colors"></div>
                                  <div className="truncate max-w-30 sm:max-w-37.5" title={kw.text}>{kw.text}</div>
@@ -1849,7 +1903,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                              </td>
                              <td className="px-4 py-3 text-right">
                                <div className="flex flex-col items-end gap-1">
-                                 <span className="text-xs font-mono text-white/90 font-medium">{kw.score != null ? Number(kw.score).toFixed(1) : '-'}</span>
+                                 <span className="text-xs font-mono  font-medium">{kw.score != null ? Number(kw.score).toFixed(1) : '-'}</span>
                                  <div className="w-12 h-1 bg-white/10 rounded-full overflow-hidden">
                                    <div 
                                      className="h-full bg-linear-to-r from-indigo-500 to-purple-500 rounded-full"
@@ -1860,7 +1914,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                              </td>
                              <td className="px-4 py-3 text-right">
                                <div className="flex flex-col items-end gap-1">
-                                 <span className="text-xs font-mono text-white/70">{kw.relevance_score != null ? Number(kw.relevance_score).toFixed(1) : '-'}</span>
+                                 <span className="text-xs font-mono ">{kw.relevance_score != null ? Number(kw.relevance_score).toFixed(1) : '-'}</span>
                                  <div className="w-8 h-0.5 bg-white/10 rounded-full overflow-hidden">
                                    <div 
                                      className="h-full bg-blue-400/70 rounded-full"
@@ -1871,7 +1925,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                              </td>
                              <td className="px-4 py-3 text-right">
                                <div className="flex flex-col items-end gap-1">
-                                 <span className="text-xs font-mono text-white/70">{kw.diversity_score != null ? Number(kw.diversity_score).toFixed(1) : '-'}</span>
+                                 <span className="text-xs font-mono ">{kw.diversity_score != null ? Number(kw.diversity_score).toFixed(1) : '-'}</span>
                                  <div className="w-8 h-0.5 bg-white/10 rounded-full overflow-hidden">
                                    <div 
                                      className="h-full bg-teal-400/70 rounded-full"
@@ -1882,7 +1936,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                              </td>
                              <td className="px-4 py-3 text-right">
                                <div className="flex justify-end">
-                                 <span className="w-6 h-6 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-[10px] font-mono text-white/70">
+                                 <span className="w-6 h-6 rounded-full border   flex items-center justify-center text-[10px] font-mono ">
                                    {kw.prompt_count ?? '-'}
                                  </span>
                                </div>
@@ -1913,7 +1967,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                                  kw.complexity_level === 'High' ? "bg-rose-500/10 text-rose-400 border-rose-500/20" :
                                  kw.complexity_level === 'Medium' ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
                                  kw.complexity_level === 'Low' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
-                                 "bg-white/5 text-white/40 border-white/10"
+                                 "  "
                                )}>
                                  {kw.complexity_level ?? '-'}
                                </span>
@@ -1928,13 +1982,13 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
             )}
             
             {selectedKeywords.length === 0 && (
-              <div className="mt-4 rounded-2xl border border-dashed border-white/10 bg-white/5 px-6 py-8 text-center">
+              <div className="mt-4 rounded-2xl border border-dashed   px-6 py-8 text-center">
                 <div className="flex justify-center mb-3">
-                   <div className="p-3 rounded-full bg-white/5">
-                     <Search className="w-5 h-5 text-white/30" />
+                   <div className="p-3 rounded-full ">
+                     <Search className="w-5 h-5 " />
                    </div>
                 </div>
-                <div className="text-xs text-white/50">
+                <div className="text-xs ">
                   AI keywords are still being extracted or none were found for this URL.
                 </div>
               </div>

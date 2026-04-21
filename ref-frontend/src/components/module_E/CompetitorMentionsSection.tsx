@@ -110,11 +110,10 @@ export default function CompetitorMentionsSection({ jobId, projectId, mentionsDa
             size="sm"
             onClick={handleRunAnalysis}
             disabled={isRunning}
+            style={justCompleted ? {} : { background: 'var(--nd-purple)', color: '#fff' }}
             className={cn(
                 'gap-2 font-semibold transition-all',
-                justCompleted
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                    : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+                justCompleted ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'hover:opacity-90'
             )}
         >
             {isTriggering ? (
@@ -148,7 +147,7 @@ export default function CompetitorMentionsSection({ jobId, projectId, mentionsDa
         const points = trend.map((v, i) => `${i * step},${H - (v / max) * H}`).join(' ')
 
         return (
-            <svg width={W} height={H} className="text-primary truncate overflow-visible">
+            <svg width={W} height={H} className="truncate overflow-visible" style={{ color: 'var(--nd-purple)' }}>
                 <polyline
                     fill="none"
                     stroke="currentColor"
@@ -164,7 +163,7 @@ export default function CompetitorMentionsSection({ jobId, projectId, mentionsDa
     if (!mentionsData) {
         return (
             <AnalysisEmptyState
-                icon={<Users className="w-8 h-8 text-zinc-400" />}
+                icon={<Users className="w-8 h-8" style={{ color: 'var(--nd-text-muted)' }} />}
                 title="No Competitor Mentions Data"
                 description="No competitor data yet. Click Run Analysis to fetch competitor mentions."
                 onRunAnalysis={handleRunAnalysis}
@@ -180,8 +179,8 @@ export default function CompetitorMentionsSection({ jobId, projectId, mentionsDa
             <div className="flex items-center justify-between">
                 <div>
                     <div className="flex items-center gap-2">
-                        <Users className="w-5 h-5 text-primary" />
-                        <h3 className="text-lg font-semibold text-foreground">Competitor Mentions</h3>
+                        <Users className="w-5 h-5" style={{ color: 'var(--nd-purple)' }} />
+                        <h3 className="text-lg font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Competitor Mentions</h3>
                         <FieldTooltip description={COMPETITOR_MENTIONS_SECTION_DESCRIPTION} />
                     </div>
                 </div>
@@ -189,11 +188,11 @@ export default function CompetitorMentionsSection({ jobId, projectId, mentionsDa
 
             <div className="grid grid-cols-1 gap-4">
                 {/* Mentions Table Card */}
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-800/50 overflow-hidden">
-                    <div className="p-4 border-b border-zinc-800 bg-zinc-800/50 flex justify-between items-center">
+                <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+                    <div className="p-4 border-b flex justify-between items-center" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
                         <div className="flex items-center gap-2">
-                            <MessageSquare className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-sm font-semibold">Web Mention Trends</span>
+                            <MessageSquare className="w-4 h-4" style={{ color: 'var(--nd-text-muted)' }} />
+                            <span className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>Web Mention Trends</span>
                         </div>
                         <ModuleEMetricAskButton
                             disabled={!canAskAi || isAskingAI}
@@ -211,9 +210,9 @@ export default function CompetitorMentionsSection({ jobId, projectId, mentionsDa
                     <div className="overflow-x-auto">
                         <table className="w-full text-xs text-left">
                             <thead>
-                                <tr className="border-b bg-background/50 text-muted-foreground">
+                                <tr className="border-b" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
                                     {(['Competitor', 'Mentions', 'Sentiment', '12M Trend'] as const).map((h) => (
-                                        <th key={h} className="p-3 font-medium">
+                                        <th key={h} className="p-3 font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>
                                             <div className="flex items-center gap-1">
                                                 <span>{h}</span>
                                                 <FieldTooltip description={WEB_MENTION_FIELD_DESCRIPTIONS[h] ?? ''} />
@@ -222,17 +221,17 @@ export default function CompetitorMentionsSection({ jobId, projectId, mentionsDa
                                     ))}
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-zinc-800">
+                            <tbody className="divide-y" style={{ borderColor: 'var(--nd-border)' }}>
                                 {(mentionsData?.data?.length ?? 0) > 1 ? (
                                     mentionsData?.data
                                         // Hide the brand's own domain row — it's used for SOV % but not shown as a competitor
                                         ?.filter((_, i) => i !== 0)
                                         .map((item, i) => (
-                                            <tr key={i} className="hover:bg-zinc-800/50 transition-colors">
-                                                <td className="p-3 border-r font-medium text-foreground truncate max-w-30">{item.name}</td>
-                                                <td className="p-3 border-r font-mono">{(item.mentions ?? 0).toLocaleString()}</td>
-                                                <td className="p-3 border-r">
-                                                    <Badge variant={getSentimentVariant(item.sentiment ?? 'neutral')} className="text-[10px] px-1.5 py-0">
+                                            <tr key={i} className="hover:bg-black/5 transition-colors">
+                                                <td className="p-3 font-bold truncate max-w-30" style={{ color: 'var(--nd-text-primary)' }}>{item.name}</td>
+                                                <td className="p-3 font-bold font-mono" style={{ color: 'var(--nd-text-secondary)' }}>{(item.mentions ?? 0).toLocaleString()}</td>
+                                                <td className="p-3">
+                                                    <Badge variant={getSentimentVariant(item.sentiment ?? 'neutral')} className="text-[10px] px-1.5 py-0 font-bold">
                                                         {item.sentiment}
                                                     </Badge>
                                                 </td>
@@ -241,11 +240,11 @@ export default function CompetitorMentionsSection({ jobId, projectId, mentionsDa
                                         ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={4} className="p-8 text-center text-muted-foreground">
+                                        <td colSpan={4} className="p-8 text-center" style={{ color: 'var(--nd-text-muted)' }}>
                                             <div className="flex flex-col items-center gap-2">
                                                 <Users className="w-8 h-8 opacity-20" />
-                                                <p className="text-sm font-medium">No competitors found</p>
-                                                <p className="text-xs opacity-70">
+                                                <p className="text-sm font-bold">No competitors found</p>
+                                                <p className="text-xs font-medium opacity-70">
                                                     DataForSEO found no direct competitors for this brand.
                                                 </p>
                                             </div>
@@ -334,11 +333,10 @@ export function ShareOfVoiceSection({ jobId, projectId }: ShareOfVoiceSectionPro
             size="sm"
             onClick={handleRunAnalysis}
             disabled={isRunning}
+            style={justCompleted ? {} : { background: 'var(--nd-purple)', color: '#fff' }}
             className={cn(
                 'gap-2 font-semibold transition-all',
-                justCompleted
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                    : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+                justCompleted ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'hover:opacity-90'
             )}
         >
             {isCompetitorTriggering || isAiSovTriggering ? (
@@ -358,7 +356,7 @@ export function ShareOfVoiceSection({ jobId, projectId }: ShareOfVoiceSectionPro
     if (!aiSov) {
         return (
             <AnalysisEmptyState
-                icon={<Users className="w-8 h-8 text-zinc-400" />}
+                icon={<Users className="w-8 h-8" style={{ color: 'var(--nd-text-muted)' }} />}
                 title="No AI Share of Voice Data"
                 description="No AI Share of Voice data yet. Click Run Analysis to calculate it across OpenAI, Gemini, and Claude."
                 onRunAnalysis={handleRunAnalysis}
@@ -374,13 +372,13 @@ export function ShareOfVoiceSection({ jobId, projectId }: ShareOfVoiceSectionPro
     const brandKnownBy: string[] = aiSov.brand_known_by_models ?? []
 
     const tierColor: Record<string, string> = {
-        'Not yet AI-indexed': 'bg-zinc-800 text-zinc-400 border-zinc-800',
-        'Minimally Indexed': 'bg-blue-500/15 text-blue-400 border-blue-500/20',
-        'Emerging': 'bg-amber-500/15 text-amber-400 border-amber-500/20',
-        'Recognized': 'bg-green-500/15 text-green-400 border-green-500/20',
-        'Established': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
+        'Not yet AI-indexed': 'bg-zinc-100 text-zinc-600 border-zinc-200',
+        'Minimally Indexed': 'bg-blue-50 text-blue-600 border-blue-200',
+        'Emerging': 'bg-amber-50 text-amber-600 border-amber-200',
+        'Recognized': 'bg-emerald-50 text-emerald-600 border-emerald-200',
+        'Established': 'bg-emerald-100 text-emerald-700 border-emerald-200',
     }
-    const tierClass = tierColor[visibilityTier] ?? 'bg-zinc-800 text-zinc-400 border-zinc-800'
+    const tierClass = tierColor[visibilityTier] ?? 'bg-zinc-100 text-zinc-600 border-zinc-200'
 
     return (
         <div className="space-y-4">
@@ -388,26 +386,26 @@ export function ShareOfVoiceSection({ jobId, projectId }: ShareOfVoiceSectionPro
             <div className="flex items-center justify-between">
                 <div>
                     <div className="flex items-center gap-2">
-                        <Users className="w-5 h-5 text-primary" />
-                        <h3 className="text-lg font-semibold text-foreground">AI Share of Voice</h3>
+                        <Users className="w-5 h-5" style={{ color: 'var(--nd-purple)' }} />
+                        <h3 className="text-lg font-semibold" style={{ color: 'var(--nd-text-primary)' }}>AI Share of Voice</h3>
                         <FieldTooltip description={AI_SOV_SECTION_DESCRIPTION} />
                     </div>
                 </div>
             </div>
 
             {isRunning && (
-                <div className="flex items-center gap-2 text-xs text-primary bg-primary/10 border border-primary/20 rounded-lg px-4 py-2">
+                <div className="flex items-center gap-2 text-xs rounded-lg px-4 py-2" style={{ background: 'var(--nd-purple-subtle)', border: '1px solid var(--nd-purple)', color: 'var(--nd-purple)' }}>
                     <Loader2 className="w-3 h-3 animate-spin" />
-                    <span>
+                    <span className="font-bold">
                         Updating AI Share of Voice. This queries OpenAI, Gemini, and Claude.
                     </span>
                 </div>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-800/50 p-4 flex flex-col justify-between">
+                <div className="rounded-2xl border p-4 flex flex-col justify-between" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-muted-foreground">Overall AI SOV</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>Overall AI SOV</span>
                         <ModuleEMetricAskButton
                             disabled={!canAskAi || isAskingAI}
                             onClick={() =>
@@ -421,38 +419,38 @@ export function ShareOfVoiceSection({ jobId, projectId }: ShareOfVoiceSectionPro
                                 )
                             }
                         />
-                        <Badge variant="outline" className="text-[10px] px-2 py-0.5">
+                        <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-bold" style={{ borderColor: 'var(--nd-border)', color: 'var(--nd-text-muted)' }}>
                             All models
                         </Badge>
                     </div>
                     <div className="mt-2">
-                        <div className="text-4xl font-bold text-foreground">
+                        <div className="text-4xl font-bold" style={{ color: 'var(--nd-text-primary)' }}>
                             {overallSov.toFixed(1)}%
                         </div>
-                        <span className={cn('inline-block mt-2 text-[10px] font-semibold px-2 py-0.5 rounded border', tierClass)}>
+                        <span className={cn('inline-block mt-2 text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider', tierClass)}>
                             {visibilityTier}
                         </span>
                         {brandKnownBy.length > 0 && (
-                            <p className="text-[10px] text-muted-foreground mt-1">
+                            <p className="text-[10px] font-bold mt-2" style={{ color: 'var(--nd-text-muted)' }}>
                                 Recognized by: {brandKnownBy.join(', ')}
                             </p>
                         )}
                         {overallSov === 0 && (
-                            <p className="text-[10px] text-muted-foreground mt-1">
+                            <p className="text-[10px] font-bold mt-2" style={{ color: 'var(--nd-text-muted)' }}>
                                 Brand not yet mentioned unprompted by AI models.
                             </p>
                         )}
                     </div>
                 </div>
 
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-800/50 p-4 md:col-span-2">
+                <div className="rounded-2xl border p-4 md:col-span-2" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
                     <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm font-medium text-muted-foreground">By Model</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>By Model</span>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-xs text-left">
                             <thead>
-                                <tr className="border-b bg-zinc-800/50 text-zinc-400">
+                                <tr className="border-b" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
                                     {([
                                         { key: 'Model', align: 'text-left' },
                                         { key: 'SOV %', align: 'text-right' },
@@ -460,7 +458,7 @@ export function ShareOfVoiceSection({ jobId, projectId }: ShareOfVoiceSectionPro
                                         { key: 'Competitor mentions', align: 'text-right' },
                                         { key: 'Brand known', align: 'text-right' },
                                     ] as const).map((col) => (
-                                        <th key={col.key} className={cn('p-2 font-medium', col.align)}>
+                                        <th key={col.key} className={cn('p-2 font-bold uppercase tracking-wider', col.align)} style={{ color: 'var(--nd-text-muted)' }}>
                                             <div className={cn('flex items-center gap-1', col.align === 'text-right' ? 'justify-end' : 'justify-start')}>
                                                 <span>{col.key}</span>
                                                 <FieldTooltip description={AI_SOV_FIELD_DESCRIPTIONS[col.key] ?? ''} />
@@ -469,7 +467,7 @@ export function ShareOfVoiceSection({ jobId, projectId }: ShareOfVoiceSectionPro
                                     ))}
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-zinc-800">
+                            <tbody className="divide-y" style={{ borderColor: 'var(--nd-border)' }}>
                                 {byModelEntries.map(([model, stats]) => {
                                     const s = stats as any
                                     const sov = s.sov ?? 0
@@ -477,17 +475,17 @@ export function ShareOfVoiceSection({ jobId, projectId }: ShareOfVoiceSectionPro
                                     const competitorMentions = s.competitor_mentions ?? 0
                                     const brandKnown = s.brand_known === true
                                     return (
-                                        <tr key={model} className="hover:bg-zinc-800/50 transition-colors">
-                                            <td className="p-2 font-medium text-foreground capitalize">{model}</td>
-                                            <td className="p-2 text-right font-mono">{sov.toFixed(1)}%</td>
-                                            <td className="p-2 text-right font-mono">{brandMentions}</td>
-                                            <td className="p-2 text-right font-mono">{competitorMentions}</td>
+                                        <tr key={model} className="hover:bg-black/5 transition-colors">
+                                            <td className="p-2 font-bold capitalize" style={{ color: 'var(--nd-text-primary)' }}>{model}</td>
+                                            <td className="p-2 text-right font-bold font-mono" style={{ color: 'var(--nd-text-secondary)' }}>{sov.toFixed(1)}%</td>
+                                            <td className="p-2 text-right font-bold font-mono" style={{ color: 'var(--nd-text-secondary)' }}>{brandMentions}</td>
+                                            <td className="p-2 text-right font-bold font-mono" style={{ color: 'var(--nd-text-secondary)' }}>{competitorMentions}</td>
                                             <td className="p-2 text-right">
                                                 <span className={cn(
-                                                    'text-[10px] font-semibold px-1.5 py-0.5 rounded border',
+                                                    'text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase',
                                                     brandKnown
-                                                        ? 'bg-green-500/15 text-green-400 border-green-500/20'
-                                                        : 'bg-zinc-800 text-zinc-400 border-zinc-800'
+                                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                                        : 'bg-zinc-100 text-zinc-600 border-zinc-200'
                                                 )}>
                                                     {brandKnown ? 'Yes' : 'No'}
                                                 </span>

@@ -47,9 +47,9 @@ const TOOLTIPS = {
 function PieTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-xs shadow-2xl">
+    <div className="bg-white border border-(--nd-border) rounded-xl px-3 py-2 text-xs shadow-lg">
       <p style={{ color: payload[0].payload.fill }} className="font-semibold">{payload[0].name}</p>
-      <p className="text-white font-bold">{payload[0].value}</p>
+      <p className="text-(--nd-text-primary) font-bold">{payload[0].value}</p>
     </div>
   )
 }
@@ -59,15 +59,15 @@ function Section({ title, icon, children, defaultOpen = true, badge }: {
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl overflow-hidden">
+    <div className="bg-white border border-(--nd-border) rounded-2xl overflow-hidden">
       <button onClick={() => setOpen((v: boolean) => !v)}
-        className="w-full flex items-center justify-between p-5 hover:bg-zinc-800/40 transition-colors">
+        className="w-full flex items-center justify-between p-5 hover:bg-(--nd-bg) transition-colors">
         <div className="flex items-center gap-2.5">
           {icon}
-          <span className="text-sm font-semibold text-white">{title}</span>
+          <span className="text-sm font-semibold text-(--nd-text-primary)">{title}</span>
           {badge}
         </div>
-        {open ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+        {open ? <ChevronUp className="w-4 h-4 text-(--nd-text-muted)" /> : <ChevronDown className="w-4 h-4 text-(--nd-text-muted)" />}
       </button>
       {open && <div className="px-5 pb-5">{children}</div>}
     </div>
@@ -142,9 +142,9 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
   ], [matchedCount, missingCount])
 
   const riskLevel = missingInfo?.gap?.risk_level ?? 'Unknown'
-  const riskColor = riskLevel === 'High Risk' ? 'text-red-400 bg-red-500/10 border-red-500/20'
-    : riskLevel === 'Medium Risk' ? 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20'
-    : 'text-green-400 bg-green-500/10 border-green-500/20'
+  const riskColor = riskLevel === 'High Risk' ? 'text-red-700 bg-red-50 border-red-200'
+    : riskLevel === 'Medium Risk' ? 'text-amber-700 bg-amber-50 border-amber-200'
+    : 'text-emerald-700 bg-emerald-50 border-emerald-200'
 
   const missingEntities: any[] = entityCov?.missing_entities ?? []
   const criticalMissing: any[] = entityCov?.critical_missing ?? []
@@ -254,18 +254,14 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
       </Dialog>
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-white">Entity &amp; Knowledge Gap Analysis</h2>
-          <p className="text-sm text-zinc-400 mt-0.5">What your page is missing that AI engines expect to find</p>
+          <h2 className="nd-page-title">Entity &amp; Knowledge Gap Analysis</h2>
+          <p className="nd-page-subtitle mt-0.5">What your page is missing that AI engines expect to find</p>
         </div>
         <button
           type="button"
           onClick={openAskAiDialog}
           disabled={!projectId || isAskingAI}
-          className={cn(
-            'inline-flex items-center gap-2 rounded-full border-0 px-5 py-2.5 text-sm font-extrabold uppercase tracking-wider text-black shadow-lg shadow-fuchsia-950/30',
-            'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-          )}
+          className="nd-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
         >
           <MessageSquare className="size-4 shrink-0" />
           Ask AI
@@ -273,10 +269,10 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
       </div>
 
       {isLoadingData && (
-        <div className="flex items-center justify-center p-16 border border-zinc-800 rounded-2xl bg-zinc-800/30">
+        <div className="flex items-center justify-center p-16 border border-(--nd-border) rounded-2xl bg-white">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
-            <p className="text-sm text-zinc-400">Loading...</p>
+            <Loader2 className="w-8 h-8 animate-spin text-(--nd-purple)" />
+            <p className="text-sm text-(--nd-text-muted)">Loading...</p>
           </div>
         </div>
       )}
@@ -318,9 +314,9 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
             </div>
           </div>
 
-          <Section title="Entity Extraction" icon={<Hash className="w-4 h-4 text-blue-400" />}
+          <Section title="Entity Extraction" icon={<Hash className="w-4 h-4 text-blue-600" />}
             badge={entityExt?.total_entities_detected !== undefined ? (
-              <Badge className="bg-blue-500/15 text-blue-300 border border-blue-500/20 text-xs ml-1">
+              <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs ml-1">
                 {entityExt.total_entities_detected} entities
               </Badge>
             ) : undefined}>
@@ -339,7 +335,7 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
                   )
                 }
                 disabled={!projectId || !jobId || isAskingAI}
-                className="inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-full border border-(--nd-border) bg-(--nd-nav-active-bg) px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-(--nd-purple) disabled:opacity-40"
               >
                 <MessageSquare className="size-3" />
                 Ask AI
@@ -347,14 +343,14 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
               {[
-                { label: 'Total Detected', val: entityExt?.total_entities_detected ?? 0, tip: TOOLTIPS.totalEntities, color: 'text-blue-400' },
-                { label: 'Density / 500w', val: (entityExt?.entity_density ?? 0).toFixed(1), tip: TOOLTIPS.entityDensity, color: 'text-purple-400' },
-                { label: 'Word Count', val: (entityExt?.word_count ?? 0).toLocaleString(), tip: TOOLTIPS.wordCount, color: 'text-cyan-400' },
-                { label: 'Unique Types', val: Object.keys(entityExt?.entity_types_breakdown ?? {}).length, tip: TOOLTIPS.entityTypes, color: 'text-amber-400' },
+                { label: 'Total Detected', val: entityExt?.total_entities_detected ?? 0, tip: TOOLTIPS.totalEntities, color: 'text-blue-600' },
+                { label: 'Density / 500w', val: (entityExt?.entity_density ?? 0).toFixed(1), tip: TOOLTIPS.entityDensity, color: 'text-violet-600' },
+                { label: 'Word Count', val: (entityExt?.word_count ?? 0).toLocaleString(), tip: TOOLTIPS.wordCount, color: 'text-cyan-700' },
+                { label: 'Unique Types', val: Object.keys(entityExt?.entity_types_breakdown ?? {}).length, tip: TOOLTIPS.entityTypes, color: 'text-amber-600' },
               ].map(({ label, val, tip, color }) => (
-                <div key={label} className="bg-zinc-800/50 rounded-xl p-3 text-center">
+                <div key={label} className="bg-(--nd-bg) rounded-xl p-3 text-center">
                   <div className="flex justify-center items-center gap-1 mb-1">
-                    <span className="text-[10px] text-zinc-500">{label}</span>
+                    <span className="text-xs text-(--nd-text-secondary)">{label}</span>
                     <FieldTooltip description={tip} />
                   </div>
                   <span className={cn('text-xl font-bold', color)}>{val}</span>
@@ -364,16 +360,16 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
             {entityTypeData.length > 0 && (
               <div>
                 <div className="flex items-center gap-1 mb-3">
-                  <span className="text-xs text-zinc-400">Entity Type Distribution</span>
+                  <span className="text-xs font-medium text-(--nd-text-secondary)">Entity Type Distribution</span>
                   <FieldTooltip description={TOOLTIPS.entityTypes} />
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <ResponsiveContainer width="100%" height={180}>
                     <BarChart data={entityTypeData} layout="vertical" barCategoryGap="20%">
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
-                      <XAxis type="number" tick={{ fill: '#a1a1aa', fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <YAxis type="category" dataKey="name" tick={{ fill: '#a1a1aa', fontSize: 10 }} axisLine={false} tickLine={false} width={70} />
-                      <Tooltip content={<PieTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E8E9EF" horizontal={false} />
+                      <XAxis type="number" tick={{ fill: '#737890', fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <YAxis type="category" dataKey="name" tick={{ fill: '#4A5068', fontSize: 12 }} axisLine={false} tickLine={false} width={70} />
+                      <Tooltip content={<PieTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
                       <Bar dataKey="value" radius={[0, 4, 4, 0]} name="Count">
                         {entityTypeData.map((_: any, idx: number) => <Cell key={idx} fill={entityTypeData[idx].fill} />)}
                       </Bar>
@@ -381,16 +377,16 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
                   </ResponsiveContainer>
                   <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
                     {entityTypeData.map(({ name, value, fill, examples }: any) => (
-                      <div key={name} className="py-1.5 px-2 rounded-lg bg-zinc-800/40">
+                      <div key={name} className="py-1.5 px-2 rounded-lg bg-(--nd-bg)">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: fill }} />
-                            <span className="text-xs text-zinc-300">{name}</span>
+                            <span className="text-xs text-(--nd-text-secondary)">{name}</span>
                           </div>
-                          <span className="text-xs font-semibold text-white">{value}</span>
+                          <span className="text-xs font-semibold text-(--nd-text-primary)">{value}</span>
                         </div>
                         {examples.length > 0 && (
-                          <p className="mt-1 pl-4 text-[10px] text-zinc-500 truncate">
+                          <p className="mt-1 pl-4 text-[10px] text-(--nd-text-muted) truncate">
                             {examples.join(', ')}
                           </p>
                         )}
@@ -402,7 +398,7 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
             )}
           </Section>
 
-          <Section title="Entity Coverage" icon={<Target className="w-4 h-4 text-emerald-400" />}>
+          <Section title="Entity Coverage" icon={<Target className="w-4 h-4 text-emerald-600" />}>
             <div className="mb-3">
               <button
                 type="button"
@@ -419,7 +415,7 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
                   )
                 }
                 disabled={!projectId || !jobId || isAskingAI}
-                className="inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-full border border-(--nd-border) bg-(--nd-nav-active-bg) px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-(--nd-purple) disabled:opacity-40"
               >
                 <MessageSquare className="size-3" />
                 Ask AI
@@ -437,30 +433,30 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-3xl font-bold text-white">{Math.round(coveragePct)}%</span>
-                    <span className="text-[10px] text-zinc-500">coverage</span>
+                    <span className="text-3xl font-bold text-(--nd-text-primary)">{Math.round(coveragePct)}%</span>
+                    <span className="text-xs text-(--nd-text-muted)">coverage</span>
                   </div>
                 </div>
                 <div className="flex gap-4 mt-2">
                   {[{ name: 'Matched', fill: '#10b981' }, { name: 'Missing', fill: '#ef4444' }].map(({ name, fill }) => (
                     <div key={name} className="flex items-center gap-1.5">
                       <div className="w-2.5 h-2.5 rounded-full" style={{ background: fill }} />
-                      <span className="text-xs text-zinc-400">{name}</span>
+                      <span className="text-xs text-(--nd-text-muted)">{name}</span>
                     </div>
                   ))}
                 </div>
               </div>
               <div className="space-y-3">
                 {[
-                  { label: 'Entity Coverage', val: `${Math.round(coveragePct)}%`, tip: TOOLTIPS.entityCoveragePct, color: coveragePct > 50 ? 'text-emerald-400' : 'text-red-400' },
-                  { label: 'Matched Entities', val: matchedCount, tip: TOOLTIPS.matchedCount, color: 'text-emerald-400' },
-                  { label: 'Expected Entities', val: expectedCount, tip: TOOLTIPS.expectedCount, color: 'text-zinc-300' },
-                  { label: 'Missing Entities', val: missingEntities.length, tip: TOOLTIPS.missingEntities, color: 'text-red-400' },
-                  { label: 'Critical Missing', val: entityCov?.critical_missing_count ?? 0, tip: TOOLTIPS.criticalMissing, color: 'text-rose-400' },
+                  { label: 'Entity Coverage', val: `${Math.round(coveragePct)}%`, tip: TOOLTIPS.entityCoveragePct, color: coveragePct > 50 ? 'text-emerald-600' : 'text-red-600' },
+                  { label: 'Matched Entities', val: matchedCount, tip: TOOLTIPS.matchedCount, color: 'text-emerald-600' },
+                  { label: 'Expected Entities', val: expectedCount, tip: TOOLTIPS.expectedCount, color: 'text-(--nd-text-secondary)' },
+                  { label: 'Missing Entities', val: missingEntities.length, tip: TOOLTIPS.missingEntities, color: 'text-red-600' },
+                  { label: 'Critical Missing', val: entityCov?.critical_missing_count ?? 0, tip: TOOLTIPS.criticalMissing, color: 'text-rose-600' },
                 ].map(({ label, val, tip, color }) => (
-                  <div key={label} className="flex justify-between items-center py-2 border-b border-zinc-800/60 last:border-0">
+                  <div key={label} className="flex justify-between items-center py-2 border-b border-(--nd-border) last:border-0">
                     <div className="flex items-center gap-1">
-                      <span className="text-xs text-zinc-400">{label}</span>
+                      <span className="text-xs text-(--nd-text-muted)">{label}</span>
                       <FieldTooltip description={tip} />
                     </div>
                     <span className={cn('text-sm font-bold', color)}>{val}</span>
@@ -471,14 +467,14 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
           </Section>
 
           {criticalMissing.length > 0 && (
-            <Section title="Critical Missing Entities" icon={<AlertTriangle className="w-4 h-4 text-rose-400" />}
+            <Section title="Critical Missing Entities" icon={<AlertTriangle className="w-4 h-4 text-rose-600" />}
               badge={
-                <Badge className="bg-rose-500/15 text-rose-300 border border-rose-500/20 text-xs ml-1">
+                <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-xs ml-1">
                   {criticalMissing.length} critical
                 </Badge>
               }>
               <div className="flex items-center gap-1 mb-3">
-                <span className="text-xs text-zinc-500">High-importance entities whose absence most strongly reduces AI citation probability</span>
+                <span className="text-xs text-(--nd-text-muted)">High-importance entities whose absence most strongly reduces AI citation probability</span>
                 <FieldTooltip description={TOOLTIPS.criticalMissing} />
               </div>
               <div className="flex flex-wrap gap-2">
@@ -486,10 +482,10 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
                   const name = typeof entity === 'string' ? entity : (entity?.name ?? entity?.text ?? String(entity))
                   const type = entity?.type ?? entity?.label ?? ''
                   return (
-                    <div key={i} className="flex items-center gap-1.5 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-1.5">
-                      <XCircle className="w-3 h-3 text-rose-400 shrink-0" />
-                      <span className="text-xs text-rose-200 font-medium">{name}</span>
-                      {type && <span className="text-[10px] text-rose-400/70">({type})</span>}
+                    <div key={i} className="flex items-center gap-1.5 bg-rose-50 border border-rose-200 rounded-lg px-3 py-1.5">
+                      <XCircle className="w-3 h-3 text-rose-600 shrink-0" />
+                      <span className="text-xs text-rose-700 font-medium">{name}</span>
+                      {type && <span className="text-xs text-rose-600">({type})</span>}
                     </div>
                   )
                 })}
@@ -498,14 +494,14 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
           )}
 
           {missingEntities.length > 0 && (
-            <Section title="All Missing Entities" icon={<XCircle className="w-4 h-4 text-red-400" />}
+            <Section title="All Missing Entities" icon={<XCircle className="w-4 h-4 text-red-600" />}
               badge={
-                <Badge className="bg-red-500/15 text-red-300 border border-red-500/20 text-xs ml-1">
+                <Badge className="bg-red-50 text-red-700 border-red-200 text-xs ml-1">
                   {missingEntities.length} missing
                 </Badge>
               }>
               <div className="flex items-center gap-1 mb-3">
-                <span className="text-xs text-zinc-500">All expected entities not found on this page</span>
+                <span className="text-xs text-(--nd-text-muted)">All expected entities not found on this page</span>
                 <FieldTooltip description={TOOLTIPS.missingEntities} />
               </div>
               <div className="flex flex-wrap gap-2">
@@ -513,23 +509,23 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
                   const name = typeof entity === 'string' ? entity : (entity?.name ?? entity?.text ?? String(entity))
                   const type = entity?.type ?? entity?.label ?? ''
                   return (
-                    <div key={i} className="flex items-center gap-1.5 bg-zinc-800/60 border border-zinc-700 rounded-lg px-2.5 py-1">
-                      <span className="text-xs text-zinc-300">{name}</span>
-                      {type && <span className="text-[10px] text-zinc-500">({type})</span>}
+                    <div key={i} className="flex items-center gap-1.5 bg-(--nd-bg) border border-(--nd-border) rounded-lg px-2.5 py-1">
+                      <span className="text-xs text-(--nd-text-secondary)">{name}</span>
+                      {type && <span className="text-xs text-(--nd-text-muted)">({type})</span>}
                     </div>
                   )
                 })}
               </div>
               {missingEntities.length > 20 && (
                 <button onClick={() => setShowAllMissing((v: boolean) => !v)}
-                  className="mt-3 text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                  className="mt-3 text-xs text-(--nd-purple) hover:opacity-80 transition-opacity">
                   {showAllMissing ? 'Show less' : `Show all ${missingEntities.length} entities`}
                 </button>
               )}
             </Section>
           )}
 
-          <Section title="Knowledge Gap Analysis" icon={<AlertCircle className="w-4 h-4 text-amber-400" />}>
+          <Section title="Knowledge Gap Analysis" icon={<AlertCircle className="w-4 h-4 text-amber-600" />}>
             <div className="mb-3">
               <button
                 type="button"
@@ -546,7 +542,7 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
                   )
                 }
                 disabled={!projectId || !jobId || isAskingAI}
-                className="inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-full border border-(--nd-border) bg-(--nd-nav-active-bg) px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-(--nd-purple) disabled:opacity-40"
               >
                 <MessageSquare className="size-3" />
                 Ask AI
@@ -554,13 +550,13 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
             </div>
             <div className="grid grid-cols-3 gap-3 mb-5">
               {[
-                { label: 'Missing Entities', val: missingInfo?.missing_entity_count ?? 0, tip: TOOLTIPS.missingEntityCount, color: 'text-red-400' },
-                { label: 'Missing Facts', val: missingInfo?.missing_fact_count ?? 0, tip: TOOLTIPS.missingFactCount, color: 'text-amber-400' },
-                { label: 'Total Missing', val: missingInfo?.total_missing ?? 0, tip: TOOLTIPS.totalMissing, color: 'text-white' },
+                { label: 'Missing Entities', val: missingInfo?.missing_entity_count ?? 0, tip: TOOLTIPS.missingEntityCount, color: 'text-red-600' },
+                { label: 'Missing Facts', val: missingInfo?.missing_fact_count ?? 0, tip: TOOLTIPS.missingFactCount, color: 'text-amber-600' },
+                { label: 'Total Missing', val: missingInfo?.total_missing ?? 0, tip: TOOLTIPS.totalMissing, color: 'text-(--nd-text-primary)' },
               ].map(({ label, val, tip, color }) => (
-                <div key={label} className="bg-zinc-800/50 rounded-xl p-3 text-center">
+                <div key={label} className="bg-(--nd-bg) rounded-xl p-3 text-center">
                   <div className="flex justify-center items-center gap-1 mb-1">
-                    <span className="text-[10px] text-zinc-500">{label}</span>
+                    <span className="text-xs text-(--nd-text-secondary)">{label}</span>
                     <FieldTooltip description={tip} />
                   </div>
                   <span className={cn('text-2xl font-bold', color)}>{val}</span>
@@ -570,7 +566,7 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
             {classificationData.length > 0 && (
               <div className="mb-5">
                 <div className="flex items-center gap-1 mb-3">
-                  <span className="text-xs text-zinc-400">Missing Info Classification</span>
+                  <span className="text-xs text-(--nd-text-muted)">Missing Info Classification</span>
                   <FieldTooltip description={TOOLTIPS.classification} />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
@@ -586,12 +582,12 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
                   </div>
                   <div className="space-y-2">
                     {classificationData.map(({ name, value, fill }: any) => (
-                      <div key={name} className="flex items-center justify-between py-2 px-3 rounded-lg bg-zinc-800/40">
+                      <div key={name} className="flex items-center justify-between py-2 px-3 rounded-lg bg-(--nd-bg)">
                         <div className="flex items-center gap-2">
                           <div className="w-2.5 h-2.5 rounded-full" style={{ background: fill }} />
-                          <span className="text-xs text-zinc-300">{name}</span>
+                          <span className="text-xs text-(--nd-text-secondary)">{name}</span>
                         </div>
-                        <span className="text-sm font-bold text-white">{value}</span>
+                        <span className="text-sm font-bold text-(--nd-text-primary)">{value}</span>
                       </div>
                     ))}
                   </div>
@@ -601,20 +597,20 @@ export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAn
             {missingFacts.length > 0 && (
               <div>
                 <div className="flex items-center gap-1 mb-3">
-                  <span className="text-xs text-zinc-400">Missing Fact Statements</span>
+                  <span className="text-xs text-(--nd-text-muted)">Missing Fact Statements</span>
                   <FieldTooltip description={TOOLTIPS.missingFacts} />
                 </div>
                 <div className="space-y-2">
                   {(showAllFacts ? missingFacts : missingFacts.slice(0, 5)).map((fact: string, i: number) => (
-                    <div key={i} className="flex items-start gap-2.5 p-3 bg-amber-500/5 border border-amber-500/15 rounded-xl">
-                      <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-                      <span className="text-xs text-amber-200/90 leading-relaxed">{fact}</span>
+                    <div key={i} className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                      <span className="text-xs text-amber-700 leading-relaxed">{fact}</span>
                     </div>
                   ))}
                 </div>
                 {missingFacts.length > 5 && (
                   <button onClick={() => setShowAllFacts((v: boolean) => !v)}
-                    className="mt-3 text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                  className="mt-3 text-xs text-(--nd-purple) hover:opacity-80 transition-opacity">
                     {showAllFacts ? 'Show less' : `Show all ${missingFacts.length} facts`}
                   </button>
                 )}

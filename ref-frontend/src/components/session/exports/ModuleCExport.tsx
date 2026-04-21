@@ -156,7 +156,7 @@ const EXPORT_OPTIONS: ExportOption[] = [
     label: 'AI Presence',
     description: 'Robot accessibility, schema, Open Graph and multi-model understanding scores.',
     icon: Sparkles,
-    color: 'text-violet-400',
+    color: 'text-violet-600',
     dataKey: 'aeo_checker',
   },
   {
@@ -164,7 +164,7 @@ const EXPORT_OPTIONS: ExportOption[] = [
     label: 'Answerability',
     description: 'Completeness, depth, breadth and readability scores.',
     icon: BookOpen,
-    color: 'text-blue-400',
+    color: 'text-blue-600',
     dataKey: 'answer_completeness',
   },
   {
@@ -172,7 +172,7 @@ const EXPORT_OPTIONS: ExportOption[] = [
     label: 'Knowledge Base & Entities',
     description: 'Entity coverage, found/missing entities and gap analysis.',
     icon: Layers,
-    color: 'text-emerald-400',
+    color: 'text-emerald-600',
     dataKey: 'entity_coverage',
   },
   {
@@ -180,7 +180,7 @@ const EXPORT_OPTIONS: ExportOption[] = [
     label: 'LLM Simulator',
     description: 'Simulated AI model responses with accuracy and completeness scores.',
     icon: Cpu,
-    color: 'text-amber-400',
+    color: 'text-amber-600',
     dataKey: 'llm_simulator',
   },
   {
@@ -188,7 +188,7 @@ const EXPORT_OPTIONS: ExportOption[] = [
     label: 'Actionable Insights',
     description: 'Improvement actions with priority, impact and category.',
     icon: Zap,
-    color: 'text-rose-400',
+    color: 'text-rose-600',
     dataKey: 'page_actions',
   },
   {
@@ -196,7 +196,7 @@ const EXPORT_OPTIONS: ExportOption[] = [
     label: 'Full AI Intelligence (All Sheets)',
     description: 'All AI intelligence analysis in one Excel workbook.',
     icon: FileSpreadsheet,
-    color: 'text-indigo-400',
+    color: 'text-indigo-600',
     dataKey: '',
   },
 ]
@@ -261,38 +261,38 @@ export default function ModuleCExport({ jobId, sessionName = 'session' }: Module
   const hasData = !!modules
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden">
+    <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center justify-between px-5 py-4 hover:bg-zinc-800/30 transition-colors cursor-pointer"
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-(--nd-bg) transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-            <Sparkles className="h-4 w-4 text-emerald-400" />
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+            <Sparkles className="h-4 w-4 text-emerald-600" />
           </div>
           <div className="text-left">
-            <p className="text-sm font-semibold text-white">AI Intelligence (Module C)</p>
-            <p className="text-[11px] text-zinc-500 mt-0.5">
+            <p className="text-sm font-semibold text-(--nd-text-primary)">AI Intelligence (Module C)</p>
+            <p className="text-[11px] text-(--nd-text-muted) mt-0.5">
               AI presence, answerability, knowledge base, LLM simulator, actionable insights
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           {!hasData && !isLoading && (
-            <Badge className="bg-zinc-800 text-zinc-500 border-zinc-700 text-[10px]">No data</Badge>
+            <Badge className="bg-(--nd-bg) text-(--nd-text-muted) border-(--nd-border) text-[10px]">No data</Badge>
           )}
           {expanded ? (
-            <ChevronUp className="h-4 w-4 text-zinc-500" />
+            <ChevronUp className="h-4 w-4 text-(--nd-text-muted)" />
           ) : (
-            <ChevronDown className="h-4 w-4 text-zinc-500" />
+            <ChevronDown className="h-4 w-4 text-(--nd-text-muted)" />
           )}
         </div>
       </button>
 
       {/* Export options */}
       {expanded && (
-        <div className="border-t border-zinc-800/60 divide-y divide-zinc-800/40">
+        <div className="border-t border-(--nd-border) divide-y divide-(--nd-border)">
           {EXPORT_OPTIONS.map((opt) => {
             const Icon = opt.icon
             const count = getCount(opt.dataKey)
@@ -303,18 +303,18 @@ export default function ModuleCExport({ jobId, sessionName = 'session' }: Module
               <div
                 key={opt.id}
                 className={`flex items-center justify-between px-5 py-3.5 gap-4 ${
-                  opt.id === 'all' ? 'bg-indigo-500/5' : ''
+                  opt.id === 'all' ? 'bg-(--nd-bg)' : ''
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <Icon className={`h-4 w-4 shrink-0 ${opt.color}`} />
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-zinc-200">{opt.label}</p>
-                    <p className="text-[11px] text-zinc-500 truncate">{opt.description}</p>
+                    <p className="text-sm font-medium text-(--nd-text-primary)">{opt.label}</p>
+                    <p className="text-[11px] text-(--nd-text-muted) truncate">{opt.description}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[11px] text-zinc-600">
+                  <span className="text-[11px] text-(--nd-text-muted)">
                     {opt.id === 'all' ? '5 sheets' : `${count.toLocaleString()} rows`}
                   </span>
                   <Button
@@ -323,9 +323,10 @@ export default function ModuleCExport({ jobId, sessionName = 'session' }: Module
                     onClick={() => handleDownload(opt.id)}
                     className={`h-8 px-3 text-xs rounded-xl cursor-pointer ${
                       opt.id === 'all'
-                        ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30'
-                        : 'bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700'
+                        ? 'text-white border-transparent hover:opacity-90'
+                        : 'bg-white text-(--nd-text-secondary) border border-(--nd-border) hover:bg-(--nd-bg)'
                     }`}
+                    style={opt.id === 'all' ? { background: 'var(--nd-purple)' } : undefined}
                     variant="ghost"
                   >
                     {isDownloading ? (

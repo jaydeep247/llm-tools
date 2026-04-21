@@ -50,31 +50,31 @@ interface PromptTrackingRecommendationsProps {
 const SEVERITY_META = {
   critical: {
     icon: ShieldAlert,
-    pill: 'bg-rose-500/15 text-rose-400 border border-rose-500/30',
-    border: 'border-l-rose-500',
-    bg: 'bg-rose-500/5',
+    pill: 'bg-rose-50 text-rose-600 border border-rose-200',
+    leftBorderColor: '#f43f5e',
+    bg: 'bg-rose-50',
     label: 'Critical',
   },
   warning: {
     icon: AlertTriangle,
-    pill: 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
-    border: 'border-l-amber-500',
-    bg: 'bg-amber-500/5',
+    pill: 'bg-amber-50 text-amber-600 border border-amber-200',
+    leftBorderColor: '#f59e0b',
+    bg: 'bg-amber-50',
     label: 'Warning',
   },
   info: {
     icon: Info,
-    pill: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
-    border: 'border-l-blue-500',
-    bg: 'bg-blue-500/5',
+    pill: 'bg-blue-50 text-blue-600 border border-blue-200',
+    leftBorderColor: '#3b82f6',
+    bg: 'bg-blue-50',
     label: 'Info',
   },
 } as const
 
 function healthColor(score: number) {
-  if (score >= 80) return { ring: 'text-emerald-400', track: 'stroke-emerald-500', bg: 'bg-emerald-500/10' }
-  if (score >= 50) return { ring: 'text-amber-400', track: 'stroke-amber-500', bg: 'bg-amber-500/10' }
-  return { ring: 'text-rose-400', track: 'stroke-rose-500', bg: 'bg-rose-500/10' }
+  if (score >= 80) return { ring: 'text-emerald-600', track: 'stroke-emerald-500', bg: 'bg-emerald-50' }
+  if (score >= 50) return { ring: 'text-amber-600', track: 'stroke-amber-500', bg: 'bg-amber-50' }
+  return { ring: 'text-rose-600', track: 'stroke-rose-500', bg: 'bg-rose-50' }
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ function HealthGauge({ score }: { score: number }) {
   return (
     <div className={cn('relative flex items-center justify-center w-20 h-20 rounded-full shrink-0', c.bg)}>
       <svg className="absolute inset-0 w-full h-full -rotate-90">
-        <circle cx="40" cy="40" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="4" />
+        <circle cx="40" cy="40" r={r} fill="none" stroke="var(--nd-border)" strokeWidth="4" />
         <circle
           cx="40"
           cy="40"
@@ -114,63 +114,64 @@ function RecommendationCard({ rec }: { rec: Recommendation }) {
 
   return (
     <div
-      className={cn(
-        'rounded-lg border border-zinc-800 border-l-2 overflow-hidden transition-colors',
-        meta.border,
-        meta.bg,
-      )}
+      className="rounded-xl border border-l-4 overflow-hidden transition-colors"
+      style={{
+        background: 'var(--nd-card-bg)',
+        borderColor: 'var(--nd-border)',
+        borderLeftColor: meta.leftBorderColor,
+      }}
     >
       {/* Header row */}
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-start gap-3 p-4 text-left hover:bg-white/2 transition-colors"
+        className="w-full flex items-start gap-3 p-4 text-left hover:bg-black/5 transition-colors"
       >
         <SeverityIcon className={cn('w-4 h-4 mt-0.5 shrink-0', {
-          'text-rose-400': rec.severity === 'critical',
-          'text-amber-400': rec.severity === 'warning',
-          'text-blue-400':  rec.severity === 'info',
+          'text-rose-600': rec.severity === 'critical',
+          'text-amber-600': rec.severity === 'warning',
+          'text-blue-600':  rec.severity === 'info',
         })} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[13px] font-medium text-zinc-100">{rec.title}</span>
+            <span className="text-[13px] font-semibold" style={{ color: 'var(--nd-text-primary)' }}>{rec.title}</span>
             <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wider', meta.pill)}>
               {meta.label}
             </span>
           </div>
-          <p className="text-[12px] text-zinc-500 mt-0.5 line-clamp-1">{rec.issue}</p>
+          <p className="text-[12px] mt-0.5 line-clamp-1" style={{ color: 'var(--nd-text-muted)' }}>{rec.issue}</p>
         </div>
 
-        <div className="shrink-0 text-zinc-600 mt-0.5">
+        <div className="shrink-0 mt-0.5" style={{ color: 'var(--nd-text-muted)' }}>
           {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </div>
       </button>
 
       {/* Expanded detail */}
       {open && (
-        <div className="px-4 pb-4 space-y-3 border-t border-zinc-800/60">
+        <div className="px-4 pb-4 space-y-3 border-t" style={{ borderColor: 'var(--nd-border)' }}>
           {/* Issue */}
           <div className="pt-3">
-            <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wider mb-1 flex items-center gap-1" style={{ color: 'var(--nd-text-muted)' }}>
               <AlertTriangle className="w-3 h-3" /> Issue
             </p>
-            <p className="text-[13px] text-zinc-300 leading-relaxed">{rec.issue}</p>
+            <p className="text-[13px] leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>{rec.issue}</p>
           </div>
 
           {/* Fix */}
-          <div className="rounded-md bg-zinc-900/60 border border-zinc-800 p-3">
-            <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+          <div className="rounded-lg border p-3" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+            <p className="text-[11px] font-semibold uppercase tracking-wider mb-1 flex items-center gap-1" style={{ color: 'var(--nd-text-muted)' }}>
               <Wrench className="w-3 h-3" /> How to fix
             </p>
-            <p className="text-[13px] text-zinc-200 leading-relaxed">{rec.fix}</p>
+            <p className="text-[13px] leading-relaxed" style={{ color: 'var(--nd-text-primary)' }}>{rec.fix}</p>
           </div>
 
           {/* Impact */}
           <div>
-            <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-              <Zap className="w-3 h-3 text-amber-400" /> Expected impact
+            <p className="text-[11px] font-semibold uppercase tracking-wider mb-1 flex items-center gap-1" style={{ color: 'var(--nd-text-muted)' }}>
+              <Zap className="w-3 h-3 text-amber-500" /> Expected impact
             </p>
-            <p className="text-[13px] text-emerald-400 leading-relaxed">{rec.impact}</p>
+            <p className="text-[13px] leading-relaxed text-emerald-600">{rec.impact}</p>
           </div>
         </div>
       )}
@@ -215,16 +216,16 @@ export default function PromptTrackingRecommendations({
   // ── Loading state ────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 space-y-3 animate-pulse">
+      <div className="rounded-xl border p-5 space-y-3 animate-pulse" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-zinc-800" />
+          <div className="w-9 h-9 rounded-lg" style={{ background: 'var(--nd-border)' }} />
           <div className="flex-1 space-y-1.5">
-            <div className="h-4 w-48 bg-zinc-800 rounded" />
-            <div className="h-3 w-72 bg-zinc-800 rounded" />
+            <div className="h-4 w-48 rounded" style={{ background: 'var(--nd-border)' }} />
+            <div className="h-3 w-72 rounded" style={{ background: 'var(--nd-border)' }} />
           </div>
         </div>
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-14 rounded-lg bg-zinc-800" />
+          <div key={i} className="h-14 rounded-xl" style={{ background: 'var(--nd-border)' }} />
         ))}
       </div>
     )
@@ -238,15 +239,15 @@ export default function PromptTrackingRecommendations({
   // ── Recommendations not yet stored (analysis ran but recs weren't saved) ────
   if (!isLoading && sectionDataReady && !block) {
     return (
-      <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/30 p-6 flex items-start gap-4">
-        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-800/60 border border-zinc-700 shrink-0">
-          <Lightbulb className="w-5 h-5 text-zinc-500" />
+      <div className="rounded-xl border border-dashed p-6 flex items-start gap-4" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+        <div className="flex items-center justify-center w-10 h-10 rounded-xl shrink-0" style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)' }}>
+          <Lightbulb className="w-5 h-5" style={{ color: 'var(--nd-text-muted)' }} />
         </div>
         <div>
-          <p className="text-[14px] font-semibold text-zinc-300">
+          <p className="text-[14px] font-semibold" style={{ color: 'var(--nd-text-primary)' }}>
             {SECTION_LABEL[section]} Recommendations
           </p>
-          <p className="text-[13px] text-zinc-500 mt-1">
+          <p className="text-[13px] mt-1" style={{ color: 'var(--nd-text-muted)' }}>
             Re-run the analysis to compute recommendations for this section.
           </p>
         </div>
@@ -263,20 +264,20 @@ export default function PromptTrackingRecommendations({
   const c = healthColor(block.health_score)
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
+    <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--nd-border)' }}>
       {/* ── Panel header ── */}
-      <div className="flex items-center gap-4 px-5 py-4 border-b border-zinc-800 bg-zinc-900/60">
+      <div className="flex items-center gap-4 px-5 py-4 border-b" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
         {/* Icon */}
-        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-zinc-800/80 border border-zinc-700 shrink-0">
-          <Lightbulb className="w-4 h-4 text-cyan-400" />
+        <div className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0" style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)' }}>
+          <Lightbulb className="w-4 h-4" style={{ color: 'var(--nd-purple)' }} />
         </div>
 
         {/* Title + summary */}
         <div className="flex-1 min-w-0">
-          <h3 className="text-[14px] font-semibold text-zinc-100">
+          <h3 className="text-[15px] font-semibold" style={{ color: 'var(--nd-text-primary)' }}>
             {SECTION_LABEL[section]} — Recommendations
           </h3>
-          <p className="text-[12px] text-zinc-500 mt-0.5 truncate">{block.summary}</p>
+          <p className="text-[13px] mt-0.5 truncate" style={{ color: 'var(--nd-text-secondary)' }}>{block.summary}</p>
         </div>
 
         {/* Health gauge */}
@@ -284,24 +285,24 @@ export default function PromptTrackingRecommendations({
       </div>
 
       {/* ── Stat pills ── */}
-      <div className="flex items-center gap-3 px-5 py-3 border-b border-zinc-800 flex-wrap">
-        <span className="text-[12px] text-zinc-500 font-medium">
-          <Activity className="inline w-3.5 h-3.5 mr-1 text-zinc-600" />
+      <div className="flex items-center gap-3 px-5 py-2.5 border-b flex-wrap" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+        <span className="text-[12px] font-medium" style={{ color: 'var(--nd-text-muted)' }}>
+          <Activity className="inline w-3.5 h-3.5 mr-1" style={{ color: 'var(--nd-text-muted)' }} />
           {recs.length} recommendation{recs.length !== 1 ? 's' : ''}
         </span>
 
         {criticalCount > 0 && (
-          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/25">
+          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200">
             {criticalCount} Critical
           </span>
         )}
         {warningCount > 0 && (
-          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/25">
+          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">
             {warningCount} Warning{warningCount !== 1 ? 's' : ''}
           </span>
         )}
         {infoCount > 0 && (
-          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/25">
+          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
             {infoCount} Info
           </span>
         )}
@@ -313,11 +314,11 @@ export default function PromptTrackingRecommendations({
       </div>
 
       {/* ── Recommendations list ── */}
-      <div className="p-4 space-y-2">
+      <div className="p-4 space-y-2" style={{ background: 'var(--nd-bg)' }}>
         {recs.length === 0 ? (
           <div className="flex items-center gap-3 py-4 px-3">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-            <p className="text-[13px] text-zinc-400">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <p className="text-[13px]" style={{ color: 'var(--nd-text-secondary)' }}>
               No issues found — this section is performing well. Keep up the great work!
             </p>
           </div>

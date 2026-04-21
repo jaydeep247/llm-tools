@@ -43,9 +43,9 @@ const TOOLTIPS = {
 function PieTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-xs shadow-2xl">
+    <div className="bg-white border border-(--nd-border) rounded-xl px-3 py-2 text-xs shadow-lg">
       <p style={{ color: payload[0].payload.fill }} className="font-semibold">{payload[0].name}</p>
-      <p className="text-white font-bold">{payload[0].value}</p>
+      <p className="text-(--nd-text-primary) font-bold">{payload[0].value}</p>
     </div>
   )
 }
@@ -54,33 +54,33 @@ function StatusBadge({ status }: { status: string }) {
   const lower = (status ?? '').toLowerCase()
   const isFullyAnswered = lower === 'fully_answered' || lower === 'fully answered' || lower === 'answered'
   const isPartial = lower === 'partially_answered' || lower === 'partial' || lower.includes('partial')
-  if (isFullyAnswered) return <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 text-[10px]">Answered</Badge>
-  if (isPartial) return <Badge className="bg-yellow-500/15 text-yellow-300 border border-yellow-500/20 text-[10px]">Partial</Badge>
-  return <Badge className="bg-red-500/15 text-red-300 border border-red-500/20 text-[10px]">Not Answered</Badge>
+  if (isFullyAnswered) return <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">Answered</Badge>
+  if (isPartial) return <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs">Partial</Badge>
+  return <Badge className="bg-red-50 text-red-700 border-red-200 text-xs">Not Answered</Badge>
 }
 
 function QuestionRow({ q, index }: { q: any; index: number }) {
   const [expanded, setExpanded] = useState(false)
   return (
-    <div className="border border-zinc-800 rounded-xl overflow-hidden">
+    <div className="border border-(--nd-border) rounded-xl overflow-hidden">
       <button onClick={() => setExpanded(v => !v)}
-        className="w-full flex items-start justify-between gap-3 p-3 hover:bg-zinc-800/40 transition-colors text-left">
+        className="w-full flex items-start justify-between gap-3 p-3 hover:bg-(--nd-bg) transition-colors text-left">
         <div className="flex items-start gap-2.5 min-w-0">
-          <span className="text-[10px] text-zinc-600 font-mono w-5 shrink-0 pt-0.5">Q{index + 1}</span>
-          <span className="text-xs text-zinc-200 leading-relaxed">{q.question}</span>
+          <span className="text-xs text-(--nd-text-muted) font-mono w-5 shrink-0 pt-0.5">Q{index + 1}</span>
+          <span className="text-xs text-(--nd-text-primary) leading-relaxed">{q.question}</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <StatusBadge status={q.status} />
-          {expanded ? <ChevronUp className="w-3 h-3 text-zinc-500" /> : <ChevronDown className="w-3 h-3 text-zinc-500" />}
+          {expanded ? <ChevronUp className="w-3 h-3 text-(--nd-text-muted)" /> : <ChevronDown className="w-3 h-3 text-(--nd-text-muted)" />}
         </div>
       </button>
       {expanded && q.evidence !== undefined && (
-        <div className="px-4 pb-4 pt-1 border-t border-zinc-800/50">
+        <div className="px-4 pb-4 pt-1 border-t border-(--nd-border)">
           <div className="flex items-center gap-1 mb-2">
-            <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Evidence / Gap</span>
+            <span className="text-xs font-medium text-(--nd-text-secondary) uppercase tracking-wide">Evidence / Gap</span>
             <FieldTooltip description={TOOLTIPS.evidence} />
           </div>
-          <p className="text-xs text-zinc-400 leading-relaxed bg-zinc-800/50 rounded-lg p-3">{q.evidence || 'No evidence found on page.'}</p>
+          <p className="text-xs text-(--nd-text-secondary) leading-relaxed bg-(--nd-bg) rounded-lg p-3">{q.evidence || 'No evidence found on page.'}</p>
         </div>
       )}
     </div>
@@ -139,9 +139,9 @@ export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPrevi
     { name: 'Not Answered', value: notAnswered, fill: '#ef4444' },
   ].filter(d => d.value > 0), [fullyAnswered, partiallyAnswered, notAnswered])
 
-  const scoreColor = completenessScore >= 70 ? 'text-emerald-400'
-    : completenessScore >= 50 ? 'text-yellow-400'
-    : completenessScore >= 30 ? 'text-orange-400' : 'text-red-400'
+  const scoreColor = completenessScore >= 70 ? 'text-emerald-600'
+    : completenessScore >= 50 ? 'text-amber-600'
+    : completenessScore >= 30 ? 'text-orange-600' : 'text-red-600'
 
   const modelTabs = [
     { key: 'gemini' as const, label: 'Gemini', icon: '✦' },
@@ -255,18 +255,14 @@ export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPrevi
       </Dialog>
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-white">AI Answer Preview</h2>
-          <p className="text-sm text-zinc-400 mt-0.5">How accurately and completely AI models answer questions about your brand</p>
+          <h2 className="nd-page-title">AI Answer Preview</h2>
+          <p className="nd-page-subtitle mt-0.5">How accurately and completely AI models answer questions about your brand</p>
         </div>
         <button
           type="button"
           onClick={openAskAiDialog}
           disabled={!projectId || isAskingAI}
-          className={cn(
-            'inline-flex items-center gap-2 rounded-full border-0 px-5 py-2.5 text-sm font-extrabold uppercase tracking-wider text-black shadow-lg shadow-fuchsia-950/30',
-            'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-          )}
+          className="nd-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
         >
           <MessageSquare className="size-4 shrink-0" />
           Ask AI
@@ -274,10 +270,10 @@ export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPrevi
       </div>
 
       {isLoadingData && (
-        <div className="flex items-center justify-center p-16 border border-zinc-800 rounded-2xl bg-zinc-800/30">
+        <div className="flex items-center justify-center p-16 border border-(--nd-border) rounded-2xl bg-white">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
-            <p className="text-sm text-zinc-400">Loading...</p>
+            <Loader2 className="w-8 h-8 animate-spin text-(--nd-purple)" />
+            <p className="text-sm text-(--nd-text-muted)">Loading...</p>
           </div>
         </div>
       )}
@@ -303,7 +299,7 @@ export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPrevi
       {hasData && !isLoadingData && !isAnalyzing && (
         <>
           {/* SECTION 1: Score Hero */}
-          <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-6">
+          <div className="bg-white border border-(--nd-border) rounded-2xl p-6">
             <div className="mb-3">
               <button
                 type="button"
@@ -320,7 +316,7 @@ export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPrevi
                   )
                 }
                 disabled={!projectId || !jobId || isAskingAI}
-                className="inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-full border border-(--nd-border) bg-(--nd-nav-active-bg) px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-(--nd-purple) disabled:opacity-40"
               >
                 <MessageSquare className="size-3" />
                 Ask AI
@@ -330,7 +326,7 @@ export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPrevi
               {/* Pie chart + legend */}
               <div className="flex flex-col items-center gap-3">
                 <div className="flex items-center gap-2 self-start">
-                  <span className="text-sm font-semibold text-white">Q&A Status Breakdown</span>
+                  <span className="text-sm font-semibold text-(--nd-text-primary)">Q&A Status Breakdown</span>
                   <FieldTooltip description="How many of the AI-generated questions are fully, partially, or not answered by your page content." />
                 </div>
                 {pieData.length > 0 ? (
@@ -347,47 +343,47 @@ export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPrevi
                       {pieData.map(({ name, value, fill }) => (
                         <div key={name} className="flex items-center gap-2">
                           <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: fill }} />
-                          <span className="text-xs text-zinc-400">{name}</span>
-                          <span className="text-xs font-bold text-white ml-auto pl-2">{value}</span>
+                          <span className="text-xs text-(--nd-text-muted)">{name}</span>
+                          <span className="text-xs font-bold text-(--nd-text-primary) ml-auto pl-2">{value}</span>
                         </div>
                       ))}
                     </div>
                   </div>
                 ) : (
-                  <p className="text-xs text-zinc-500">No Q&A data available</p>
+                  <p className="text-xs text-(--nd-text-muted)">No Q&A data available</p>
                 )}
               </div>
 
               {/* Stats */}
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-zinc-800/50 rounded-xl p-4 text-center">
+                  <div className="bg-(--nd-bg) rounded-xl p-4 text-center">
                     <div className="flex justify-center items-center gap-1 mb-1">
-                      <span className="text-[10px] text-zinc-500">Completeness Score</span>
+                        <span className="text-xs text-(--nd-text-secondary)">Completeness Score</span>
                       <FieldTooltip description={TOOLTIPS.completenessScore} />
                     </div>
                     <span className={cn('text-4xl font-bold', scoreColor)}>{completenessScore.toFixed(1)}</span>
-                    <span className="text-xs text-zinc-500 block">/100</span>
+                    <span className="text-xs text-(--nd-text-muted) block">/100</span>
                   </div>
-                  <div className="bg-zinc-800/50 rounded-xl p-4 text-center">
+                  <div className="bg-(--nd-bg) rounded-xl p-4 text-center">
                     <div className="flex justify-center items-center gap-1 mb-1">
-                      <span className="text-[10px] text-zinc-500">Questions Tested</span>
+                        <span className="text-xs text-(--nd-text-secondary)">Questions Tested</span>
                       <FieldTooltip description={TOOLTIPS.questionsGenerated} />
                     </div>
-                    <span className="text-4xl font-bold text-blue-400">{questionsGenerated}</span>
-                    <span className="text-xs text-zinc-500 block">total</span>
+                    <span className="text-4xl font-bold text-blue-600">{questionsGenerated}</span>
+                    <span className="text-xs text-(--nd-text-muted) block">total</span>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { label: 'Fully Answered', val: fullyAnswered, tip: TOOLTIPS.fullyAnswered, color: 'text-emerald-400', icon: <CheckCircle className="w-3 h-3" /> },
-                    { label: 'Partial', val: partiallyAnswered, tip: TOOLTIPS.partiallyAnswered, color: 'text-yellow-400', icon: <AlertCircle className="w-3 h-3" /> },
-                    { label: 'Not Answered', val: notAnswered, tip: TOOLTIPS.notAnswered, color: 'text-red-400', icon: <XCircle className="w-3 h-3" /> },
+                    { label: 'Fully Answered', val: fullyAnswered, tip: TOOLTIPS.fullyAnswered, color: 'text-emerald-600', icon: <CheckCircle className="w-3 h-3" /> },
+                    { label: 'Partial', val: partiallyAnswered, tip: TOOLTIPS.partiallyAnswered, color: 'text-amber-600', icon: <AlertCircle className="w-3 h-3" /> },
+                    { label: 'Not Answered', val: notAnswered, tip: TOOLTIPS.notAnswered, color: 'text-red-600', icon: <XCircle className="w-3 h-3" /> },
                   ].map(({ label, val, tip, color, icon }) => (
-                    <div key={label} className="bg-zinc-800/50 rounded-xl p-3 text-center">
+                    <div key={label} className="bg-(--nd-bg) rounded-xl p-3 text-center">
                       <div className="flex justify-center items-center gap-1 mb-1">
                         <span className={cn('opacity-70', color)}>{icon}</span>
-                        <span className="text-[10px] text-zinc-500">{label}</span>
+                        <span className="text-xs text-(--nd-text-secondary)">{label}</span>
                         <FieldTooltip description={tip} />
                       </div>
                       <span className={cn('text-xl font-bold', color)}>{val}</span>
@@ -400,12 +396,12 @@ export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPrevi
 
           {/* SECTION 2: Per-Question Results */}
           {results.length > 0 && (
-            <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+            <div className="bg-white border border-(--nd-border) rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-4">
-                <MessageSquare className="w-4 h-4 text-purple-400" />
-                <span className="text-sm font-semibold text-white">Question-by-Question Analysis</span>
+                <MessageSquare className="w-4 h-4 text-violet-600" />
+                <span className="text-sm font-semibold text-(--nd-text-primary)">Question-by-Question Analysis</span>
                 <FieldTooltip description="Each question was generated based on your page topic and tested against your content to see if an LLM could answer it." />
-                <Badge className="bg-purple-500/15 text-purple-300 border border-purple-500/20 text-xs ml-auto">{results.length} questions</Badge>
+                <Badge className="bg-violet-50 text-violet-700 border-violet-200 text-xs ml-auto">{results.length} questions</Badge>
                 <button
                   type="button"
                   onClick={() =>
@@ -418,7 +414,7 @@ export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPrevi
                     )
                   }
                   disabled={!projectId || !jobId || isAskingAI}
-                  className="inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+                  className="inline-flex items-center gap-1 rounded-full border border-(--nd-border) bg-(--nd-nav-active-bg) px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-(--nd-purple) disabled:opacity-40"
                 >
                   <MessageSquare className="size-3" />
                   Ask AI
@@ -432,18 +428,18 @@ export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPrevi
 
           {/* Missing questions list */}
           {missingQuestions.length > 0 && (
-            <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+            <div className="bg-white border border-(--nd-border) rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-4">
-                <XCircle className="w-4 h-4 text-red-400" />
-                <span className="text-sm font-semibold text-white">Unanswerable Questions</span>
+                <XCircle className="w-4 h-4 text-red-600" />
+                <span className="text-sm font-semibold text-(--nd-text-primary)">Unanswerable Questions</span>
                 <FieldTooltip description={TOOLTIPS.missingQuestions} />
-                <Badge className="bg-red-500/15 text-red-300 border border-red-500/20 text-xs ml-auto">{missingQuestions.length}</Badge>
+                <Badge className="bg-red-50 text-red-700 border-red-200 text-xs ml-auto">{missingQuestions.length}</Badge>
               </div>
               <div className="space-y-2">
                 {missingQuestions.map((q: string, i: number) => (
-                  <div key={i} className="flex items-start gap-2.5 p-3 bg-red-500/5 border border-red-500/15 rounded-xl">
-                    <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
-                    <span className="text-xs text-red-200/80 leading-relaxed">{q}</span>
+                    <div key={i} className="flex items-start gap-2.5 p-3 bg-red-50 border border-red-200 rounded-xl">
+                      <XCircle className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
+                      <span className="text-xs text-red-700 leading-relaxed">{q}</span>
                   </div>
                 ))}
               </div>
@@ -452,17 +448,17 @@ export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPrevi
 
           {/* Gaps summary */}
           {Object.keys(gaps).length > 0 && (
-            <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+            <div className="bg-white border border-(--nd-border) rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-4">
-                <AlertCircle className="w-4 h-4 text-amber-400" />
-                <span className="text-sm font-semibold text-white">Identified Gaps</span>
+                <AlertCircle className="w-4 h-4 text-amber-600" />
+                <span className="text-sm font-semibold text-(--nd-text-primary)">Identified Gaps</span>
                 <FieldTooltip description={TOOLTIPS.gaps} />
               </div>
               <div className="space-y-2">
                 {Object.entries(gaps).slice(0, 6).map(([q, gap]: [string, any], i) => (
-                  <div key={i} className="p-3 bg-amber-500/5 border border-amber-500/15 rounded-xl">
-                    <p className="text-xs font-medium text-amber-200 mb-1">{q}</p>
-                    <p className="text-xs text-amber-200/70">{typeof gap === 'string' ? gap : JSON.stringify(gap)}</p>
+                    <div key={i} className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                      <p className="text-xs font-medium text-amber-700 mb-1">{q}</p>
+                      <p className="text-xs text-amber-600">{typeof gap === 'string' ? gap : JSON.stringify(gap)}</p>
                   </div>
                 ))}
               </div>
@@ -471,24 +467,24 @@ export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPrevi
 
           {/* SECTION 3: Prompts Used */}
           {promptsUsed.length > 0 && (
-            <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+            <div className="bg-white border border-(--nd-border) rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-4">
-                <Sparkles className="w-4 h-4 text-cyan-400" />
-                <span className="text-sm font-semibold text-white">Prompts Sent to LLMs</span>
+                <Sparkles className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-semibold text-(--nd-text-primary)">Prompts Sent to LLMs</span>
                 <FieldTooltip description={TOOLTIPS.promptsUsed} />
-                <Badge className="bg-cyan-500/15 text-cyan-300 border border-cyan-500/20 text-xs ml-auto">{promptsUsed.length} prompts</Badge>
+                <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs ml-auto">{promptsUsed.length} prompts</Badge>
               </div>
               <div className="space-y-2">
                 {(showAllPrompts ? promptsUsed : promptsUsed.slice(0, 3)).map((prompt: string, i: number) => (
-                  <div key={i} className="flex items-start gap-2.5 p-3 bg-zinc-800/50 border border-zinc-700/50 rounded-xl">
-                    <span className="text-[10px] text-zinc-600 font-mono w-5 shrink-0 pt-0.5">P{i + 1}</span>
-                    <span className="text-xs text-zinc-300 leading-relaxed">{prompt}</span>
+                    <div key={i} className="flex items-start gap-2.5 p-3 bg-(--nd-bg) border border-(--nd-border) rounded-xl">
+                      <span className="text-xs text-(--nd-text-muted) font-mono w-5 shrink-0 pt-0.5">P{i + 1}</span>
+                      <span className="text-xs text-(--nd-text-secondary) leading-relaxed">{prompt}</span>
                   </div>
                 ))}
               </div>
               {promptsUsed.length > 3 && (
                 <button onClick={() => setShowAllPrompts(v => !v)}
-                  className="mt-3 text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                  className="mt-3 text-xs text-(--nd-purple) hover:opacity-80 transition-opacity">
                   {showAllPrompts ? 'Show less' : `Show all ${promptsUsed.length} prompts`}
                 </button>
               )}
@@ -497,10 +493,10 @@ export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPrevi
 
           {/* SECTION 4: Raw LLM Answers */}
           {Object.keys(rawAnswers).length > 0 && (
-            <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+            <div className="bg-white border border-(--nd-border) rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-4">
-                <Bot className="w-4 h-4 text-blue-400" />
-                <span className="text-sm font-semibold text-white">Raw LLM Responses</span>
+                <Bot className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-semibold text-(--nd-text-primary)">Raw LLM Responses</span>
                 <FieldTooltip description={TOOLTIPS.rawAnswer} />
                 <button
                   type="button"
@@ -515,7 +511,7 @@ export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPrevi
                     )
                   }
                   disabled={!projectId || !jobId || isAskingAI}
-                  className="ml-auto inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+                  className="ml-auto inline-flex items-center gap-1 rounded-full border border-(--nd-border) bg-(--nd-nav-active-bg) px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-(--nd-purple) disabled:opacity-40"
                 >
                   <MessageSquare className="size-3" />
                   Ask AI
@@ -523,7 +519,7 @@ export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPrevi
               </div>
 
               {/* Model tabs */}
-              <div className="flex gap-1 mb-4 bg-zinc-900/60 rounded-xl p-1">
+              <div className="flex gap-1 mb-4 bg-(--nd-bg) rounded-xl p-1">
                 {modelTabs.map(({ key, label, icon }) => {
                   const answers = (rawAnswers[key] as string[]) ?? []
                   if (!answers.length) return null
@@ -532,12 +528,12 @@ export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPrevi
                       className={cn(
                         'flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-medium transition-all',
                         activeModelTab === key
-                          ? 'bg-zinc-700 text-white shadow-sm'
-                          : 'text-zinc-500 hover:text-zinc-300'
+                          ? 'bg-white text-(--nd-text-primary) shadow-sm'
+                          : 'text-(--nd-text-muted) hover:text-(--nd-text-secondary)'
                       )}>
                       <span>{icon}</span>
                       <span>{label}</span>
-                      <Badge className="bg-zinc-600/50 text-zinc-400 text-[9px] px-1.5 py-0 border-0">{answers.length}</Badge>
+                      <Badge className="bg-(--nd-border) text-(--nd-text-muted) text-[9px] px-1.5 py-0 border-0">{answers.length}</Badge>
                     </button>
                   )
                 })}
@@ -547,17 +543,17 @@ export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPrevi
               {activeAnswers.length > 0 ? (
                 <div className="space-y-3">
                   {activeAnswers.map((answer: string, i: number) => (
-                    <div key={i} className="p-4 bg-zinc-800/50 border border-zinc-700/50 rounded-xl">
+                    <div key={i} className="p-4 bg-(--nd-bg) border border-(--nd-border) rounded-xl">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Response {i + 1}</span>
+                        <span className="text-xs font-medium text-(--nd-text-secondary) uppercase tracking-wide">Response {i + 1}</span>
                         <FieldTooltip description={TOOLTIPS.rawAnswer} />
                       </div>
-                      <p className="text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap">{answer}</p>
+                      <p className="text-xs text-(--nd-text-secondary) leading-relaxed whitespace-pre-wrap">{answer}</p>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-zinc-500 text-center py-6">No responses from this model</p>
+                <p className="text-xs text-(--nd-text-muted) text-center py-6">No responses from this model</p>
               )}
             </div>
           )}

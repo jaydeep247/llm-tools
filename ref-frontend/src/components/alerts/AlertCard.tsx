@@ -22,22 +22,22 @@ const SEVERITY_STYLES: Record<AlertSeverity, {
 }> = {
   critical: {
     border: 'border-l-red-500',
-    pill: 'bg-red-500/15 border border-red-500/30 text-red-400',
+    pill: 'bg-red-50 border border-red-200 text-red-700',
     pillText: 'CRITICAL',
   },
   high: {
-    border: 'border-l-orange-400',
-    pill: 'bg-orange-500/15 border border-orange-500/30 text-orange-400',
+    border: 'border-l-orange-500',
+    pill: 'bg-orange-50 border border-orange-200 text-orange-700',
     pillText: 'HIGH',
   },
   medium: {
     border: 'border-l-amber-400',
-    pill: 'bg-amber-500/15 border border-amber-500/30 text-amber-400',
+    pill: 'bg-amber-50 border border-amber-200 text-amber-700',
     pillText: 'MEDIUM',
   },
   info: {
-    border: 'border-l-zinc-500',
-    pill: 'bg-zinc-700/40 border border-zinc-600/40 text-zinc-400',
+    border: 'border-l-zinc-300',
+    pill: 'bg-zinc-100 border border-zinc-200 text-zinc-600',
     pillText: 'INFO',
   },
 }
@@ -119,7 +119,7 @@ export function AlertCard({ alert, onNavigate }: AlertCardProps) {
   // Resolved state display
   if (localState === 'resolving') {
     return (
-      <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 px-4 py-3 text-sm text-emerald-300">
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
         ✓ Alert marked as resolved. It will remain in your Alert History for audit purposes.
       </div>
     )
@@ -128,8 +128,8 @@ export function AlertCard({ alert, onNavigate }: AlertCardProps) {
   // Snoozed state display
   if (localState === 'snoozed') {
     return (
-      <div className="rounded-xl border border-zinc-700/40 bg-zinc-900/30 px-4 py-3 text-sm text-zinc-400 flex items-center gap-2">
-        <Clock className="h-4 w-4 shrink-0 text-zinc-500" />
+      <div className="rounded-xl px-4 py-3 text-sm flex items-center gap-2" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-bg)', color: 'var(--nd-text-secondary)' }}>
+        <Clock className="h-4 w-4 shrink-0" style={{ color: 'var(--nd-text-muted)' }} />
         <span>Alert snoozed for 7 days. We'll re-notify you on {snoozeDate} if unresolved.</span>
       </div>
     )
@@ -138,9 +138,10 @@ export function AlertCard({ alert, onNavigate }: AlertCardProps) {
   return (
     <div
       className={cn(
-        'rounded-xl border border-zinc-800 bg-[#111113] border-l-4 overflow-hidden transition-all duration-200',
+        'rounded-xl border-l-4 overflow-hidden transition-all duration-200',
         styles.border,
       )}
+      style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}
     >
       {/* ── Header row ─────────────────────────────────────────────────── */}
       <div className="px-4 py-3 flex items-start gap-3">
@@ -149,17 +150,18 @@ export function AlertCard({ alert, onNavigate }: AlertCardProps) {
           <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full', styles.pill)}>
             {styles.pillText}
           </span>
-          <span className="text-[11px] text-zinc-500">{typeLabel}</span>
+          <span className="text-[11px]" style={{ color: 'var(--nd-text-muted)' }}>{typeLabel}</span>
         </div>
 
         {/* Message — pre-formatted by backend, display as-is */}
-        <p className="flex-1 text-[13px] text-zinc-200 leading-snug min-w-0">{alert.message}</p>
+        <p className="flex-1 text-[13px] leading-snug min-w-0" style={{ color: 'var(--nd-text-primary)' }}>{alert.message}</p>
 
         {/* Expand toggle (not for info severity) */}
         {alert.severity !== 'info' && (
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="shrink-0 text-zinc-500 hover:text-zinc-200 transition-colors cursor-pointer"
+            className="shrink-0 transition-colors cursor-pointer"
+            style={{ color: 'var(--nd-text-muted)' }}
           >
             {expanded
               ? <ChevronDown className="h-4 w-4" />
@@ -171,12 +173,12 @@ export function AlertCard({ alert, onNavigate }: AlertCardProps) {
       {/* ── Tags + timestamp row ────────────────────────────────────────── */}
       <div className="px-4 pb-3 flex items-center gap-2 flex-wrap">
         {alert.affected_metric && (
-          <span className="text-[10px] bg-zinc-800/60 border border-zinc-700/40 text-zinc-400 px-2 py-0.5 rounded-full">
+          <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)', color: 'var(--nd-text-secondary)' }}>
             {alert.affected_metric}
           </span>
         )}
         {alert.affected_model && (
-          <span className="text-[10px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full">
+          <span className="text-[10px] bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full">
             {alert.affected_model}
           </span>
         )}
@@ -187,33 +189,33 @@ export function AlertCard({ alert, onNavigate }: AlertCardProps) {
             className={cn(
               'text-[10px] font-semibold px-2 py-0.5 rounded-full border',
               daysUnresolved >= 7
-                ? 'bg-red-500/15 border-red-500/30 text-red-400'
-                : 'bg-amber-500/10 border-amber-500/20 text-amber-400',
+                ? 'bg-red-50 border-red-200 text-red-700'
+                : 'bg-amber-50 border-amber-200 text-amber-700',
             )}
           >
             ONGOING — {daysUnresolved} day{daysUnresolved !== 1 ? 's' : ''}
           </span>
         )}
 
-        <span className="text-[10px] text-zinc-600 ml-auto">
+        <span className="text-[10px] ml-auto" style={{ color: 'var(--nd-text-muted)' }}>
           {new Date(alert.triggered_at).toLocaleDateString()}
         </span>
       </div>
 
       {/* ── Expanded recommendation ─────────────────────────────────────── */}
       {expanded && alert.recommendation && (
-        <div className="px-4 pb-3 border-t border-zinc-800/60 pt-3">
-          <p className="text-[12px] text-zinc-400 leading-relaxed">{alert.recommendation}</p>
+        <div className="px-4 pb-3 pt-3" style={{ borderTop: '1px solid var(--nd-border)' }}>
+          <p className="text-[12px] leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>{alert.recommendation}</p>
         </div>
       )}
 
       {/* ── Action buttons — optimistic updates ────────────────────────── */}
-      <div className="px-4 pb-3 flex items-center gap-2 flex-wrap border-t border-zinc-800/40 pt-2.5">
+      <div className="px-4 pb-3 flex items-center gap-2 flex-wrap pt-2.5" style={{ borderTop: '1px solid var(--nd-border)' }}>
         {alert.severity !== 'info' && (
           <button
             onClick={() => onNavigate?.(resolveAlertNav(alert.alert_type))}
-            className="flex items-center gap-1 text-[11px] text-zinc-300 hover:text-white bg-zinc-800/60 hover:bg-zinc-700/60 border border-zinc-700/40 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
-          >
+            className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+            style={{ color: 'var(--nd-text-secondary)', background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
             <Eye className="h-3 w-3" />
             View Details
           </button>
@@ -222,8 +224,7 @@ export function AlertCard({ alert, onNavigate }: AlertCardProps) {
           <button
             onClick={handleResolve}
             disabled={isResolving}
-            className="flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 px-2.5 py-1 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-          >
+            className="flex items-center gap-1 text-[11px] text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer disabled:opacity-50">
             <CheckCircle className="h-3 w-3" />
             Mark Resolved
           </button>
@@ -232,8 +233,8 @@ export function AlertCard({ alert, onNavigate }: AlertCardProps) {
           <button
             onClick={handleSnooze}
             disabled={isSnoozing}
-            className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-200 bg-zinc-800/40 hover:bg-zinc-700/40 border border-zinc-700/30 px-2.5 py-1 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-          >
+            className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+            style={{ color: 'var(--nd-text-muted)', background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
             <Clock className="h-3 w-3" />
             Snooze 7 Days
           </button>
@@ -241,8 +242,8 @@ export function AlertCard({ alert, onNavigate }: AlertCardProps) {
         <button
           onClick={handleDismiss}
           disabled={isDismissing}
-          className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 px-2 py-1 rounded-lg transition-colors cursor-pointer ml-auto disabled:opacity-50"
-        >
+            className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg transition-colors cursor-pointer ml-auto disabled:opacity-50"
+            style={{ color: 'var(--nd-text-muted)' }}>
           <X className="h-3 w-3" />
           Dismiss
         </button>

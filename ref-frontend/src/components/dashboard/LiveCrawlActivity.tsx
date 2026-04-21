@@ -156,8 +156,8 @@ function UrlRow({ url, isNew }: { url: string; isNew: boolean }) {
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
         <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
       </span>
-      <Globe className="h-3 w-3 text-zinc-500 shrink-0" />
-      <span className="text-xs text-zinc-300 font-mono truncate leading-none">{url}</span>
+      <Globe className="h-3 w-3 shrink-0" style={{ color: 'var(--nd-text-muted)' }} />
+      <span className="text-xs font-mono truncate leading-none" style={{ color: 'var(--nd-text-secondary)' }}>{url}</span>
     </div>
   )
 }
@@ -265,9 +265,9 @@ export function LiveCrawlActivity({ projects }: Props) {
 
       {/* ── LIVE crawl card ── */}
       {(isActive || displayUrls.length > 0) && (
-        <div className="rounded-xl border border-white/10 bg-[#0D0D0F] overflow-hidden">
+        <div className="rounded-xl border overflow-hidden" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+          <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--nd-border)' }}>
             <div className="flex items-center gap-2.5">
               {isActive ? (
                 <span className="relative flex h-2 w-2">
@@ -277,7 +277,7 @@ export function LiveCrawlActivity({ projects }: Props) {
               ) : (
                 <span className="h-2 w-2 rounded-full bg-zinc-600" />
               )}
-              <span className="text-xs font-semibold text-white">
+              <span className="text-xs font-semibold" style={{ color: 'var(--nd-text-primary)' }}>
                 {isActive ? 'Crawling in progress' : 'Recent crawl activity'}
               </span>
               {isActive && (
@@ -289,7 +289,8 @@ export function LiveCrawlActivity({ projects }: Props) {
             {isActive && activeJobs[0] && (
               <button
                 onClick={() => router.push(`/dashboard/projects/${activeJobs[0].projectId}/sessions/${activeJobs[0].sessionId}`)}
-                className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                className="flex items-center gap-1 text-[10px] transition-colors cursor-pointer hover:underline"
+                style={{ color: 'var(--nd-purple)' }}
               >
                 View live <ExternalLink className="h-3 w-3" />
               </button>
@@ -317,8 +318,8 @@ export function LiveCrawlActivity({ projects }: Props) {
           <div className="px-4 py-3 space-y-0.5 max-h-44 overflow-hidden">
             {displayUrls.length === 0 ? (
               <div className="flex items-center gap-2 py-2">
-                <Wifi className="h-3.5 w-3.5 text-zinc-600 animate-pulse" />
-                <span className="text-xs text-zinc-500">Waiting for URLs…</span>
+                <Wifi className="h-3.5 w-3.5 animate-pulse" style={{ color: 'var(--nd-text-muted)' }} />
+                <span className="text-xs" style={{ color: 'var(--nd-text-muted)' }}>Waiting for URLs…</span>
               </div>
             ) : (
               displayUrls.map(({ url, key }) => (
@@ -329,11 +330,11 @@ export function LiveCrawlActivity({ projects }: Props) {
 
           {/* Bottom stats bar */}
           {displayUrls.length > 0 && (
-            <div className="px-4 py-2 border-t border-white/5 flex items-center gap-3">
-              <span className="text-[10px] text-zinc-500">
+            <div className="px-4 py-2 border-t flex items-center gap-3" style={{ borderColor: 'var(--nd-border)' }}>
+              <span className="text-[10px]" style={{ color: 'var(--nd-text-muted)' }}>
                 {displayUrls.length} URL{displayUrls.length !== 1 ? 's' : ''} discovered
               </span>
-              {allUrls.length > 30 && <span className="text-[10px] text-zinc-600">showing latest 30</span>}
+              {allUrls.length > 30 && <span className="text-[10px]" style={{ color: 'var(--nd-text-muted)' }}>showing latest 30</span>}
             </div>
           )}
         </div>
@@ -343,17 +344,18 @@ export function LiveCrawlActivity({ projects }: Props) {
       {!isActive && recentlyCompleted.map((j) => {
         const pages = jobPageCounts[j.jobId] ?? 0
         return (
-          <div key={j.jobId} className="rounded-xl border border-emerald-500/15 bg-[#0D0D0F] overflow-hidden">
+          <div key={j.jobId} className="rounded-xl border overflow-hidden" style={{ background: 'var(--nd-card-bg)', borderColor: '#16C8C733' }}>
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+            <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--nd-border)' }}>
               <div className="flex items-center gap-2.5">
                 <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                <span className="text-xs font-semibold text-white">Crawl complete</span>
-                <span className="text-[10px] text-zinc-400">{j.projectName}</span>
+                <span className="text-xs font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Crawl complete</span>
+                <span className="text-[10px]" style={{ color: 'var(--nd-text-secondary)' }}>{j.projectName}</span>
               </div>
               <button
                 onClick={() => router.push(`/dashboard/projects/${j.projectId}/sessions/${j.sessionId}`)}
-                className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                className="flex items-center gap-1 text-[10px] transition-colors cursor-pointer hover:underline"
+                style={{ color: 'var(--nd-purple)' }}
               >
                 View results <ExternalLink className="h-3 w-3" />
               </button>
@@ -362,17 +364,18 @@ export function LiveCrawlActivity({ projects }: Props) {
             {/* Stats + CTA */}
             <div className="px-4 py-4 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
-                  <FileText className="h-4 w-4 text-emerald-400" />
+                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                  <FileText className="h-4 w-4 text-emerald-600" />
                   <div>
-                    <p className="text-lg font-bold text-white leading-none">{pages > 0 ? pages.toLocaleString() : '—'}</p>
-                    <p className="text-[10px] text-zinc-400 mt-0.5">pages found</p>
+                    <p className="text-lg font-bold leading-none" style={{ color: 'var(--nd-text-primary)' }}>{pages > 0 ? pages.toLocaleString() : '—'}</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: 'var(--nd-text-secondary)' }}>pages found</p>
                   </div>
                 </div>
               </div>
               <button
                 onClick={() => router.push(`/dashboard/projects/${j.projectId}/sessions/${j.sessionId}`)}
-                className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors cursor-pointer hover:shadow-sm"
+                style={{ background: 'var(--nd-purple-subtle)', borderColor: 'var(--nd-purple-light)', color: 'var(--nd-purple)' }}
               >
                 View more
                 <ArrowRight className="h-3.5 w-3.5" />

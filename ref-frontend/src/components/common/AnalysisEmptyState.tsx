@@ -28,20 +28,20 @@ export function AnalysisEmptyState({
   return (
     <div
       className={cn(
-        'bg-zinc-800/50 rounded-2xl border border-zinc-800 p-12 text-center',
+        'bg-(--nd-card-bg) rounded-2xl border border-(--nd-border) p-12 text-center',
         className
       )}
     >
-      <div className="w-16 h-16 bg-zinc-800/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+      <div className="w-16 h-16 bg-(--nd-bg) rounded-2xl flex items-center justify-center mx-auto mb-4">
         {icon}
       </div>
-      <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
-      <p className="text-sm text-zinc-400 mb-6 max-w-md mx-auto">{description}</p>
+      <h3 className="text-lg font-bold text-(--nd-text-primary) mb-2">{title}</h3>
+      <p className="text-sm font-medium text-(--nd-text-secondary) mb-6 max-w-md mx-auto">{description}</p>
       {onRunAnalysis && (
         <Button
           onClick={onRunAnalysis}
           disabled={disabled || isAnalyzing}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          className="bg-(--nd-purple) hover:opacity-90 text-white"
         >
           {isAnalyzing ? (
             <>

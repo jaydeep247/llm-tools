@@ -60,8 +60,8 @@ export function MainContentAudit({
               onClick={() => onTabChange ? onTabChange(tab.id) : undefined}
               className={`px-4 py-2 text-sm font-medium rounded-full cursor-pointer transition-colors border ${
                 activeTab === tab.id
-                  ? 'bg-white text-black border-white'
-                  : 'bg-[#111113] text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
+                  ? 'bg-(--nd-purple) text-white border-(--nd-purple)'
+                  : 'bg-(--nd-bg) text-(--nd-text-muted) border-(--nd-border) hover:text-(--nd-text-secondary) hover:border-(--nd-border-hover)'
               }`}
             >
               {tab.label}
@@ -73,7 +73,7 @@ export function MainContentAudit({
           variant="outline"
           size="sm"
           disabled={isLoadingMetrics}
-          className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
+          className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) rounded-xl"
         >
           <Download className="h-4 w-4 mr-2" />
           Export Sheet

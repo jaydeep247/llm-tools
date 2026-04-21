@@ -245,7 +245,7 @@ export function ContentMetrics({
     return (
       <th
         key={String(column)}
-        className={`px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap ${isSortable ? 'cursor-pointer hover:bg-zinc-800/50' : ''}`}
+        className={`px-3 py-2 text-center text-xs font-semibold text-(--nd-text-secondary) whitespace-nowrap ${isSortable ? 'cursor-pointer hover:bg-(--nd-bg)' : ''}`}
         onClick={isSortable ? () => handleSort(column as SortField) : undefined}
       >
         <div className="flex items-center justify-center gap-1 whitespace-nowrap">
@@ -262,13 +262,13 @@ export function ContentMetrics({
 
     switch (column) {
       case 'url':
-        if (!value) return <span className="text-zinc-600 text-xs select-none">—</span>
+        if (!value) return <span className="text-(--nd-text-muted) text-xs select-none">—</span>
         return (
           <a
             href={String(value)}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 flex items-center justify-center gap-1"
+            className="text-blue-600 hover:text-blue-700 flex items-center justify-center gap-1"
           >
             <span className="truncate max-w-xs">{String(value)}</span>
             <ExternalLink className="h-3 w-3 shrink-0" />
@@ -277,22 +277,22 @@ export function ContentMetrics({
 
       case 'currentWordCount':
       case 'serpIntentWordCount':
-        if (value == null) return <span className="text-zinc-600 text-xs select-none">—</span>
+        if (value == null) return <span className="text-(--nd-text-muted) text-xs select-none">—</span>
         return Number(value).toLocaleString()
 
       case 'needToAddWordCount': {
-        if (value == null) return <span className="text-zinc-600 text-xs select-none">—</span>
+        if (value == null) return <span className="text-(--nd-text-muted) text-xs select-none">—</span>
         const n = Number(value)
         const color =
-          n <= 0 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-          n <= 500 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
-          'bg-red-500/20 text-red-300 border-red-500/30'
+          n <= 0 ? 'bg-green-50 text-green-700 border border-green-200' :
+          n <= 500 ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
+          'bg-red-50 text-red-700 border border-red-200'
         return <Badge className={color}>{n > 0 ? '+' : ''}{n.toLocaleString()}</Badge>
       }
 
       case 'publishedDate':
       case 'upgradeDate': {
-        if (!value) return <span className="text-zinc-600 text-xs select-none">—</span>
+        if (!value) return <span className="text-(--nd-text-muted) text-xs select-none">—</span>
         try {
           return new Date(String(value)).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
         } catch {
@@ -301,7 +301,7 @@ export function ContentMetrics({
       }
 
       default:
-        return value !== null && value !== undefined ? String(value) : <span className="text-zinc-600 text-xs select-none">—</span>
+        return value !== null && value !== undefined ? String(value) : <span className="text-(--nd-text-muted) text-xs select-none">—</span>
     }
   }
 
@@ -314,12 +314,12 @@ export function ContentMetrics({
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
           <div className="flex-1 w-full sm:max-w-md">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-(--nd-text-muted)" />
               <Input
                 placeholder="Search by URL..."
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1) }}
-                className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500 text-sm rounded-xl"
+                className="pl-10 bg-white border-(--nd-border) text-(--nd-text-primary) placeholder:text-(--nd-text-muted) text-sm rounded-xl"
               />
             </div>
           </div>
@@ -329,19 +329,19 @@ export function ContentMetrics({
               variant="outline"
               size="sm"
               disabled={!jobId || uniqueData.length === 0 || metricRunner.isProcessing || metricRunner.isSubmitting}
-              className="bg-blue-600/20 text-blue-400 border-blue-500/30 hover:bg-blue-600/30 rounded-xl"
+              className="bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 rounded-xl"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isProcessing ? 'animate-spin' : ''}`} />
               {metricRunner.isProcessing ? `Running${metricRunner.pendingCount > 0 ? ` ${metricRunner.pendingCount}` : ''}...` : 'Run All URLs'}
             </Button>
             {onRefresh && (
-              <Button onClick={onRefresh} variant="outline" size="sm" className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl" disabled={isLoading}>
+              <Button onClick={onRefresh} variant="outline" size="sm" className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) rounded-xl" disabled={isLoading}>
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
             )}
             {onExport && (
-              <Button onClick={onExport} variant="outline" size="sm" className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl">
+              <Button onClick={onExport} variant="outline" size="sm" className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) rounded-xl">
                 <Download className="h-4 w-4 mr-2" />
                 Export
               </Button>
@@ -351,21 +351,21 @@ export function ContentMetrics({
 
         {/* Stats strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Total Pages</div>
-            <div className="text-xl font-bold text-white mt-1">{uniqueData.length}</div>
+          <div className="bg-white border border-(--nd-border) rounded-xl p-3">
+            <div className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider">Total Pages</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">{uniqueData.length}</div>
           </div>
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Avg Word Count</div>
-            <div className="text-xl font-bold text-white mt-1">{avgWordCount.toLocaleString()}</div>
+          <div className="bg-white border border-(--nd-border) rounded-xl p-3">
+            <div className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider">Avg Word Count</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">{avgWordCount.toLocaleString()}</div>
           </div>
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Needs More Content</div>
-            <div className="text-xl font-bold text-white mt-1">{needsMoreContent}</div>
+          <div className="bg-white border border-(--nd-border) rounded-xl p-3">
+            <div className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider">Needs More Content</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">{needsMoreContent}</div>
           </div>
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Has Published Date</div>
-            <div className="text-xl font-bold text-white mt-1">{hasPublishedDate}</div>
+          <div className="bg-white border border-(--nd-border) rounded-xl p-3">
+            <div className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider">Has Published Date</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">{hasPublishedDate}</div>
           </div>
         </div>
       </div>
@@ -374,21 +374,21 @@ export function ContentMetrics({
         {/* Column filter sidebar */}
         <div className={`${sidebarOpen ? 'w-68' : 'w-0'} transition-all duration-300 overflow-hidden shrink-0`}>
           {sidebarOpen && (
-            <div className="bg-[#0D0D10] border border-zinc-800 rounded-xl p-4 h-full overflow-y-auto custom-scrollbar">
+            <div className="bg-white border border-(--nd-border) rounded-xl p-4 h-full overflow-y-auto custom-scrollbar">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-white">Column Filters</h3>
-                <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(false)} className="text-zinc-500 hover:text-white p-1 h-auto hover:bg-zinc-800/60">
+                <h3 className="text-sm font-semibold text-(--nd-text-primary)">Column Filters</h3>
+                <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(false)} className="text-(--nd-text-muted) hover:text-(--nd-text-primary) p-1 h-auto hover:bg-(--nd-bg)">
                   <X className="h-4 w-4" />
                 </Button>
               </div>
 
               <div className="mb-4">
-                <label className="text-[11px] text-zinc-500 uppercase tracking-wider mb-1.5 block">Filter by URL</label>
+                <label className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider mb-1.5 block">Filter by URL</label>
                 <Input
                   placeholder="URL filter..."
                   value={urlFilter}
                   onChange={(e) => { setUrlFilter(e.target.value); setCurrentPage(1) }}
-                  className="bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 text-xs h-8 rounded-lg"
+                  className="bg-(--nd-bg) border-(--nd-border) text-(--nd-text-primary) placeholder:text-(--nd-text-muted) text-xs h-8 rounded-lg"
                 />
               </div>
 
@@ -399,19 +399,19 @@ export function ContentMetrics({
                     <div key={category.name} className="space-y-2">
                       <button
                         onClick={() => toggleCategoryColumns(category)}
-                        className="flex items-center justify-between w-full text-xs font-medium text-zinc-200 hover:text-white"
+                        className="flex items-center justify-between w-full text-xs font-medium text-(--nd-text-primary) hover:text-(--nd-text-primary)"
                       >
                         <span>{category.name}</span>
-                        <span className="text-zinc-500">{visible}/{total}</span>
+                        <span className="text-(--nd-text-muted)">{visible}/{total}</span>
                       </button>
                       <div className="space-y-1 pl-2">
                         {category.columns.map((column) => (
-                          <label key={String(column)} className="flex items-center gap-2 text-xs text-zinc-400 hover:text-white cursor-pointer">
+                          <label key={String(column)} className="flex items-center gap-2 text-xs text-(--nd-text-secondary) hover:text-(--nd-text-primary) cursor-pointer">
                             <input
                               type="checkbox"
                               checked={visibleColumns.has(column)}
                               onChange={() => toggleColumn(column)}
-                              className="rounded border-zinc-700 bg-zinc-900 text-blue-500 focus:ring-blue-500/50 focus:ring-offset-0"
+                              className="rounded border-(--nd-border) bg-white text-(--nd-purple) focus:ring-(--nd-purple)/50 focus:ring-offset-0"
                             />
                             <span className="truncate">{getColumnLabel(column)}</span>
                           </label>
@@ -429,29 +429,29 @@ export function ContentMetrics({
         <div className="flex-1 min-w-0 flex flex-col h-full">
           {!sidebarOpen && (
             <div className="mb-3">
-              <Button variant="outline" size="sm" onClick={() => setSidebarOpen(true)} className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+              <Button variant="outline" size="sm" onClick={() => setSidebarOpen(true)} className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary)">
                 <ChevronRight className="h-4 w-4 mr-2" />
                 Show Filters
               </Button>
             </div>
           )}
 
-          <div className="rounded-xl border border-zinc-800 bg-[#111113] overflow-hidden flex-1 min-h-0">
+          <div className="rounded-xl border border-(--nd-border) bg-white overflow-hidden flex-1 min-h-0">
             <div ref={tableContainerRef} className="overflow-x-auto overflow-y-auto max-w-full h-full custom-scrollbar">
               <table className="w-full text-sm">
-                <thead className="bg-zinc-900/80 border-b border-zinc-800 sticky top-0 z-10">
+                <thead className="bg-(--nd-bg) border-b border-(--nd-border) sticky top-0 z-10">
                   <tr>
                     {orderedVisibleColumns.map((col) => renderTableHeader(col))}
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap sticky right-0 z-20 bg-zinc-900/80 border-l border-zinc-800">
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-(--nd-text-secondary) whitespace-nowrap sticky right-0 z-20 bg-(--nd-bg) border-l border-(--nd-border)">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800">
+                <tbody className="divide-y divide-(--nd-border)">
                   {isLoading || metricRunner.isBulkProcessing ? (
                     <tr>
                       <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center">
-                        <div className="flex items-center justify-center gap-2 text-zinc-400">
+                        <div className="flex items-center justify-center gap-2 text-(--nd-text-muted)">
                           <RefreshCw className="h-5 w-5 animate-spin" />
                           <span>{metricRunner.isBulkProcessing ? 'Processing content metrics...' : 'Loading data...'}</span>
                         </div>
@@ -459,26 +459,26 @@ export function ContentMetrics({
                     </tr>
                   ) : paginatedData.length === 0 ? (
                     <tr>
-                      <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center text-zinc-400">
+                      <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center text-(--nd-text-muted)">
                         No pages found. {(searchQuery || urlFilter) && 'Try adjusting your filters.'}
                       </td>
                     </tr>
                   ) : (
                     paginatedData.map((row, index) => (
-                      <tr key={row.id ?? row.url ?? index} className="group hover:bg-zinc-800/50 transition-colors">
+                      <tr key={row.id ?? row.url ?? index} className="group hover:bg-(--nd-bg) transition-colors">
                         {orderedVisibleColumns.map((column) => (
-                          <td key={String(column)} className="px-3 py-2 text-zinc-200 text-center whitespace-normal overflow-wrap-break-word">
+                          <td key={String(column)} className="px-3 py-2 text-(--nd-text-secondary) text-center whitespace-normal overflow-wrap-break-word">
                             {renderCellContent(row, column)}
                           </td>
                         ))}
-                        <td className="px-3 py-2 text-center sticky right-0 z-10 bg-[#111113] group-hover:bg-zinc-800/50 border-l border-zinc-800 transition-colors">
+                        <td className="px-3 py-2 text-center sticky right-0 z-10 bg-white group-hover:bg-(--nd-bg) border-l border-(--nd-border) transition-colors">
                           {(metricRunner.isRunning(row.url) || !row.fields?.content_metrics_last_run_at) && (
                             <Button
                               onClick={() => metricRunner.runOne(row.url)}
                               variant="outline"
                               size="sm"
                               disabled={!jobId || metricRunner.isRunning(row.url)}
-                              className="bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl min-w-24"
+                              className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) rounded-xl min-w-24"
                             >
                               <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isRunning(row.url) ? 'animate-spin' : ''}`} />
                               {metricRunner.isRunning(row.url) ? 'Running' : 'Run'}
@@ -496,7 +496,7 @@ export function ContentMetrics({
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-2">
-              <div className="text-sm text-zinc-500">
+              <div className="text-sm text-(--nd-text-muted)">
                 Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, sortedData.length)} of {sortedData.length} results
               </div>
               <div className="flex gap-2">
@@ -504,7 +504,7 @@ export function ContentMetrics({
                   variant="outline" size="sm"
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 rounded-xl"
+                  className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) disabled:opacity-40 rounded-xl"
                 >
                   Previous
                 </Button>
@@ -519,7 +519,7 @@ export function ContentMetrics({
                       <Button
                         key={pageNum} variant="outline" size="sm"
                         onClick={() => setCurrentPage(pageNum)}
-                        className={`rounded-xl ${currentPage === pageNum ? 'bg-white text-black border-white' : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white'}`}
+                        className={`rounded-xl ${currentPage === pageNum ? 'bg-(--nd-purple) text-white border-(--nd-purple)' : 'bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary)'}`}
                       >
                         {pageNum}
                       </Button>
@@ -530,7 +530,7 @@ export function ContentMetrics({
                   variant="outline" size="sm"
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 rounded-xl"
+                  className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) disabled:opacity-40 rounded-xl"
                 >
                   Next
                 </Button>

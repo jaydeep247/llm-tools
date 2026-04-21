@@ -54,37 +54,37 @@ type StatusStyle = {
 const STATUS_STYLES: Record<Exclude<CrawlStatus, null>, StatusStyle> = {
   running: {
     label: 'Running',
-    chip: 'text-amber-300 bg-amber-500/10 border-amber-500/30',
-    border: 'border-amber-500/25',
-    iconColor: 'text-amber-400',
+    chip: 'text-amber-700 bg-amber-50 border-amber-200',
+    border: 'border-amber-200',
+    iconColor: 'text-amber-600',
     icon: Activity,
   },
   paused: {
     label: 'Paused',
-    chip: 'text-amber-300 bg-amber-500/10 border-amber-500/30',
-    border: 'border-amber-500/25',
-    iconColor: 'text-amber-400',
+    chip: 'text-amber-700 bg-amber-50 border-amber-200',
+    border: 'border-amber-200',
+    iconColor: 'text-amber-600',
     icon: PauseCircle,
   },
   completed: {
     label: 'Completed',
-    chip: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30',
-    border: 'border-emerald-500/25',
-    iconColor: 'text-emerald-400',
+    chip: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+    border: 'border-emerald-200',
+    iconColor: 'text-emerald-600',
     icon: CheckCircle,
   },
   failed: {
     label: 'Failed',
-    chip: 'text-rose-300 bg-rose-500/10 border-rose-500/30',
-    border: 'border-rose-500/25',
-    iconColor: 'text-rose-400',
+    chip: 'text-rose-700 bg-rose-50 border-rose-200',
+    border: 'border-rose-200',
+    iconColor: 'text-rose-600',
     icon: XCircle,
   },
   cancelled: {
     label: 'Cancelled',
-    chip: 'text-zinc-300 bg-zinc-500/10 border-zinc-500/30',
-    border: 'border-zinc-500/25',
-    iconColor: 'text-zinc-400',
+    chip: 'text-zinc-600 bg-zinc-100 border-zinc-200',
+    border: 'border-zinc-200',
+    iconColor: 'text-zinc-500',
     icon: AlertCircle,
   },
 }
@@ -363,12 +363,23 @@ export function CrawlStatusBanner({
 
   if (!activeStatus) {
     return (
-      <div className="rounded-2xl border border-zinc-700/40 bg-[#0D0D10] overflow-hidden h-full flex flex-col">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800/60">
-          <h3 className="text-sm font-semibold text-white">{componentTitle}</h3>
-          <span className="text-[10px] text-zinc-500 bg-zinc-800/60 border border-zinc-700/50 px-2 py-0.5 rounded-full">checking</span>
+      <div
+        className="rounded-2xl overflow-hidden h-full flex flex-col"
+        style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)' }}
+      >
+        <div
+          className="flex items-center justify-between px-5 py-3"
+          style={{ borderBottom: '1px solid var(--nd-border)' }}
+        >
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>{componentTitle}</h3>
+          <span
+            className="text-[10px] px-2 py-0.5 rounded-full"
+            style={{ color: 'var(--nd-text-muted)', background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}
+          >
+            checking
+          </span>
         </div>
-        <div className="px-5 py-4 text-xs text-zinc-500">Waiting for crawl metadata...</div>
+        <div className="px-5 py-4 text-xs" style={{ color: 'var(--nd-text-muted)' }}>Waiting for crawl metadata...</div>
       </div>
     )
   }
@@ -378,27 +389,38 @@ export function CrawlStatusBanner({
   const isStoppable = activeStatus === 'running' || activeStatus === 'paused'
 
   return (
-    <div className={`relative rounded-2xl border bg-[#0D0D10] overflow-hidden h-full flex flex-col ${statusMeta.border}`}>
+    <div
+      className="relative rounded-2xl overflow-hidden h-full flex flex-col"
+      style={{ background: 'var(--nd-card-bg)', border: `1px solid var(--nd-border)` }}
+    >
       {/* Cancel confirmation overlay */}
       {stopConfirm && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-black/80 backdrop-blur-sm">
-          <div className="mx-4 w-full max-w-xs rounded-xl border border-rose-500/40 bg-zinc-900 p-5 text-center shadow-xl">
-            <StopCircle className="mx-auto mb-3 h-8 w-8 text-rose-400" />
-            <p className="text-sm font-semibold text-white">Cancel crawl?</p>
-            <p className="mt-1 text-[11px] text-zinc-400 leading-relaxed">
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-black/60 backdrop-blur-sm">
+          <div
+            className="mx-4 w-full max-w-xs rounded-xl border border-rose-500/40 p-5 text-center shadow-xl"
+            style={{ background: 'var(--nd-card-bg)' }}
+          >
+            <StopCircle className="mx-auto mb-3 h-8 w-8 text-rose-500" />
+            <p className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Cancel crawl?</p>
+            <p className="mt-1 text-[11px] leading-relaxed" style={{ color: 'var(--nd-text-muted)' }}>
               The crawler will stop immediately. All pages crawled so far are already saved — no data will be lost.
             </p>
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => setStopConfirm(false)}
-                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-[12px] font-medium text-zinc-300 hover:bg-zinc-700 transition-colors cursor-pointer"
+                className="flex-1 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors cursor-pointer"
+                style={{
+                  border: '1px solid var(--nd-border)',
+                  background: 'var(--nd-bg)',
+                  color: 'var(--nd-text-secondary)',
+                }}
               >
                 Keep crawling
               </button>
               <button
                 onClick={handleStop}
                 disabled={isStopping}
-                className="flex-1 rounded-lg border border-rose-500/60 bg-rose-500/15 px-3 py-1.5 text-[12px] font-semibold text-rose-300 hover:bg-rose-500/25 transition-colors cursor-pointer disabled:opacity-50"
+                className="flex-1 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-[12px] font-semibold text-rose-700 hover:bg-rose-100 transition-colors cursor-pointer disabled:opacity-50"
               >
                 {isStopping ? 'Cancelling…' : 'Yes, cancel now'}
               </button>
@@ -407,9 +429,12 @@ export function CrawlStatusBanner({
         </div>
       )}
 
-      <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800/60">
+      <div
+        className="flex items-center justify-between px-5 py-3"
+        style={{ borderBottom: '1px solid var(--nd-border)' }}
+      >
         <div className="flex items-center gap-2.5 min-w-0">
-          <h3 className="text-sm font-semibold text-white truncate">{componentTitle}</h3>
+          <h3 className="text-sm font-semibold truncate" style={{ color: 'var(--nd-text-primary)' }}>{componentTitle}</h3>
           <span className={`inline-flex items-center gap-1 text-[10px] border px-2 py-0.5 rounded-full ${statusMeta.chip}`}>
             <StatusIcon className={`h-3 w-3 ${statusMeta.iconColor}`} />
             {statusMeta.label}
@@ -421,7 +446,7 @@ export function CrawlStatusBanner({
               onClick={() => setStopConfirm(true)}
               disabled={isStopping}
               title="Cancel crawl — preserves all crawled pages"
-              className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-400 border border-rose-500/35 bg-rose-500/8 hover:bg-rose-500/18 hover:text-rose-300 hover:border-rose-400/50 px-2.5 py-1 rounded-lg transition-all cursor-pointer disabled:opacity-40 shadow-[0_0_0_1px_rgba(239,68,68,0.1)]"
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-700 border border-rose-200 bg-rose-50 hover:bg-rose-100 hover:border-rose-300 px-2.5 py-1 rounded-lg transition-all cursor-pointer disabled:opacity-40"
             >
               <StopCircle className="h-3 w-3" />
               Cancel
@@ -430,7 +455,8 @@ export function CrawlStatusBanner({
           {onViewPages && (
             <button
               onClick={onViewPages}
-              className="text-[11px] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+              className="text-[11px] transition-colors flex items-center gap-1 cursor-pointer"
+              style={{ color: 'var(--nd-text-muted)' }}
             >
               View pages <Globe className="h-3 w-3" />
             </button>
@@ -442,29 +468,32 @@ export function CrawlStatusBanner({
         <div className="space-y-2.5">
           <div className="flex items-end justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Pages Indexed</p>
-              <p className="text-2xl font-bold text-white tabular-nums leading-tight">
+              <p className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>Pages Indexed</p>
+              <p className="text-2xl font-bold tabular-nums leading-tight" style={{ color: 'var(--nd-text-primary)' }}>
                 {livePagesCrawled.toLocaleString()}
                 {effectiveTotalPages > 0 && (
-                  <span className="text-sm text-zinc-500 font-medium"> / {effectiveTotalPages.toLocaleString()}</span>
+                  <span className="text-sm font-medium" style={{ color: 'var(--nd-text-muted)' }}> / {effectiveTotalPages.toLocaleString()}</span>
                 )}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Crawl Time</p>
-              <p className="text-base font-semibold text-zinc-200 tabular-nums">{formatDuration(elapsedMs)}</p>
+              <p className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>Crawl Time</p>
+              <p className="text-base font-semibold tabular-nums" style={{ color: 'var(--nd-text-secondary)' }}>{formatDuration(elapsedMs)}</p>
             </div>
           </div>
 
           {effectiveTotalPages > 0 && (
             <div className="space-y-1.5">
-              <div className="w-full h-3 bg-white/6 rounded-full overflow-hidden border border-white/5">
+              <div
+                className="w-full h-3 rounded-full overflow-hidden"
+                style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}
+              >
                 <div
-                  className="h-full rounded-full bg-linear-to-r from-amber-600 via-amber-400 to-amber-300 transition-all duration-700 ease-out"
-                  style={{ width: `${percent}%` }}
+                  className="h-full rounded-full transition-all duration-700 ease-out"
+                  style={{ width: `${percent}%`, background: 'var(--nd-purple)' }}
                 />
               </div>
-              <div className="flex justify-between text-[10px] text-zinc-600 font-mono">
+              <div className="flex justify-between text-[10px] font-mono" style={{ color: 'var(--nd-text-muted)' }}>
                 <span>0%</span>
                 <span>{percent}%</span>
               </div>
@@ -473,25 +502,25 @@ export function CrawlStatusBanner({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-3 py-2.5">
-            <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Last Update</p>
-            <p className="text-xs text-zinc-300 mt-1 truncate">{formatTimestamp(updatedAtMs)}</p>
+          <div className="rounded-xl px-3 py-2.5" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>Last Update</p>
+            <p className="text-xs mt-1 truncate" style={{ color: 'var(--nd-text-secondary)' }}>{formatTimestamp(updatedAtMs)}</p>
           </div>
-          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-3 py-2.5">
-            <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Started At</p>
-            <p className="text-xs text-zinc-300 mt-1 truncate">{formatTimestamp(startedAtMs)}</p>
+          <div className="rounded-xl px-3 py-2.5" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>Started At</p>
+            <p className="text-xs mt-1 truncate" style={{ color: 'var(--nd-text-secondary)' }}>{formatTimestamp(startedAtMs)}</p>
           </div>
-          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-3 py-2.5 flex items-center justify-between gap-2">
+          <div className="rounded-xl px-3 py-2.5 flex items-center justify-between gap-2" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
             <div className="min-w-0">
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Allow Subdomains</p>
-              <p className="text-xs text-zinc-200 mt-1">{displayBool(allowSubdomains)}</p>
+              <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>Allow Subdomains</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--nd-text-primary)' }}>{displayBool(allowSubdomains)}</p>
             </div>
-            <Database className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
+            <Database className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--nd-text-muted)' }} />
           </div>
-          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-3 py-2.5 flex items-center justify-between gap-2">
+          <div className="rounded-xl px-3 py-2.5 flex items-center justify-between gap-2" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
             <div className="min-w-0">
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Max Pages</p>
-              <p className="text-xs text-zinc-200 mt-1 tabular-nums">
+              <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>Max Pages</p>
+              <p className="text-xs mt-1 tabular-nums" style={{ color: 'var(--nd-text-primary)' }}>
                 {typeof maxPages === 'number' && maxPages > 0
                   ? maxPages.toLocaleString()
                   : effectiveTotalPages > 0
@@ -499,18 +528,18 @@ export function CrawlStatusBanner({
                     : '-'}
               </p>
             </div>
-            <Activity className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
+            <Activity className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--nd-text-muted)' }} />
           </div>
         </div>
 
         <div className="space-y-2">
-          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-3 py-2.5">
-            <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Start URL</p>
-            <p className="text-xs text-zinc-300 mt-1 truncate">{startUrl || '-'}</p>
+          <div className="rounded-xl px-3 py-2.5" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>Start URL</p>
+            <p className="text-xs mt-1 truncate" style={{ color: 'var(--nd-text-secondary)' }}>{startUrl || '-'}</p>
           </div>
-          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-3 py-2.5">
-            <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Current URL</p>
-            <p className="text-xs text-zinc-300 mt-1 truncate">{liveCurrentUrl || '-'}</p>
+          <div className="rounded-xl px-3 py-2.5" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>Current URL</p>
+            <p className="text-xs mt-1 truncate" style={{ color: 'var(--nd-text-secondary)' }}>{liveCurrentUrl || '-'}</p>
           </div>
         </div>
 
@@ -521,7 +550,7 @@ export function CrawlStatusBanner({
                 setStatus('running')
                 onResume()
               }}
-              className="text-[12px] font-semibold text-black bg-amber-400 border border-amber-300 hover:bg-amber-300 px-3.5 py-1.5 rounded-lg transition-colors shadow-[0_0_0_1px_rgba(251,191,36,0.35)] cursor-pointer"
+              className="text-[12px] font-semibold text-black bg-amber-400 border border-amber-300 hover:bg-amber-300 px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer"
             >
               Continue crawl
             </button>

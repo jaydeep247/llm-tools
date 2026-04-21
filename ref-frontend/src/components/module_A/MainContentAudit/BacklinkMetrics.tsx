@@ -307,8 +307,8 @@ export function BacklinkMetrics({
     return (
       <th
         key={String(column)}
-        className={`px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap ${
-          isSortable ? 'cursor-pointer hover:bg-zinc-800/50' : ''
+        className={`px-3 py-2 text-center text-xs font-semibold text-(--nd-text-secondary) whitespace-nowrap ${
+          isSortable ? 'cursor-pointer hover:bg-(--nd-bg)' : ''
         }`}
         onClick={isSortable ? () => handleSort(column as SortField) : undefined}
       >
@@ -326,13 +326,13 @@ export function BacklinkMetrics({
 
     switch (column) {
       case 'url':
-        if (!value || value === ('undefined' as any) || value === ('null' as any)) return <span className="text-zinc-600 text-xs select-none">—</span>
+        if (!value || value === ('undefined' as any) || value === ('null' as any)) return <span className="text-(--nd-text-muted) text-xs select-none">—</span>
         return (
           <a
             href={String(value)}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 flex items-center justify-center gap-1"
+            className="text-blue-600 hover:text-blue-700 flex items-center justify-center gap-1"
           >
             <span className="truncate max-w-xs">{String(value)}</span>
             <ExternalLink className="h-3 w-3 shrink-0" />
@@ -347,29 +347,29 @@ export function BacklinkMetrics({
       case 'min_required_ref_domains':
       case 'current_ref_domains':
       case 'need_to_acquire_ref_domains': {
-        if (value === undefined || value === null) return <span className="text-zinc-600 text-xs select-none">—</span>
+        if (value === undefined || value === null) return <span className="text-(--nd-text-muted) text-xs select-none">—</span>
         const num = Number(value)
-        if (Number.isNaN(num)) return <span className="text-zinc-600 text-xs select-none">—</span>
+        if (Number.isNaN(num)) return <span className="text-(--nd-text-muted) text-xs select-none">—</span>
 
         if (column === 'need_to_acquire_ref_domains') {
           const color =
             num <= 0
-              ? 'bg-green-500/20 text-green-300 border-green-500/30'
+              ? 'bg-green-50 text-green-700 border border-green-200'
               : num <= 10
-                ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
-                : 'bg-red-500/20 text-red-300 border-red-500/30'
+                ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                : 'bg-red-50 text-red-700 border border-red-200'
           return <Badge className={color}>{num.toLocaleString()}</Badge>
         }
 
         if (column === 'internal_external_ratio') {
-          return <Badge className="bg-zinc-700/30 text-zinc-200 border-zinc-600/30">{num.toFixed(2)}</Badge>
+          return <Badge className="bg-zinc-100 text-zinc-700 border border-zinc-200">{num.toFixed(2)}</Badge>
         }
 
-        return <Badge className="bg-zinc-700/30 text-zinc-200 border-zinc-600/30">{num.toLocaleString()}</Badge>
+        return <Badge className="bg-zinc-100 text-zinc-700 border border-zinc-200">{num.toLocaleString()}</Badge>
       }
 
       default:
-        return value !== null && value !== undefined ? String(value) : <span className="text-zinc-600 text-xs select-none">—</span>
+        return value !== null && value !== undefined ? String(value) : <span className="text-(--nd-text-muted) text-xs select-none">—</span>
     }
   }
 
@@ -382,7 +382,7 @@ export function BacklinkMetrics({
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
           <div className="flex-1 w-full sm:max-w-md">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-(--nd-text-muted)" />
               <Input
                 placeholder="Search by URL or title..."
                 value={searchQuery}
@@ -390,7 +390,7 @@ export function BacklinkMetrics({
                   setSearchQuery(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500 text-sm rounded-xl"
+                className="pl-10 bg-white border-(--nd-border) text-(--nd-text-primary) placeholder:text-(--nd-text-muted) text-sm rounded-xl"
               />
             </div>
           </div>
@@ -400,7 +400,7 @@ export function BacklinkMetrics({
               variant="outline"
               size="sm"
               disabled={!jobId || normalizedData.length === 0 || metricRunner.isProcessing || metricRunner.isSubmitting}
-              className="bg-white text-black border-white hover:bg-zinc-100 rounded-xl"
+              className="bg-(--nd-purple) text-white border-(--nd-purple) hover:bg-(--nd-purple)/90 rounded-xl"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isProcessing ? 'animate-spin' : ''}`} />
               {metricRunner.isProcessing ? `Running ${metricRunner.pendingCount}...` : 'Run All URLs'}
@@ -410,7 +410,7 @@ export function BacklinkMetrics({
                 onClick={onRefresh}
                 variant="outline"
                 size="sm"
-                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) rounded-xl"
                 disabled={isLoading}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -422,7 +422,7 @@ export function BacklinkMetrics({
                 onClick={onExport}
                 variant="outline"
                 size="sm"
-                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) rounded-xl"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export
@@ -433,17 +433,17 @@ export function BacklinkMetrics({
 
         {/* Stats strip */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Total Pages</div>
-            <div className="text-xl font-bold text-white mt-1">{normalizedData.length}</div>
+          <div className="bg-white border border-(--nd-border) rounded-xl p-3">
+            <div className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider">Total Pages</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">{normalizedData.length}</div>
           </div>
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Filtered</div>
-            <div className="text-xl font-bold text-white mt-1">{filteredData.length}</div>
+          <div className="bg-white border border-(--nd-border) rounded-xl p-3">
+            <div className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider">Filtered</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">{filteredData.length}</div>
           </div>
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Needs More RDs</div>
-            <div className="text-xl font-bold text-white mt-1">{needsMoreRds}</div>
+          <div className="bg-white border border-(--nd-border) rounded-xl p-3">
+            <div className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider">Needs More RDs</div>
+            <div className="text-xl font-bold text-(--nd-text-primary) mt-1">{needsMoreRds}</div>
           </div>
         </div>
       </div>
@@ -452,21 +452,21 @@ export function BacklinkMetrics({
         {/* Sidebar Filter Panel */}
         <div className={`${sidebarOpen ? 'w-68' : 'w-0'} transition-all duration-300 overflow-hidden shrink-0`}>
           {sidebarOpen && (
-            <div className="bg-[#0D0D10] border border-zinc-800 rounded-xl p-4 h-full overflow-y-auto custom-scrollbar">
+            <div className="bg-white border border-(--nd-border) rounded-xl p-4 h-full overflow-y-auto custom-scrollbar">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-white">Column Filters</h3>
+                <h3 className="text-sm font-semibold text-(--nd-text-primary)">Column Filters</h3>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setSidebarOpen(false)}
-                  className="text-zinc-500 hover:text-white p-1 h-auto hover:bg-zinc-800/60"
+                  className="text-(--nd-text-muted) hover:text-(--nd-text-primary) p-1 h-auto hover:bg-(--nd-bg)"
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
 
               <div className="mb-4">
-                <label className="text-[11px] text-zinc-500 uppercase tracking-wider mb-1.5 block">
+                <label className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider mb-1.5 block">
                   Filter by URL/Type
                 </label>
                 <Input
@@ -476,7 +476,7 @@ export function BacklinkMetrics({
                     setUrlFilter(e.target.value)
                     setCurrentPage(1)
                   }}
-                  className="bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 text-xs h-8 rounded-lg"
+                  className="bg-(--nd-bg) border-(--nd-border) text-(--nd-text-primary) placeholder:text-(--nd-text-muted) text-xs h-8 rounded-lg"
                 />
               </div>
 
@@ -487,10 +487,10 @@ export function BacklinkMetrics({
                     <div key={category.name} className="space-y-2">
                       <button
                         onClick={() => toggleCategoryColumns(category)}
-                        className="flex items-center justify-between w-full text-xs font-medium text-zinc-200 hover:text-white"
+                        className="flex items-center justify-between w-full text-xs font-medium text-(--nd-text-primary) hover:text-(--nd-text-primary)"
                       >
                         <span>{category.name}</span>
-                        <span className="text-zinc-500">
+                        <span className="text-(--nd-text-muted)">
                           {visible}/{total}
                         </span>
                       </button>
@@ -498,13 +498,13 @@ export function BacklinkMetrics({
                         {category.columns.map((column) => (
                           <label
                             key={String(column)}
-                            className="flex items-center gap-2 text-xs text-zinc-400 hover:text-white cursor-pointer"
+                            className="flex items-center gap-2 text-xs text-(--nd-text-secondary) hover:text-(--nd-text-primary) cursor-pointer"
                           >
                             <input
                               type="checkbox"
                               checked={visibleColumns.has(column)}
                               onChange={() => toggleColumn(column)}
-                              className="rounded border-zinc-700 bg-zinc-900 text-blue-500 focus:ring-blue-500/50 focus:ring-offset-0"
+                              className="rounded border-(--nd-border) bg-white text-(--nd-purple) focus:ring-(--nd-purple)/50 focus:ring-offset-0"
                             />
                             <span className="truncate">{getColumnLabel(column)}</span>
                           </label>
@@ -526,7 +526,7 @@ export function BacklinkMetrics({
                 variant="outline"
                 size="sm"
                 onClick={() => setSidebarOpen(true)}
-                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary)"
               >
                 <ChevronRight className="h-4 w-4 mr-2" />
                 Show Filters
@@ -534,25 +534,25 @@ export function BacklinkMetrics({
             </div>
           )}
 
-          <div className="rounded-xl border border-zinc-800 bg-[#111113] overflow-hidden flex-1 min-h-0">
+          <div className="rounded-xl border border-(--nd-border) bg-white overflow-hidden flex-1 min-h-0">
             <div
               ref={tableContainerRef}
               className="overflow-x-auto overflow-y-auto max-w-full h-full custom-scrollbar"
             >
               <table className="w-full text-sm">
-                <thead className="bg-zinc-900/80 border-b border-zinc-800 sticky top-0 z-10">
+                <thead className="bg-(--nd-bg) border-b border-(--nd-border) sticky top-0 z-10">
                   <tr>
                     {orderedVisibleColumns.map((column) => renderTableHeader(column))}
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap sticky right-0 z-20 bg-zinc-900/80 border-l border-zinc-800">
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-(--nd-text-secondary) whitespace-nowrap sticky right-0 z-20 bg-(--nd-bg) border-l border-(--nd-border)">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800">
+                <tbody className="divide-y divide-(--nd-border)">
                   {isLoading ? (
                     <tr>
                       <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center">
-                        <div className="flex items-center justify-center gap-2 text-zinc-400">
+                        <div className="flex items-center justify-center gap-2 text-(--nd-text-muted)">
                           <RefreshCw className="h-5 w-5 animate-spin" />
                           <span>Loading data...</span>
                         </div>
@@ -560,7 +560,7 @@ export function BacklinkMetrics({
                     </tr>
                   ) : paginatedData.length === 0 ? (
                     <tr>
-                      <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center text-zinc-400">
+                      <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center text-(--nd-text-muted)">
                         No pages found. {(searchQuery || urlFilter) && 'Try adjusting your filters.'}
                       </td>
                     </tr>
@@ -568,24 +568,24 @@ export function BacklinkMetrics({
                     paginatedData.map((row, index) => (
                       <tr
                         key={row.id ?? row.url ?? index}
-                        className="group hover:bg-zinc-800/50 transition-colors"
+                        className="group hover:bg-(--nd-bg) transition-colors"
                       >
                         {orderedVisibleColumns.map((column) => (
                           <td
                             key={String(column)}
-                            className="px-3 py-2 text-zinc-200 text-center whitespace-normal overflow-wrap-break-word"
+                            className="px-3 py-2 text-(--nd-text-secondary) text-center whitespace-normal overflow-wrap-break-word"
                           >
                             {renderCellContent(row, column)}
                           </td>
                         ))}
-                        <td className="px-3 py-2 text-center sticky right-0 z-10 bg-[#111113] group-hover:bg-zinc-800/50 border-l border-zinc-800 transition-colors">
+                        <td className="px-3 py-2 text-center sticky right-0 z-10 bg-white group-hover:bg-(--nd-bg) border-l border-(--nd-border) transition-colors">
                           {(metricRunner.isRunning(row.url) || !row.fields?.backlink_metrics_last_run_at) && (
                             <Button
                               onClick={() => metricRunner.runOne(row.url)}
                               variant="outline"
                               size="sm"
                               disabled={!jobId || metricRunner.isRunning(row.url)}
-                              className="bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl min-w-24"
+                              className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) rounded-xl min-w-24"
                             >
                               <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isRunning(row.url) ? 'animate-spin' : ''}`} />
                               {metricRunner.isRunning(row.url) ? 'Running' : 'Run'}
@@ -603,7 +603,7 @@ export function BacklinkMetrics({
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-2">
-              <div className="text-sm text-zinc-500">
+              <div className="text-sm text-(--nd-text-muted)">
                 Showing {((currentPage - 1) * itemsPerPage) + 1} to{' '}
                 {Math.min(currentPage * itemsPerPage, sortedData.length)} of {sortedData.length} results
               </div>
@@ -613,7 +613,7 @@ export function BacklinkMetrics({
                   size="sm"
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 rounded-xl"
+                  className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) disabled:opacity-40 rounded-xl"
                 >
                   Previous
                 </Button>
@@ -633,8 +633,8 @@ export function BacklinkMetrics({
                         onClick={() => setCurrentPage(pageNum)}
                         className={`rounded-xl ${
                           currentPage === pageNum
-                            ? 'bg-white text-black border-white'
-                            : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white'
+                            ? 'bg-(--nd-purple) text-white border-(--nd-purple)'
+                            : 'bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary)'
                         }`}
                       >
                         {pageNum}
@@ -647,7 +647,7 @@ export function BacklinkMetrics({
                   size="sm"
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 rounded-xl"
+                  className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) disabled:opacity-40 rounded-xl"
                 >
                   Next
                 </Button>

@@ -1,11 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
+import { NdSelect, NdSelectItem } from '@/components/dashboard/ui/nd-select'
+import { NdSwitch } from '@/components/dashboard/ui/nd-switch'
 import { useGetProjectsQuery } from '@/store/api'
 import { Search, StopCircle, Loader2, Globe, FolderOpen, ChevronDown, ChevronUp } from 'lucide-react'
 
@@ -61,108 +58,115 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Project Selection */}
       <div className="space-y-2">
-        <Label htmlFor="project" className="text-white/90 text-sm font-medium flex items-center gap-2">
+        <label htmlFor="project" className="text-white/90 text-sm font-medium flex items-center gap-2">
           <FolderOpen className="h-4 w-4" />
           Select Project
-        </Label>
-        <Select value={projectId} onValueChange={setProjectId} disabled={loading}>
-          <SelectTrigger 
-            id="project"
-            className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-600 hover:bg-white/15 focus:bg-white/15 rounded-2xl"
-          >
-            <SelectValue placeholder="Choose a project..." />
-          </SelectTrigger>
-          <SelectContent className="bg-slate-900 border-zinc-700">
-            {isLoadingProjects ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
-                <span className="ml-2 text-sm text-zinc-500">Loading projects...</span>
-              </div>
-            ) : projects.length === 0 ? (
-              <div className="py-4 text-center text-sm text-zinc-500">
-                No projects found. Create one first.
-              </div>
-            ) : (
-              projects.map((project: { id: string; name: string }) => (
-                <SelectItem key={project.id} value={project.id.toString()} className="text-white">
-                  {project.name}
-                </SelectItem>
-              ))
-            )}
-          </SelectContent>
-        </Select>
+        </label>
+        <NdSelect
+          value={projectId}
+          onValueChange={setProjectId}
+          disabled={loading}
+          id="project"
+          placeholder="Choose a project..."
+          triggerStyle={{
+            background: 'rgba(39,39,42,0.5)',
+            borderColor: '#3f3f46',
+            color: projectId ? '#FFFFFF' : '#52525b',
+            borderRadius: 16,
+          }}
+        >
+          {isLoadingProjects ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
+              <span className="ml-2 text-sm text-zinc-500">Loading projects...</span>
+            </div>
+          ) : projects.length === 0 ? (
+            <div className="py-4 text-center text-sm text-zinc-500">
+              No projects found. Create one first.
+            </div>
+          ) : (
+            projects.map((project: { id: string; name: string }) => (
+              <NdSelectItem key={project.id} value={project.id.toString()}>
+                {project.name}
+              </NdSelectItem>
+            ))
+          )}
+        </NdSelect>
       </div>
 
       {/* URL Input */}
       <div className="space-y-2">
-        <Label htmlFor="url" className="text-white/90 text-sm font-medium flex items-center gap-2">
+        <label htmlFor="url" className="text-white/90 text-sm font-medium flex items-center gap-2">
           <Globe className="h-4 w-4" />
           Website URL
-        </Label>
+        </label>
         <div className="flex gap-2">
-          <Input
+          <input
             id="url"
             type="text"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="Enter website URL (e.g., example.com or https://example.com)"
-            className="flex-1 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-600 focus:bg-white/15 rounded-2xl"
+            className="flex-1 h-10 px-4 text-sm text-white placeholder:text-zinc-600 rounded-2xl border outline-none transition-colors"
+            style={{ background: 'rgba(39,39,42,0.5)', borderColor: '#3f3f46' }}
+            onFocus={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)' }}
+            onBlur={(e) => { e.currentTarget.style.background = 'rgba(39,39,42,0.5)' }}
             disabled={loading}
             required
           />
-          <Button
+          <button
             type="submit"
             disabled={loading || !url.trim() || !projectId}
-            className="bg-white text-black hover:bg-slate-100 rounded-2xl px-6 font-semibold"
+            className="inline-flex items-center gap-2 px-6 font-semibold text-sm rounded-2xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: '#FFFFFF', color: '#000000' }}
           >
             {loading ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Analyzing...
               </>
             ) : (
               <>
-                <Search className="h-4 w-4 mr-2" />
+                <Search className="h-4 w-4" />
                 Analyze
               </>
             )}
-          </Button>
+          </button>
           {onStop && (
-            <Button
+            <button
               type="button"
               onClick={onStop}
               disabled={!isProcessActive || stopping}
-              variant="destructive"
-              className="rounded-2xl px-6 font-semibold"
+              className="inline-flex items-center gap-2 px-6 font-semibold text-sm rounded-2xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: '#EF4444', color: '#FFFFFF' }}
             >
               {stopping ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Stopping...
                 </>
               ) : (
                 <>
-                  <StopCircle className="h-4 w-4 mr-2" />
+                  <StopCircle className="h-4 w-4" />
                   Stop
                 </>
               )}
-            </Button>
+            </button>
           )}
         </div>
       </div>
 
       {/* Run Crawl Option */}
       <div className="flex items-center space-x-2 rounded-2xl p-4 bg-zinc-800/40 border border-zinc-800 hover:bg-zinc-800/50 transition-all">
-        <Switch
+        <NdSwitch
           id="runCrawl"
           checked={runCrawl}
           onCheckedChange={setRunCrawl}
           disabled={loading}
-          className="data-[state=checked]:bg-white"
         />
-        <Label htmlFor="runCrawl" className="text-white/90 cursor-pointer flex-1 text-sm font-medium">
+        <label htmlFor="runCrawl" className="text-white/90 cursor-pointer flex-1 text-sm font-medium">
           🕷️ Run Crawl (Analyze multiple pages)
-        </Label>
+        </label>
       </div>
 
       {/* Advanced Options */}
@@ -185,69 +189,68 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
             <div className="space-y-4 pt-4 border-t border-zinc-800">
               {/* Allow Subdomains */}
               <div className="flex items-center justify-between">
-                <Label htmlFor="allowSubdomains" className="text-white/80 text-sm cursor-pointer">
+                <label htmlFor="allowSubdomains" className="text-white/80 text-sm cursor-pointer">
                   Allow Subdomains
-                </Label>
-                <Switch
+                </label>
+                <NdSwitch
                   id="allowSubdomains"
                   checked={allowSubdomains}
                   onCheckedChange={setAllowSubdomains}
                   disabled={loading}
-                  className="data-[state=checked]:bg-white"
                 />
               </div>
 
               {/* Run Audits */}
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="runAudits" className="text-white/80 text-sm cursor-pointer">
+                  <label htmlFor="runAudits" className="text-white/80 text-sm cursor-pointer">
                     🔍 Run Performance Audits (Optional)
-                  </Label>
+                  </label>
                   <p className="text-[10px] text-white/50">
                     Lighthouse audits with Core Web Vitals (LCP, TBT, CLS)
                   </p>
                 </div>
-                <Switch
+                <NdSwitch
                   id="runAudits"
                   checked={runAudits}
                   onCheckedChange={setRunAudits}
                   disabled={loading}
-                  className="data-[state=checked]:bg-white"
                 />
               </div>
 
               {/* Audit Device (only show if runAudits is enabled) */}
               {runAudits && (
                 <div className="space-y-2 pl-4 border-l-2 border-zinc-700">
-                  <Label htmlFor="auditDevice" className="text-white/80 text-sm">
+                  <label htmlFor="auditDevice" className="text-white/80 text-sm">
                     Audit Device
-                  </Label>
-                  <Select value={auditDevice} onValueChange={(value: 'mobile' | 'desktop') => setAuditDevice(value)} disabled={loading}>
-                    <SelectTrigger 
-                      id="auditDevice"
-                      className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-white/15"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-zinc-700">
-                      <SelectItem value="desktop" className="text-white">Desktop</SelectItem>
-                      <SelectItem value="mobile" className="text-white">Mobile</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  </label>
+                  <NdSelect
+                    value={auditDevice}
+                    onValueChange={(value) => setAuditDevice(value as 'mobile' | 'desktop')}
+                    disabled={loading}
+                    id="auditDevice"
+                    triggerStyle={{
+                      background: 'rgba(39,39,42,0.5)',
+                      borderColor: '#3f3f46',
+                      color: '#FFFFFF',
+                    }}
+                  >
+                    <NdSelectItem value="desktop">Desktop</NdSelectItem>
+                    <NdSelectItem value="mobile">Mobile</NdSelectItem>
+                  </NdSelect>
                 </div>
               )}
 
               {/* Capture Link Details */}
               <div className="flex items-center justify-between">
-                <Label htmlFor="captureLinkDetails" className="text-white/80 text-sm cursor-pointer">
+                <label htmlFor="captureLinkDetails" className="text-white/80 text-sm cursor-pointer">
                   Capture Link Details
-                </Label>
-                <Switch
+                </label>
+                <NdSwitch
                   id="captureLinkDetails"
                   checked={captureLinkDetails}
                   onCheckedChange={setCaptureLinkDetails}
                   disabled={loading}
-                  className="data-[state=checked]:bg-white"
                 />
               </div>
             </div>

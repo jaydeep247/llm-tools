@@ -49,20 +49,23 @@ const PRIORITY_COLORS: Record<string, string> = {
 }
 
 const PRIORITY_BADGE: Record<string, string> = {
-  High: 'bg-red-500/15 text-red-300 border border-red-500/20',
-  Medium: 'bg-yellow-500/15 text-yellow-300 border border-yellow-500/20',
-  Low: 'bg-zinc-500/15 text-zinc-400 border border-zinc-500/20',
-  high: 'bg-red-500/15 text-red-300 border border-red-500/20',
-  medium: 'bg-yellow-500/15 text-yellow-300 border border-yellow-500/20',
-  low: 'bg-zinc-500/15 text-zinc-400 border border-zinc-500/20',
+  High: 'bg-red-50 text-red-700 border border-red-200',
+  Medium: 'bg-amber-50 text-amber-700 border border-amber-200',
+  Low: 'bg-zinc-100 text-zinc-600 border border-zinc-200',
+  high: 'bg-red-50 text-red-700 border border-red-200',
+  medium: 'bg-amber-50 text-amber-700 border border-amber-200',
+  low: 'bg-zinc-100 text-zinc-600 border border-zinc-200',
 }
 
 function PieTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-xs shadow-2xl">
+    <div
+      className="rounded-xl px-3 py-2 text-xs shadow-lg"
+      style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)' }}
+    >
       <p style={{ color: payload[0].payload.fill }} className="font-semibold">{payload[0].name}</p>
-      <p className="text-white font-bold">{payload[0].value} actions</p>
+      <p className="font-bold" style={{ color: 'var(--nd-text-primary)' }}>{payload[0].value} actions</p>
     </div>
   )
 }
@@ -76,19 +79,27 @@ function ActionCard({ action, index }: { action: any; index: number }) {
   const description = action.action ?? action.description ?? action.suggestion ?? action.recommendation ?? ''
 
   return (
-    <div className="border border-zinc-800 rounded-xl overflow-hidden">
-      <button onClick={() => setExpanded(v => !v)}
-        className="w-full flex items-start justify-between gap-3 p-3.5 hover:bg-zinc-800/40 transition-colors text-left">
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{ border: '1px solid var(--nd-border)' }}
+    >
+      <button
+        onClick={() => setExpanded(v => !v)}
+        className="w-full flex items-start justify-between gap-3 p-3.5 text-left transition-colors"
+        style={{ background: 'transparent' }}
+        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--nd-nav-hover-bg)'}
+        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+      >
         <div className="flex items-start gap-3 min-w-0">
-          <span className="text-[10px] text-zinc-600 font-mono w-5 shrink-0 pt-0.5 text-right">{index + 1}</span>
+          <span className="text-[10px] font-mono w-5 shrink-0 pt-0.5 text-right" style={{ color: 'var(--nd-text-muted)' }}>{index + 1}</span>
           <div className="min-w-0">
-            <p className="text-xs text-zinc-200 leading-relaxed line-clamp-2">{description}</p>
+            <p className="text-xs leading-relaxed line-clamp-2" style={{ color: 'var(--nd-text-primary)' }}>{description}</p>
             <div className="flex flex-wrap gap-1.5 mt-1.5">
               {type && (
-                <span className="text-[10px] bg-zinc-700/50 text-zinc-400 rounded px-1.5 py-0.5">{type}</span>
+                <span className="text-[10px] rounded px-1.5 py-0.5" style={{ background: 'var(--nd-bg)', color: 'var(--nd-text-muted)', border: '1px solid var(--nd-border)' }}>{type}</span>
               )}
               {category && (
-                <span className="text-[10px] bg-blue-500/10 text-blue-300 rounded px-1.5 py-0.5">{category}</span>
+                <span className="text-[10px] rounded px-1.5 py-0.5" style={{ background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)' }}>{category}</span>
               )}
             </div>
           </div>
@@ -96,19 +107,19 @@ function ActionCard({ action, index }: { action: any; index: number }) {
         <div className="flex items-center gap-2 shrink-0">
           <div>
             <div className="flex items-center justify-end gap-1 mb-1">
-              <span className="text-[9px] text-zinc-600">impact</span>
+              <span className="text-[9px]" style={{ color: 'var(--nd-text-muted)' }}>impact</span>
               <FieldTooltip description={TOOLTIPS.actionImpact} />
             </div>
-            <span className="text-xs font-bold text-emerald-400 text-right block">+{typeof impact === 'number' ? impact.toFixed(1) : impact}</span>
+            <span className="text-xs font-bold text-emerald-600 text-right block">+{typeof impact === 'number' ? impact.toFixed(1) : impact}</span>
           </div>
           <Badge className={cn('text-[10px]', PRIORITY_BADGE[priority] ?? PRIORITY_BADGE['Low'])}>
             {priority}
           </Badge>
-          {expanded ? <ChevronUp className="w-3.5 h-3.5 text-zinc-500" /> : <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />}
+          {expanded ? <ChevronUp className="w-3.5 h-3.5" style={{ color: 'var(--nd-text-muted)' }} /> : <ChevronDown className="w-3.5 h-3.5" style={{ color: 'var(--nd-text-muted)' }} />}
         </div>
       </button>
       {expanded && (
-        <div className="px-4 pb-4 pt-1 border-t border-zinc-800/50 bg-zinc-800/20">
+        <div className="px-4 pb-4 pt-2 border-t" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
           <div className="grid grid-cols-2 gap-3 mt-2">
             {[
               { label: 'Type', val: type || 'N/A', tip: TOOLTIPS.actionType },
@@ -116,22 +127,22 @@ function ActionCard({ action, index }: { action: any; index: number }) {
               { label: 'Priority', val: priority, tip: TOOLTIPS.highPriority },
               { label: 'Estimated Impact', val: `+${typeof impact === 'number' ? impact.toFixed(1) : impact} pts`, tip: TOOLTIPS.actionImpact },
             ].filter(({ val }) => val && val !== 'N/A').map(({ label, val, tip }) => (
-              <div key={label} className="bg-zinc-800/50 rounded-lg p-2.5">
+              <div key={label} className="rounded-lg p-2.5" style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)' }}>
                 <div className="flex items-center gap-1 mb-1">
-                  <span className="text-[9px] text-zinc-500 uppercase tracking-wide">{label}</span>
+                  <span className="text-[9px] uppercase tracking-wide" style={{ color: 'var(--nd-text-muted)' }}>{label}</span>
                   <FieldTooltip description={tip} />
                 </div>
-                <span className="text-xs text-zinc-200 font-medium">{val}</span>
+                <span className="text-xs font-medium" style={{ color: 'var(--nd-text-primary)' }}>{val}</span>
               </div>
             ))}
           </div>
           {description && description.length > 100 && (
             <div className="mt-3">
               <div className="flex items-center gap-1 mb-1.5">
-                <span className="text-[9px] text-zinc-500 uppercase tracking-wide">Full Description</span>
+                <span className="text-[9px] uppercase tracking-wide" style={{ color: 'var(--nd-text-muted)' }}>Full Description</span>
                 <FieldTooltip description={TOOLTIPS.actionDescription} />
               </div>
-              <p className="text-xs text-zinc-400 leading-relaxed">{description}</p>
+              <p className="text-sm leading-relaxed" style={{ color: 'var(--nd-text-primary)' }}>{description}</p>
             </div>
           )}
         </div>
@@ -232,7 +243,7 @@ export default function ImprovementActions({ jobId, url, projectId }: Improvemen
 
   // Score improvement bar chart
   const scoreBarData = useMemo(() => [
-    { name: 'Current', score: Math.round(currentScore), fill: '#6b7280' },
+    { name: 'Current', score: Math.round(currentScore), fill: '#5347CE' },
     { name: 'Predicted', score: Math.round(predictedScore), fill: '#10b981' },
   ], [currentScore, predictedScore])
 
@@ -349,8 +360,8 @@ export default function ImprovementActions({ jobId, url, projectId }: Improvemen
       </Dialog>
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-white">Improvement Actions</h2>
-          <p className="text-sm text-zinc-400 mt-0.5">Prioritised fixes to maximise your AI Visibility score</p>
+          <h2 className="text-xl font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Improvement Actions</h2>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--nd-text-secondary)' }}>Prioritised fixes to maximise your AI Visibility score</p>
         </div>
         <button
           type="button"
@@ -358,7 +369,7 @@ export default function ImprovementActions({ jobId, url, projectId }: Improvemen
           disabled={!projectId || isAskingAI}
           className={cn(
             'inline-flex items-center gap-2 rounded-full border-0 px-5 py-2.5 text-sm font-extrabold uppercase tracking-wider text-black shadow-lg shadow-fuchsia-950/30',
-            'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
+            'bg-linear-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
             'disabled:cursor-not-allowed disabled:opacity-50',
           )}
         >
@@ -368,10 +379,13 @@ export default function ImprovementActions({ jobId, url, projectId }: Improvemen
       </div>
 
       {isLoadingData && (
-        <div className="flex items-center justify-center p-16 border border-zinc-800 rounded-2xl bg-zinc-800/30">
+        <div
+          className="flex items-center justify-center p-16 rounded-2xl"
+          style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' }}
+        >
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
-            <p className="text-sm text-zinc-400">Loading...</p>
+            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--nd-purple)' }} />
+            <p className="text-sm" style={{ color: 'var(--nd-text-muted)' }}>Loading...</p>
           </div>
         </div>
       )}
@@ -397,10 +411,10 @@ export default function ImprovementActions({ jobId, url, projectId }: Improvemen
       {hasData && !isLoadingData && !isAnalyzing && (
         <>
           {/* SECTION 1: Score Transformation */}
-          <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+          <div className="rounded-2xl p-5" style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)' }}>
             <div className="flex items-center gap-2 mb-5">
-              <TrendingUp className="w-4 h-4 text-emerald-400" />
-              <span className="text-sm font-semibold text-white">Score Improvement Potential</span>
+              <TrendingUp className="w-4 h-4 text-emerald-600" />
+              <span className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Score Improvement Potential</span>
               <FieldTooltip description="The projected improvement in your LLM Friendliness score if all recommended actions are implemented." />
               <button
                 type="button"
@@ -415,7 +429,8 @@ export default function ImprovementActions({ jobId, url, projectId }: Improvemen
                   )
                 }
                 disabled={!projectId || !jobId || isAskingAI}
-                className="ml-auto inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+                className="ml-auto inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold disabled:opacity-40"
+                style={{ color: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)', borderColor: 'rgba(83,71,206,0.25)' }}
               >
                 <MessageSquare className="size-3" />
                 Ask AI
@@ -426,40 +441,40 @@ export default function ImprovementActions({ jobId, url, projectId }: Improvemen
               {/* Score visual */}
               <div className="flex flex-col gap-4">
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-zinc-800/50 rounded-xl p-4 text-center">
+                  <div className="rounded-xl p-4 text-center" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
                     <div className="flex justify-center items-center gap-1 mb-1">
-                      <span className="text-[10px] text-zinc-500">Current</span>
+                      <span className="text-[10px]" style={{ color: 'var(--nd-text-secondary)' }}>Current</span>
                       <FieldTooltip description={TOOLTIPS.currentScore} />
                     </div>
-                    <span className="text-3xl font-bold text-zinc-300">{Math.round(currentScore)}</span>
+                    <span className="text-3xl font-bold" style={{ color: 'var(--nd-text-primary)' }}>{Math.round(currentScore)}</span>
                   </div>
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
+                  <div className="rounded-xl p-4 text-center" style={{ background: '#ECFDF5', border: '1px solid #A7F3D0' }}>
                     <div className="flex justify-center items-center gap-1 mb-1">
-                      <span className="text-[10px] text-emerald-400">Potential</span>
+                      <span className="text-[10px] text-emerald-600">Potential</span>
                       <FieldTooltip description={TOOLTIPS.scoreDelta} />
                     </div>
-                    <span className="text-3xl font-bold text-emerald-400">+{scoreDelta}</span>
+                    <span className="text-3xl font-bold text-emerald-600">+{scoreDelta}</span>
                   </div>
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 text-center">
+                  <div className="rounded-xl p-4 text-center" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
                     <div className="flex justify-center items-center gap-1 mb-1">
-                      <span className="text-[10px] text-blue-400">Predicted</span>
+                      <span className="text-[10px] text-blue-600">Predicted</span>
                       <FieldTooltip description={TOOLTIPS.predictedScore} />
                     </div>
-                    <span className="text-3xl font-bold text-blue-400">{Math.round(predictedScore)}</span>
+                    <span className="text-3xl font-bold text-blue-600">{Math.round(predictedScore)}</span>
                   </div>
                 </div>
 
                 {/* Visual progress bar */}
                 <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-zinc-500">
+                  <div className="flex justify-between text-xs" style={{ color: 'var(--nd-text-muted)' }}>
                     <span className="flex items-center gap-1">Current: {Math.round(currentScore)} <FieldTooltip description={TOOLTIPS.currentScore} /></span>
                     <span className="flex items-center gap-1">Target: {Math.round(predictedScore)} <FieldTooltip description={TOOLTIPS.predictedScore} /></span>
                   </div>
-                  <div className="h-4 bg-zinc-800 rounded-full overflow-hidden relative">
-                    <div className="absolute inset-y-0 left-0 bg-zinc-600 transition-all duration-700" style={{ width: `${Math.min(currentScore, 100)}%` }} />
-                    <div className="absolute inset-y-0 left-0 bg-emerald-500/40 transition-all duration-700" style={{ width: `${Math.min(predictedScore, 100)}%` }} />
+                  <div className="h-4 rounded-full overflow-hidden relative" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+                    <div className="absolute inset-y-0 left-0 transition-all duration-700" style={{ width: `${Math.min(currentScore, 100)}%`, background: 'rgba(83,71,206,0.35)' }} />
+                    <div className="absolute inset-y-0 left-0 transition-all duration-700" style={{ width: `${Math.min(predictedScore, 100)}%`, background: 'rgba(16,185,129,0.45)' }} />
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-[10px] font-semibold text-white">{Math.round(currentScore)} → {Math.round(predictedScore)}</span>
+                      <span className="text-[10px] font-semibold" style={{ color: 'var(--nd-text-primary)' }}>{Math.round(currentScore)} → {Math.round(predictedScore)}</span>
                     </div>
                   </div>
                 </div>
@@ -468,17 +483,17 @@ export default function ImprovementActions({ jobId, url, projectId }: Improvemen
               {/* Bar chart */}
               <ResponsiveContainer width="100%" height={120}>
                 <BarChart data={scoreBarData} barCategoryGap="40%">
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                  <XAxis dataKey="name" tick={{ fill: '#a1a1aa', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 100]} tick={{ fill: '#a1a1aa', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <Tooltip content={({ active, payload, label }: any) => {
-                    if (!active || !payload?.length) return null
-                    return (
-                      <div className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-xs shadow-xl">
-                        <p className="text-zinc-300 font-semibold">{label}: <span className="text-white font-bold">{payload[0].value}</span></p>
-                      </div>
-                    )
-                  }} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--nd-border)" />
+                    <XAxis dataKey="name" tick={{ fill: '#737890', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis domain={[0, 100]} tick={{ fill: '#737890', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip content={({ active, payload, label }: any) => {
+                      if (!active || !payload?.length) return null
+                      return (
+                        <div className="rounded-xl px-3 py-2 text-xs shadow-lg" style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)' }}>
+                          <p className="font-semibold" style={{ color: 'var(--nd-text-primary)' }}>{label}: <span className="font-bold">{payload[0].value}</span></p>
+                        </div>
+                      )
+                    }} cursor={{ fill: 'rgba(83,71,206,0.04)' }} />
                   <Bar dataKey="score" radius={[4, 4, 0, 0]} name="Score">
                     {scoreBarData.map((_: any, idx: number) => <Cell key={idx} fill={scoreBarData[idx].fill} />)}
                   </Bar>
@@ -488,10 +503,10 @@ export default function ImprovementActions({ jobId, url, projectId }: Improvemen
           </div>
 
           {/* SECTION 2: Priority Breakdown */}
-          <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+          <div className="rounded-2xl p-5" style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)' }}>
             <div className="flex items-center gap-2 mb-4">
-              <Zap className="w-4 h-4 text-amber-400" />
-              <span className="text-sm font-semibold text-white">Priority Breakdown</span>
+              <Zap className="w-4 h-4 text-amber-500" />
+              <span className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Priority Breakdown</span>
               <FieldTooltip description="Distribution of recommended actions by priority level." />
               <button
                 type="button"
@@ -507,7 +522,8 @@ export default function ImprovementActions({ jobId, url, projectId }: Improvemen
                   )
                 }
                 disabled={!projectId || !jobId || isAskingAI}
-                className="ml-auto inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+                className="ml-auto inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold disabled:opacity-40"
+                style={{ color: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)', borderColor: 'rgba(83,71,206,0.25)' }}
               >
                 <MessageSquare className="size-3" />
                 Ask AI
@@ -528,8 +544,8 @@ export default function ImprovementActions({ jobId, url, projectId }: Improvemen
                     {priorityPie.map(({ name, value, fill }) => (
                       <div key={name} className="flex items-center gap-2">
                         <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: fill }} />
-                        <span className="text-xs text-zinc-400">{name}</span>
-                        <span className="text-xs font-bold text-white ml-auto pl-4">{value}</span>
+                        <span className="text-xs" style={{ color: 'var(--nd-text-primary)' }}>{name}</span>
+                        <span className="text-xs font-bold ml-auto pl-4" style={{ color: 'var(--nd-text-primary)' }}>{value}</span>
                       </div>
                     ))}
                   </div>
@@ -537,17 +553,17 @@ export default function ImprovementActions({ jobId, url, projectId }: Improvemen
               ) : null}
               <div className="space-y-3">
                 {[
-                  { label: 'Total Actions', val: totalActions, tip: TOOLTIPS.totalActions, color: 'text-white' },
-                  { label: 'High Priority', val: highPriority, tip: TOOLTIPS.highPriority, color: 'text-red-400' },
-                  { label: 'Medium Priority', val: mediumPriority, tip: TOOLTIPS.mediumPriority, color: 'text-yellow-400' },
-                  { label: 'Low Priority', val: lowPriority, tip: TOOLTIPS.lowPriority, color: 'text-zinc-400' },
-                ].map(({ label, val, tip, color }) => (
-                  <div key={label} className="flex justify-between items-center py-2 border-b border-zinc-800/60 last:border-0">
+                  { label: 'Total Actions', val: totalActions, tip: TOOLTIPS.totalActions, textStyle: { color: 'var(--nd-text-primary)', fontWeight: 700 } },
+                  { label: 'High Priority', val: highPriority, tip: TOOLTIPS.highPriority, textStyle: { color: '#DC2626', fontWeight: 700 } },
+                  { label: 'Medium Priority', val: mediumPriority, tip: TOOLTIPS.mediumPriority, textStyle: { color: '#D97706', fontWeight: 700 } },
+                  { label: 'Low Priority', val: lowPriority, tip: TOOLTIPS.lowPriority, textStyle: { color: '#4A5068', fontWeight: 700 } },
+                ].map(({ label, val, tip, textStyle }) => (
+                  <div key={label} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: 'var(--nd-border)' }}>
                     <div className="flex items-center gap-1">
-                      <span className="text-xs text-zinc-400">{label}</span>
+                      <span className="text-xs font-medium" style={{ color: 'var(--nd-text-primary)' }}>{label}</span>
                       <FieldTooltip description={tip} />
                     </div>
-                    <span className={cn('text-sm font-bold', color)}>{val}</span>
+                    <span className="text-sm font-bold" style={textStyle}>{val}</span>
                   </div>
                 ))}
               </div>
@@ -556,14 +572,14 @@ export default function ImprovementActions({ jobId, url, projectId }: Improvemen
 
           {/* SECTION 3: Actions List */}
           {actions.length > 0 && (
-            <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+            <div className="rounded-2xl p-5" style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)' }}>
               <div className="flex items-center gap-2 mb-4">
-                <CheckCircle className="w-4 h-4 text-emerald-400" />
-                <span className="text-sm font-semibold text-white">Recommended Actions</span>
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <span className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Recommended Actions</span>
                 <FieldTooltip description="Complete list of improvements, ordered by priority. Click any action to see full details." />
-                <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 text-xs ml-auto">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full ml-auto" style={{ background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0' }}>
                   {filteredActions.length} of {actions.length}
-                </Badge>
+                </span>
                 <button
                   type="button"
                   onClick={() =>
@@ -578,7 +594,8 @@ export default function ImprovementActions({ jobId, url, projectId }: Improvemen
                     )
                   }
                   disabled={!projectId || !jobId || isAskingAI}
-                  className="inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+                  className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold disabled:opacity-40"
+                  style={{ color: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)', borderColor: 'rgba(83,71,206,0.25)' }}
                 >
                   <MessageSquare className="size-3" />
                   Ask AI
@@ -587,32 +604,40 @@ export default function ImprovementActions({ jobId, url, projectId }: Improvemen
 
               {/* Filters */}
               <div className="flex gap-2 flex-wrap mb-4">
-                <div className="flex items-center gap-1 text-[10px] text-zinc-500">
+                <div className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--nd-text-secondary)' }}>
                   <Filter className="w-3 h-3" />
                   <span>Priority:</span>
                 </div>
                 {(['All', 'High', 'Medium', 'Low'] as const).map((p) => (
-                  <button key={p} onClick={() => setFilterPriority(p)}
-                    className={cn('text-xs px-2.5 py-1 rounded-lg border transition-all',
+                  <button
+                    key={p}
+                    onClick={() => setFilterPriority(p)}
+                    className="text-xs px-2.5 py-1 rounded-lg border transition-all"
+                    style={
                       filterPriority === p
-                        ? 'bg-zinc-700 border-zinc-600 text-white'
-                        : 'bg-transparent border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
-                    )}>
+                        ? { background: 'var(--nd-purple-subtle)', borderColor: 'rgba(83,71,206,0.3)', color: 'var(--nd-purple)' }
+                        : { background: 'transparent', borderColor: 'var(--nd-border)', color: 'var(--nd-text-muted)' }
+                    }
+                  >
                     {p}
                   </button>
                 ))}
                 {categories.length > 1 && (
                   <>
-                    <div className="flex items-center gap-1 text-[10px] text-zinc-500 ml-2">
+                    <div className="flex items-center gap-1 text-[10px] ml-2" style={{ color: 'var(--nd-text-secondary)' }}>
                       <span>Category:</span>
                     </div>
                     {categories.map((cat) => (
-                      <button key={cat} onClick={() => setFilterCategory(cat)}
-                        className={cn('text-xs px-2.5 py-1 rounded-lg border transition-all',
+                      <button
+                        key={cat}
+                        onClick={() => setFilterCategory(cat)}
+                        className="text-xs px-2.5 py-1 rounded-lg border transition-all"
+                        style={
                           filterCategory === cat
-                            ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
-                            : 'bg-transparent border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
-                        )}>
+                            ? { background: 'var(--nd-purple-subtle)', borderColor: 'rgba(83,71,206,0.3)', color: 'var(--nd-purple)' }
+                            : { background: 'transparent', borderColor: 'var(--nd-border)', color: 'var(--nd-text-muted)' }
+                        }
+                      >
                         {cat}
                       </button>
                     ))}
@@ -627,7 +652,7 @@ export default function ImprovementActions({ jobId, url, projectId }: Improvemen
                     <ActionCard key={action.id ?? i} action={action} index={i} />
                   ))
                 ) : (
-                  <div className="flex items-center justify-center py-8 text-zinc-500">
+                  <div className="flex items-center justify-center py-8" style={{ color: 'var(--nd-text-muted)' }}>
                     <div className="text-center">
                       <AlertCircle className="w-6 h-6 mx-auto mb-2 opacity-40" />
                       <p className="text-xs">No actions match the current filters</p>

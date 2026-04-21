@@ -103,17 +103,17 @@ function GeminiLogo(props: any) {
 /* Flat color helpers — no gradients */
 
 function getScoreColor(score: number | null | undefined) {
-  if (score == null) return 'text-zinc-500'
-  if (score >= 80) return 'text-emerald-400'
-  if (score >= 50) return 'text-amber-400'
-  return 'text-rose-400'
+  if (score == null) return 'var(--nd-text-muted)'
+  if (score >= 80) return 'text-emerald-600'
+  if (score >= 50) return 'text-amber-600'
+  return 'text-rose-600'
 }
 
 function getScoreBorder(score: number | null | undefined) {
-  if (score == null) return 'border-zinc-800'
-  if (score >= 80) return 'border-emerald-500/30'
-  if (score >= 50) return 'border-amber-500/30'
-  return 'border-rose-500/30'
+  if (score == null) return ''
+  if (score >= 80) return 'border-emerald-200'
+  if (score >= 50) return 'border-amber-200'
+  return 'border-rose-200'
 }
 
 function getModelStats(rankingData: any, modelId: string) {
@@ -262,13 +262,13 @@ export default function AICitationRanking({ jobId, projectId, url, rankingData: 
       return {
         label: 'Claude',
         icon: null,
-        accent: 'border-zinc-600',
+        accent: '',
       }
     }
     return {
       label: modelId,
       icon: null,
-      accent: 'border-zinc-800',
+      accent: '',
     }
   }
 
@@ -281,12 +281,12 @@ export default function AICitationRanking({ jobId, projectId, url, rankingData: 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-800/50 border border-zinc-800">
-            <Trophy className="w-5 h-5 text-amber-400" />
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg border" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+            <Trophy className="w-5 h-5 text-amber-500" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h3 className="text-lg font-semibold text-foreground">AI Citation Ranking</h3>
+              <h2 className="nd-page-title">AI Citation Ranking</h2>
               <FieldTooltip description={AI_CITATION_SECTION_DESCRIPTION} />
             </div>
           </div>
@@ -296,7 +296,7 @@ export default function AICitationRanking({ jobId, projectId, url, rankingData: 
       {/* Warnings */}
       {!jobId && (
         <div className="p-4 border border-amber-500/30 bg-amber-500/5 rounded-xl">
-          <p className="text-sm text-amber-400">
+          <p className="text-sm text-amber-600 font-bold">
             <AlertCircle className="w-4 h-4 inline mr-2" />
             No active crawl job found. Please run a Site Crawler audit first.
           </p>
@@ -305,10 +305,10 @@ export default function AICitationRanking({ jobId, projectId, url, rankingData: 
 
       {rankingData?.errors && rankingData.errors.length > 0 && (
         <div className="p-4 border border-amber-500/30 bg-amber-500/5 rounded-xl flex items-start gap-3">
-          <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+          <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-medium text-amber-400">Analysis partially unavailable</p>
-            <p className="text-xs text-amber-400/70 mt-0.5">Something went wrong while fetching data from one or more AI models. Please try again later.</p>
+            <p className="text-sm font-bold text-amber-600">Analysis partially unavailable</p>
+            <p className="text-xs font-bold text-amber-600/70 mt-0.5">Something went wrong while fetching data from one or more AI models. Please try again later.</p>
           </div>
         </div>
       )}
@@ -316,7 +316,7 @@ export default function AICitationRanking({ jobId, projectId, url, rankingData: 
       {/* Empty state */}
       {!hasResults && !isRunning && (
         <AnalysisEmptyState
-          icon={<Trophy className="w-8 h-8 text-zinc-400" />}
+          icon={<Trophy className="w-8 h-8" style={{ color: 'var(--nd-text-muted)' }} />}
           title="No Citation Analysis Data"
           description="Click Run Analysis to see how your URL ranks in AI citations across ChatGPT, Claude, and Gemini."
           onRunAnalysis={handleRun}
@@ -327,7 +327,7 @@ export default function AICitationRanking({ jobId, projectId, url, rankingData: 
 
       {isPolling && (
         <div className="p-4 border border-blue-500/20 bg-blue-500/5 rounded-xl animate-pulse">
-          <p className="text-sm text-blue-400">
+          <p className="text-sm text-blue-600 font-bold">
             Analysis in progress... This may take up to 2 minutes as we query live LLMs.
           </p>
         </div>
@@ -350,31 +350,32 @@ export default function AICitationRanking({ jobId, projectId, url, rankingData: 
               <div
                 key={modelId}
                 className={cn(
-                  'rounded-2xl border bg-zinc-800/50 p-5 space-y-4',
+                  'rounded-2xl border p-5 space-y-4',
                   meta.accent
                 )}
+                style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}
               >
                 {/* Model header */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center w-9 h-9 rounded-full bg-zinc-800/50 border border-zinc-800">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-full border" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
                       {meta.icon}
                     </div>
                     <div>
-                      <div className="text-xs font-medium text-zinc-400 uppercase tracking-wider">AI Model</div>
-                      <div className="text-base font-semibold text-white">{meta.label}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>AI Model</div>
+                      <div className="text-base font-bold" style={{ color: 'var(--nd-text-primary)' }}>{meta.label}</div>
                     </div>
                   </div>
-                  <span className="rounded-full px-2.5 py-1 text-[11px] font-medium border border-zinc-800 bg-zinc-800/50 text-zinc-400">
+                  <span className="rounded-full px-2.5 py-1 text-[11px] font-bold border" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-muted)' }}>
                     {stats.rankingRows.length} prompts
                   </span>
                 </div>
 
                 {/* Metric cards — flat, no gradients */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className={cn('rounded-xl bg-zinc-800/50 border p-3', getScoreBorder(coverageScore))}>
+                  <div className={cn('rounded-xl border p-3', getScoreBorder(coverageScore))} style={{ background: 'var(--nd-bg)' }}>
                     <div className="mb-1 flex items-center justify-between gap-2">
-                      <div className="text-xs text-zinc-400">Coverage Score</div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>Coverage Score</div>
                       <ModuleEMetricAskButton
                         disabled={!canAskAi || isAskingAI}
                         onClick={() =>
@@ -389,25 +390,25 @@ export default function AICitationRanking({ jobId, projectId, url, rankingData: 
                       {coverageScore.toFixed(1)}%
                     </div>
                   </div>
-                  <div className={cn('rounded-xl bg-zinc-800/50 border p-3', getScoreBorder(contentQuality))}>
-                    <div className="text-xs text-zinc-400 mb-1">Content Quality</div>
+                  <div className={cn('rounded-xl border p-3', getScoreBorder(contentQuality))} style={{ background: 'var(--nd-bg)' }}>
+                    <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--nd-text-muted)' }}>Content Quality</div>
                     <div className={cn('text-lg font-bold', getScoreColor(contentQuality))}>
                       {contentQuality.toFixed(1)}
                     </div>
                   </div>
-                  <div className={cn('rounded-xl bg-zinc-800/50 border p-3', getScoreBorder(modelAvgAccuracy))}>
-                    <div className="text-xs text-zinc-400 mb-1">Avg Accuracy</div>
+                  <div className={cn('rounded-xl border p-3', getScoreBorder(modelAvgAccuracy))} style={{ background: 'var(--nd-bg)' }}>
+                    <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--nd-text-muted)' }}>Avg Accuracy</div>
                     <div className={cn('text-lg font-bold', getScoreColor(modelAvgAccuracy))}>
                       {modelAvgAccuracy.toFixed(1)}%
                     </div>
                   </div>
-                  <div className="rounded-xl bg-zinc-800/50 border border-zinc-800 p-3">
-                    <div className="text-xs text-zinc-400 mb-1">Avg Sentiment</div>
+                  <div className="rounded-xl border p-3" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+                    <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--nd-text-muted)' }}>Avg Sentiment</div>
                     <div className="flex items-center gap-2">
-                      <span className={cn('text-lg font-bold', modelAvgSentiment > 0.1 ? 'text-emerald-400' : modelAvgSentiment < -0.1 ? 'text-rose-400' : 'text-zinc-400')}>
+                      <span className={cn('text-lg font-bold', modelAvgSentiment > 0.1 ? 'text-emerald-700' : modelAvgSentiment < -0.1 ? 'text-rose-700' : '')} style={modelAvgSentiment >= -0.1 && modelAvgSentiment <= 0.1 ? { color: 'var(--nd-text-secondary)' } : {}}>
                         {modelAvgSentiment.toFixed(2)}
                       </span>
-                      <Badge variant={modelAvgSentiment > 0.1 ? 'success' : modelAvgSentiment < -0.1 ? 'destructive' : 'secondary'}>
+                      <Badge variant={modelAvgSentiment > 0.1 ? 'success' : modelAvgSentiment < -0.1 ? 'destructive' : 'secondary'} className="text-[10px] font-bold uppercase tracking-tight">
                         {modelAvgSentiment > 0.1 ? 'Pos' : modelAvgSentiment < -0.1 ? 'Neg' : 'Neu'}
                       </Badge>
                     </div>
@@ -416,16 +417,16 @@ export default function AICitationRanking({ jobId, projectId, url, rankingData: 
 
                 {/* Prompt ranking table */}
                 {stats.rankingRows.length > 0 && (
-                  <div className="rounded-xl border border-zinc-800 overflow-hidden">
-                    <div className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-zinc-400 bg-zinc-800/50 border-b border-zinc-800">
+                  <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--nd-border)' }}>
+                    <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b" style={{ color: 'var(--nd-text-muted)', background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
                       Ranking position per prompt
                     </div>
                     <div className="max-h-64 overflow-auto">
                       <table className="w-full">
-                        <thead className="bg-zinc-800/30 border-b border-zinc-800">
+                        <thead className="border-b" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
                           <tr>
                             {(['Prompt', 'Status', 'Position', 'Percentile', 'Accuracy', 'Sentiment'] as const).map((h) => (
-                              <th key={h} className="px-4 py-2.5 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
+                              <th key={h} className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>
                                 <div className="flex items-center gap-1">
                                   <span>{h}</span>
                                   <FieldTooltip description={PROMPT_RANKING_FIELD_DESCRIPTIONS[h] ?? ''} />
@@ -434,49 +435,49 @@ export default function AICitationRanking({ jobId, projectId, url, rankingData: 
                             ))}
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-800/50 text-xs">
+                        <tbody className="divide-y text-xs" style={{ borderColor: 'var(--nd-border)' }}>
                           {stats.rankingRows.slice(0, 8).map((row: any, i: number) => {
                             const percentile = stats.percentilesByPrompt[row.prompt]
                             return (
-                              <tr key={i} className="hover:bg-zinc-800/50 transition-colors">
-                                <td className="px-4 py-2.5 text-zinc-300 max-w-xs truncate" title={row.prompt}>
+                              <tr key={i} className="hover:bg-black/5 transition-colors">
+                                <td className="px-4 py-2.5 font-bold max-w-xs truncate" style={{ color: 'var(--nd-text-secondary)' }} title={row.prompt}>
                                   {row.prompt}
                                 </td>
                                 <td className="px-4 py-2.5">
-                                  <span className="text-xs text-zinc-400">
+                                  <span className="text-xs font-bold" style={{ color: 'var(--nd-text-muted)' }}>
                                     {row.mention_status ?? (row.position != null ? 'Cited' : 'Not Mentioned')}
                                   </span>
                                 </td>
                                 <td className="px-4 py-2.5">
                                   {row.position != null ? (
-                                    <span className="font-medium text-white">#{row.position}</span>
+                                    <span className="font-bold" style={{ color: 'var(--nd-text-primary)' }}>#{row.position}</span>
                                   ) : (
-                                    <span className="text-zinc-600">&#8212;</span>
+                                    <span style={{ color: 'var(--nd-text-muted)' }}>&#8212;</span>
                                   )}
                                 </td>
                                 <td className="px-4 py-2.5">
                                   {percentile != null ? (
-                                    <Badge variant={getPercentileBadgeColor(percentile)}>{percentile}%</Badge>
+                                    <Badge variant={getPercentileBadgeColor(percentile)} className="text-[10px] font-bold">{percentile}%</Badge>
                                   ) : (
-                                    <span className="text-zinc-600">&#8212;</span>
+                                    <span style={{ color: 'var(--nd-text-muted)' }}>&#8212;</span>
                                   )}
                                 </td>
                                 <td className="px-4 py-2.5">
                                   {row.accuracy_score != null ? (
-                                    <Badge variant={row.accuracy_score >= 80 ? 'success' : row.accuracy_score >= 50 ? 'warning' : 'destructive'}>
+                                    <Badge variant={row.accuracy_score >= 80 ? 'success' : row.accuracy_score >= 50 ? 'warning' : 'destructive'} className="text-[10px] font-bold">
                                       {row.accuracy_score.toFixed(0)}%
                                     </Badge>
                                   ) : (
-                                    <span className="text-zinc-600">&#8212;</span>
+                                    <span style={{ color: 'var(--nd-text-muted)' }}>&#8212;</span>
                                   )}
                                 </td>
                                 <td className="px-4 py-2.5">
                                   {row.sentiment_score != null ? (
-                                    <Badge variant={row.sentiment_score > 0.3 ? 'success' : row.sentiment_score < -0.3 ? 'destructive' : 'secondary'}>
+                                    <Badge variant={row.sentiment_score > 0.3 ? 'success' : row.sentiment_score < -0.3 ? 'destructive' : 'secondary'} className="text-[10px] font-bold">
                                       {row.sentiment_score > 0.3 ? 'Positive' : row.sentiment_score < -0.3 ? 'Negative' : 'Neutral'}
                                     </Badge>
                                   ) : (
-                                    <span className="text-zinc-600">&#8212;</span>
+                                    <span style={{ color: 'var(--nd-text-muted)' }}>&#8212;</span>
                                   )}
                                 </td>
                               </tr>

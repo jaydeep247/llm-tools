@@ -38,7 +38,7 @@ const CHART_H = 200
 const TREND_COLORS = ['#f59e0b', '#10b981', '#60a5fa', '#f472b6', '#22d3ee', '#a78bfa']
 
 const CARD_CLASS =
-  'rounded-2xl border border-zinc-800/90 bg-gradient-to-b from-[#191919] to-[#121212] shadow-[0_8px_24px_rgba(0,0,0,0.22)] backdrop-blur-sm'
+  'rounded-2xl border shadow-sm'
 
 function num(v: unknown): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : 0
@@ -51,14 +51,14 @@ function formatSigned(v: number): string {
 // IMPORTANT: For competitor deltas, positive = they are gaining = BAD for us = RED
 // This is INVERTED from the customer's own metrics (PDF spec section 07)
 function competitorDeltaClass(delta: number): string {
-  if (delta > 0) return 'text-rose-300'   // competitor gained — bad for us
-  if (delta < 0) return 'text-emerald-300' // competitor lost — good for us
-  return 'text-zinc-400'
+  if (delta > 0) return 'text-rose-700'   // competitor gained — bad for us
+  if (delta < 0) return 'text-emerald-700' // competitor lost — good for us
+  return ''
 }
 
 function competitorDeltaIcon(delta: number) {
-  if (delta > 0) return <TrendingUp className="h-3 w-3 text-rose-400 inline" />
-  if (delta < 0) return <TrendingDown className="h-3 w-3 text-emerald-400 inline" />
+  if (delta > 0) return <TrendingUp className="h-3 w-3 text-rose-600 inline" />
+  if (delta < 0) return <TrendingDown className="h-3 w-3 text-emerald-600 inline" />
   return null
 }
 
@@ -251,24 +251,20 @@ export default function CompetitorReportsPanel({
       <div className="space-y-2">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border border-violet-400/20 bg-violet-400/10 text-[11px] text-violet-200 mb-2">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border mb-2" style={{ borderColor: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)', fontSize: '11px' }}>
               <Sparkles className="h-3.5 w-3.5" />
               Competitive Intelligence Dashboard
             </div>
-            <h2 className="text-2xl md:text-[30px] font-bold text-white tracking-tight">
-              Competitor Reports
-            </h2>
-            <p className="text-zinc-400 text-sm mt-1">
+            <h2 className="nd-page-title">Competitor Reports</h2>
+            <p className="text-sm mt-1" style={{ color: 'var(--nd-text-secondary)' }}>
               Track competitor share, prompt wins, top pages, and growth trends in one place.
             </p>
           </div>
-          {/* Global period toggle */}
           <DateRangeToggle />
         </div>
 
-        {/* Comparison label from meta */}
         {reportData?.meta?.compared_to_label && (
-          <p className="text-[12px] text-zinc-500">
+          <p className="text-[12px]" style={{ color: 'var(--nd-text-muted)' }}>
             {reportData.meta.compared_to_label}
           </p>
         )}
@@ -276,38 +272,38 @@ export default function CompetitorReportsPanel({
 
       {/* ── Summary cards ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className={cn(CARD_CLASS, 'p-4')}>
-          <div className="flex items-center gap-2 text-zinc-400 text-xs">
-            <Users className="h-3.5 w-3.5 text-cyan-300" /> Active competitors
+        <div className={cn(CARD_CLASS, 'p-4')} style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+          <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--nd-text-muted)' }}>
+            <Users className="h-3.5 w-3.5" style={{ color: 'var(--nd-teal)' }} /> Active competitors
           </div>
-          <div className="text-2xl font-bold text-white mt-2">{filteredCompetitors.length}</div>
+          <div className="text-2xl font-bold mt-2" style={{ color: 'var(--nd-text-primary)' }}>{filteredCompetitors.length}</div>
         </div>
-        <div className={cn(CARD_CLASS, 'p-4')}>
-          <div className="flex items-center gap-2 text-zinc-400 text-xs">
-            <Target className="h-3.5 w-3.5 text-amber-300" /> Tracked prompts
+        <div className={cn(CARD_CLASS, 'p-4')} style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+          <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--nd-text-muted)' }}>
+            <Target className="h-3.5 w-3.5 text-amber-500" /> Tracked prompts
           </div>
-          <div className="text-2xl font-bold text-white mt-2">{promptRows.length}</div>
+          <div className="text-2xl font-bold mt-2" style={{ color: 'var(--nd-text-primary)' }}>{promptRows.length}</div>
         </div>
-        <div className={cn(CARD_CLASS, 'p-4')}>
-          <div className="flex items-center gap-2 text-zinc-400 text-xs">
-            <BarChart3 className="h-3.5 w-3.5 text-emerald-300" /> Trend snapshots
+        <div className={cn(CARD_CLASS, 'p-4')} style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+          <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--nd-text-muted)' }}>
+            <BarChart3 className="h-3.5 w-3.5 text-emerald-600" /> Trend snapshots
           </div>
-          <div className="text-2xl font-bold text-white mt-2">{trendHistory.length}</div>
+          <div className="text-2xl font-bold mt-2" style={{ color: 'var(--nd-text-primary)' }}>{trendHistory.length}</div>
         </div>
       </div>
 
       {/* ── Competitor selector ──────────────────────────────────────────── */}
-      <div className={cn(CARD_CLASS, 'p-4 md:p-5 relative z-40')}>
+      <div className={cn(CARD_CLASS, 'p-4 md:p-5 relative z-40')} style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <span className="text-[11px] text-zinc-500 uppercase tracking-[0.14em] font-semibold">
+            <span className="text-[11px] uppercase tracking-[0.14em] font-semibold" style={{ color: 'var(--nd-text-muted)' }}>
               Competitor Selector
             </span>
-            <p className="text-xs text-zinc-500 mt-1">
+            <p className="text-xs mt-1" style={{ color: 'var(--nd-text-muted)' }}>
               Pick competitors to filter every block in this report.
             </p>
           </div>
-          <div className="text-[11px] text-zinc-500">
+          <div className="text-[11px]" style={{ color: 'var(--nd-text-muted)' }}>
             {allCompetitors.length > 0
               ? `${allCompetitors.length} tracked`
               : 'No competitors tracked'}
@@ -317,7 +313,8 @@ export default function CompetitorReportsPanel({
           <button
             onClick={() => setSelectorOpen((v) => !v)}
             disabled={allCompetitors.length === 0}
-            className="px-3 py-2 rounded-lg border border-zinc-700/60 bg-zinc-900/70 text-zinc-200 hover:bg-zinc-800/70 text-sm inline-flex items-center gap-2 disabled:opacity-50"
+            className="px-3 py-2 rounded-lg border text-sm inline-flex items-center gap-2 disabled:opacity-50 transition-colors"
+            style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)', color: 'var(--nd-text-primary)' }}
           >
             {selectedCompetitors.length === 0
               ? 'All competitors selected'
@@ -325,14 +322,13 @@ export default function CompetitorReportsPanel({
             <ChevronDown className="h-4 w-4" />
           </button>
           {selectorOpen && (
-            <div className="mt-2 w-72 rounded-xl border border-zinc-700 bg-zinc-900/95 backdrop-blur-md p-3 shadow-xl absolute z-50">
+            <div className="mt-2 w-72 rounded-xl p-3 shadow-xl absolute z-50" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
               {allCompetitors.map((name) => (
-                <label key={name} className="flex items-center gap-2 text-sm text-zinc-200 py-1 cursor-pointer">
+                <label key={name} className="flex items-center gap-2 text-sm py-1 cursor-pointer" style={{ color: 'var(--nd-text-primary)' }}>
                   <input
                     type="checkbox"
                     checked={selectedSet.has(name)}
                     onChange={() => toggleCompetitor(name)}
-                    className="accent-amber-400"
                   />
                   {name}
                 </label>
@@ -344,45 +340,44 @@ export default function CompetitorReportsPanel({
 
       {/* ── Loading ──────────────────────────────────────────────────────── */}
       {loadingCombined && (
-        <div className={cn(CARD_CLASS, 'p-8 text-center text-zinc-400')}>
+        <div className={cn(CARD_CLASS, 'p-8 text-center')} style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)', color: 'var(--nd-text-muted)' }}>
           <Loader2 className="h-5 w-5 animate-spin inline-block mr-2" />
           Loading competitor report...
         </div>
       )}
 
       {showSnapshotNotice && (
-        <div className={cn(CARD_CLASS, 'p-5')}>
-          <p className="text-zinc-200 font-medium">Showing current competitor snapshot</p>
-          <p className="text-zinc-500 text-sm mt-1">
+        <div className={cn(CARD_CLASS, 'p-5')} style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+          <p className="font-medium" style={{ color: 'var(--nd-text-primary)' }}>Showing current competitor snapshot</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--nd-text-secondary)' }}>
             This is your first completed analysis in the selected period. Current competitor data
             is available now, and deltas will appear automatically after a later comparison run.
           </p>
         </div>
       )}
 
-      {/* ── No prior job / insufficient data ────────────────────────────── */}
       {noPriorJob && !hasData && (
-        <div className={cn(CARD_CLASS, 'p-10 text-center')}>
-          <p className="text-zinc-300 font-medium">Comparison data not yet available</p>
-          <p className="text-zinc-500 text-sm mt-1">
+        <div className={cn(CARD_CLASS, 'p-10 text-center')} style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+          <p className="font-medium" style={{ color: 'var(--nd-text-primary)' }}>Comparison data not yet available</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--nd-text-secondary)' }}>
             Your first run has finished, but no competitor snapshot data was found yet for this
             period. Run analysis again after competitor tracking is configured to see changes.
           </p>
         </div>
       )}
 
-      {/* ── No competitors added ─────────────────────────────────────────── */}
       {!loadingCombined && !noPriorJob && !hasData && (
-        <div className={cn(CARD_CLASS, 'p-10 text-center')}>
-          <p className="text-zinc-300 font-medium">No competitor data yet</p>
-          <p className="text-zinc-500 text-sm mt-1">
+        <div className={cn(CARD_CLASS, 'p-10 text-center')} style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+          <p className="font-medium" style={{ color: 'var(--nd-text-primary)' }}>No competitor data yet</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--nd-text-secondary)' }}>
             Add competitor domains in the Competitors module to start tracking their AI
             visibility.
           </p>
           {onNavigate && (
             <button
               onClick={() => onNavigate('visibility-comparision')}
-              className="mt-4 px-4 py-2 rounded-xl bg-amber-500/15 border border-amber-500/25 text-amber-300 text-sm font-semibold hover:bg-amber-500/25 transition-all"
+              className="mt-4 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{ background: 'var(--nd-purple-subtle)', border: '1px solid var(--nd-purple)', color: 'var(--nd-purple)' }}
             >
               Add Competitor
             </button>
@@ -394,76 +389,44 @@ export default function CompetitorReportsPanel({
       {!loadingCombined && hasData && (
         <>
           {/* SoV Comparison Table */}
-          <div className={cn(CARD_CLASS, 'p-4 md:p-5 overflow-x-auto')}>
+          <div className={cn(CARD_CLASS, 'p-4 md:p-5 overflow-x-auto')} style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
             <div className="flex items-center justify-between gap-3 mb-3">
               <div>
-                <h3 className="text-sm font-semibold text-white mb-1">SoV Comparison Table</h3>
-                <p className="text-xs text-zinc-500">
+                <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--nd-text-primary)' }}>SoV Comparison Table</h3>
+                <p className="text-xs" style={{ color: 'var(--nd-text-muted)' }}>
                   Compare share-of-voice and citation movement.
-                  <span className="ml-2 text-[10px] text-zinc-600">
+                  <span className="ml-2 text-[10px]" style={{ color: 'var(--nd-text-muted)' }}>
                     ↑ red = competitor gaining | ↓ green = competitor losing
                   </span>
                 </p>
               </div>
-              <span className="text-[11px] px-2 py-1 rounded-full border border-zinc-700 text-zinc-400 shrink-0">
-                Sortable
-              </span>
+              <span className="text-[11px] px-2 py-1 rounded-full border shrink-0" style={{ borderColor: 'var(--nd-border)', color: 'var(--nd-text-muted)' }}>Sortable</span>
             </div>
             <table className="min-w-full text-sm">
-              <thead className="text-zinc-500 border-b border-zinc-800/80">
+              <thead className="border-b" style={{ color: 'var(--nd-text-muted)', borderColor: 'var(--nd-border)' }}>
                 <tr>
-                  <th
-                    className="text-left py-2 pr-3 cursor-pointer hover:text-zinc-300 transition-colors"
-                    onClick={() => setSort('name')}
-                  >
-                    Competitor{sortIndicator('name')}
-                  </th>
+                  <th className="text-left py-2 pr-3 cursor-pointer transition-colors hover:opacity-80" onClick={() => setSort('name')}>Competitor{sortIndicator('name')}</th>
                   <th className="text-left py-2 pr-3">Primary Model</th>
-                  <th
-                    className="text-left py-2 pr-3 cursor-pointer hover:text-zinc-300 transition-colors"
-                    onClick={() => setSort('sov')}
-                  >
-                    SoV %{sortIndicator('sov')}
-                  </th>
-                  <th
-                    className="text-left py-2 pr-3 cursor-pointer hover:text-zinc-300 transition-colors"
-                    onClick={() => setSort('sovDelta')}
-                  >
-                    SoV Δ{sortIndicator('sovDelta')}
-                  </th>
-                  <th
-                    className="text-left py-2 pr-3 cursor-pointer hover:text-zinc-300 transition-colors"
-                    onClick={() => setSort('citations')}
-                  >
-                    Citations{sortIndicator('citations')}
-                  </th>
-                  <th
-                    className="text-left py-2 cursor-pointer hover:text-zinc-300 transition-colors"
-                    onClick={() => setSort('citationDelta')}
-                  >
-                    Citation Δ{sortIndicator('citationDelta')}
-                  </th>
+                  <th className="text-left py-2 pr-3 cursor-pointer transition-colors hover:opacity-80" onClick={() => setSort('sov')}>SoV %{sortIndicator('sov')}</th>
+                  <th className="text-left py-2 pr-3 cursor-pointer transition-colors hover:opacity-80" onClick={() => setSort('sovDelta')}>SoV Δ{sortIndicator('sovDelta')}</th>
+                  <th className="text-left py-2 pr-3 cursor-pointer transition-colors hover:opacity-80" onClick={() => setSort('citations')}>Citations{sortIndicator('citations')}</th>
+                  <th className="text-left py-2 cursor-pointer transition-colors hover:opacity-80" onClick={() => setSort('citationDelta')}>Citation Δ{sortIndicator('citationDelta')}</th>
                 </tr>
               </thead>
               <tbody>
                 {tableRows.map((row) => (
-                  <tr
-                    key={row.name}
-                    className="border-b border-zinc-900/70 hover:bg-zinc-900/45 transition-colors"
-                  >
-                    <td className="py-2 pr-3 text-zinc-200 font-medium">{row.name}</td>
-                    <td className="py-2 pr-3 text-zinc-400 text-xs">{row.model}</td>
-                    <td className="py-2 pr-3 text-zinc-300">{row.sov.toFixed(1)}%</td>
-                    {/* Inverted: competitor SoV gain = red (bad for us) */}
-                    <td className={cn('py-2 pr-3 text-xs font-semibold', competitorDeltaClass(row.sovDelta))}>
+                  <tr key={row.name} className="border-b transition-colors hover:bg-black/5" style={{ borderColor: 'var(--nd-border)' }}>
+                    <td className="py-2 pr-3 font-medium" style={{ color: 'var(--nd-text-primary)' }}>{row.name}</td>
+                    <td className="py-2 pr-3 text-xs" style={{ color: 'var(--nd-text-muted)' }}>{row.model}</td>
+                    <td className="py-2 pr-3" style={{ color: 'var(--nd-text-secondary)' }}>{row.sov.toFixed(1)}%</td>
+                    <td className={cn('py-2 pr-3 text-xs font-semibold', competitorDeltaClass(row.sovDelta))} style={!competitorDeltaClass(row.sovDelta) ? { color: 'var(--nd-text-muted)' } : {}}>
                       <span className="inline-flex items-center gap-1">
                         {competitorDeltaIcon(row.sovDelta)}
                         {formatSigned(row.sovDelta)}
                       </span>
                     </td>
-                    <td className="py-2 pr-3 text-zinc-300">{row.citations}</td>
-                    {/* Inverted: competitor citation gain = red */}
-                    <td className={cn('py-2 text-xs font-semibold', competitorDeltaClass(row.citationDelta))}>
+                    <td className="py-2 pr-3" style={{ color: 'var(--nd-text-secondary)' }}>{row.citations}</td>
+                    <td className={cn('py-2 text-xs font-semibold', competitorDeltaClass(row.citationDelta))} style={!competitorDeltaClass(row.citationDelta) ? { color: 'var(--nd-text-muted)' } : {}}>
                       <span className="inline-flex items-center gap-1">
                         {competitorDeltaIcon(row.citationDelta)}
                         {formatSigned(row.citationDelta)}
@@ -473,31 +436,24 @@ export default function CompetitorReportsPanel({
                 ))}
                 {tableRows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-6 text-center text-zinc-500 text-sm">
-                      No competitor data for this period.
-                    </td>
+                    <td colSpan={6} className="py-6 text-center text-sm" style={{ color: 'var(--nd-text-muted)' }}>No competitor data for this period.</td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
 
-          {/* Prompt Win/Loss Matrix */}
           {promptRows.length > 0 && (
-            <div className={cn(CARD_CLASS, 'p-4 md:p-5 overflow-x-auto')}>
-              <h3 className="text-sm font-semibold text-white mb-1">Prompt Win/Loss Matrix</h3>
-              <p className="text-xs text-zinc-500 mb-3">
-                See who appears in AI answers for your tracked prompts.
-              </p>
+            <div className={cn(CARD_CLASS, 'p-4 md:p-5 overflow-x-auto')} style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+              <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--nd-text-primary)' }}>Prompt Win/Loss Matrix</h3>
+              <p className="text-xs mb-3" style={{ color: 'var(--nd-text-muted)' }}>See who appears in AI answers for your tracked prompts.</p>
               <table className="min-w-full text-xs">
-                <thead className="text-zinc-500 border-b border-zinc-800">
+                <thead className="border-b" style={{ color: 'var(--nd-text-muted)', borderColor: 'var(--nd-border)' }}>
                   <tr>
                     <th className="text-left py-2 pr-3">Prompt</th>
                     <th className="text-left py-2 pr-3">Your Brand</th>
                     {filteredCompetitors.map((c) => (
-                      <th key={c.name} className="text-left py-2 pr-3">
-                        {c.name}
-                      </th>
+                      <th key={c.name} className="text-left py-2 pr-3">{c.name}</th>
                     ))}
                   </tr>
                 </thead>
@@ -513,21 +469,22 @@ export default function CompetitorReportsPanel({
                     return (
                       <tr
                         key={`${row.prompt}-${idx}`}
-                        className="border-b border-zinc-900/70 hover:bg-zinc-900/35 transition-colors"
+                        className="border-b transition-colors hover:bg-black/5"
+                        style={{ borderColor: 'var(--nd-border)' }}
                       >
-                        <td className="py-2 pr-3 text-zinc-200 max-w-[320px] truncate">
+                        <td className="py-2 pr-3 max-w-[320px] truncate" style={{ color: 'var(--nd-text-secondary)' }}>
                           {row.prompt}
                         </td>
                         <td className="py-2 pr-3">
                           <button
                             onClick={() => setActivePrompt(activePrompt === idx ? null : idx)}
                             className={cn(
-                              'px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all',
+                              'px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all border',
                               brandStatus === 'CITED'
-                                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                 : brandStatus === 'PARTIAL'
-                                ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                                : 'bg-rose-500/15 text-rose-300 border border-rose-500/30',
+                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                : 'bg-red-50 text-red-700 border-red-200',
                             )}
                           >
                             {brandStatus}
@@ -535,18 +492,13 @@ export default function CompetitorReportsPanel({
                         </td>
                         {filteredCompetitors.map((c) => {
                           const rankMap = ((row as any).ranks ?? (row as any).rankings ?? {}) as Record<string, number>
-                          
-                          // Helper to normalize keys for lookup
                           const normalize = (s: string) => s.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '')
                           const targetKey = normalize(c.name)
-                          
-                          // Try exact match then fuzzy match
                           let rank = rankMap[c.name]
                           if (rank === undefined) {
                             const foundKey = Object.keys(rankMap).find(k => normalize(k) === targetKey)
                             if (foundKey) rank = rankMap[foundKey]
                           }
-
                           const status =
                             !rank || rank <= 0
                               ? 'NOT_CITED'
@@ -557,12 +509,12 @@ export default function CompetitorReportsPanel({
                             <td key={c.name} className="py-2 pr-3">
                               <span
                                 className={cn(
-                                  'px-2 py-0.5 rounded-full text-[10px] font-semibold',
+                                  'px-2 py-0.5 rounded-full text-[10px] font-semibold border',
                                   status === 'CITED'
-                                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                     : status === 'PARTIAL'
-                                    ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                                    : 'bg-rose-500/15 text-rose-300 border border-rose-500/30',
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                    : 'bg-red-50 text-red-700 border-red-200',
                                 )}
                               >
                                 {status}
@@ -576,9 +528,9 @@ export default function CompetitorReportsPanel({
                 </tbody>
               </table>
               {activePrompt !== null && promptRows[activePrompt] && (
-                <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
-                  <p className="text-xs text-zinc-500">Response excerpt</p>
-                  <p className="text-sm text-zinc-200 mt-1">
+                <div className="mt-3 rounded-xl border p-3" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+                  <p className="text-xs" style={{ color: 'var(--nd-text-muted)' }}>Response excerpt</p>
+                  <p className="text-sm mt-1" style={{ color: 'var(--nd-text-primary)' }}>
                     {(promptRows[activePrompt] as any).text_snippet ||
                       'No response text available for this prompt.'}
                   </p>
@@ -590,18 +542,16 @@ export default function CompetitorReportsPanel({
           {/* Opportunity Gaps + Top Pages */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {/* Opportunity Gap List */}
-            <div className={cn(CARD_CLASS, 'p-4 md:p-5')}>
-              <h3 className="text-sm font-semibold text-white mb-1">Opportunity Gap List</h3>
-              <p className="text-xs text-zinc-500 mb-3">
-                High-impact prompts where competitors are currently winning.
-              </p>
+            <div className={cn(CARD_CLASS, 'p-4 md:p-5')} style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+              <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--nd-text-primary)' }}>Opportunity Gap List</h3>
+              <p className="text-xs mb-3" style={{ color: 'var(--nd-text-muted)' }}>High-impact prompts where competitors are currently winning.</p>
               {gapRows.length === 0 ? (
-                <p className="text-zinc-500 text-sm">No high-priority opportunity gaps found yet.</p>
+                <p className="text-sm" style={{ color: 'var(--nd-text-muted)' }}>No high-priority opportunity gaps found yet.</p>
               ) : (
                 <ul className="space-y-2">
                   {gapRows.map((g, i) => (
-                    <li key={`${g.competitor}-${i}`} className="text-sm text-zinc-300 leading-6">
-                      <span className="text-amber-300 font-semibold">{g.score.toFixed(1)}</span> —{' '}
+                    <li key={`${g.competitor}-${i}`} className="text-sm leading-6" style={{ color: 'var(--nd-text-secondary)' }}>
+                      <span className="text-amber-600 font-semibold">{g.score.toFixed(1)}</span> &mdash;{' '}
                       {g.competitor}: {g.prompt}
                     </li>
                   ))}
@@ -609,53 +559,47 @@ export default function CompetitorReportsPanel({
               )}
               <button
                 onClick={() => onNavigate?.('gap-opportunities')}
-                className="mt-3 text-xs text-amber-300 hover:text-amber-200 inline-flex items-center gap-1"
+                className="mt-3 text-xs inline-flex items-center gap-1 transition-colors"
+                style={{ color: 'var(--nd-purple)' }}
               >
                 Open Gap Opportunities <ExternalLink className="h-3 w-3" />
               </button>
             </div>
 
             {/* Top Competitor Pages */}
-            <div className={cn(CARD_CLASS, 'p-4 md:p-5')}>
-              <h3 className="text-sm font-semibold text-white mb-1">Top Competitor Pages</h3>
-              <p className="text-xs text-zinc-500 mb-3">
-                Most-cited pages by competitor from the current analysis run.
-              </p>
+            <div className={cn(CARD_CLASS, 'p-4 md:p-5')} style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+              <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--nd-text-primary)' }}>Top Competitor Pages</h3>
+              <p className="text-xs mb-3" style={{ color: 'var(--nd-text-muted)' }}>Most-cited pages by competitor from the current analysis run.</p>
               {topPages.length === 0 ? (
-                <p className="text-zinc-500 text-sm">No competitor pages found.</p>
+                <p className="text-sm" style={{ color: 'var(--nd-text-muted)' }}>No competitor pages found.</p>
               ) : (
                 <div className="space-y-3">
                   {topPages.map((c) => (
-                    <div
-                      key={c.name}
-                      className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3"
-                    >
-                      <div className="text-xs text-zinc-500 mb-2 font-medium">
+                    <div key={c.name} className="rounded-xl border p-3" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+                      <div className="text-xs font-medium mb-2" style={{ color: 'var(--nd-text-muted)' }}>
                         {c.name}
                         {c.primaryModel !== 'n/a' && (
-                          <span className="ml-2 text-zinc-600">· {c.primaryModel}</span>
+                          <span className="ml-2" style={{ color: 'var(--nd-text-muted)' }}>&middot; {c.primaryModel}</span>
                         )}
                         {c.citations > 0 && (
-                          <span className="ml-2 text-zinc-600">· {c.citations} citations</span>
+                          <span className="ml-2" style={{ color: 'var(--nd-text-muted)' }}>&middot; {c.citations} citations</span>
                         )}
                       </div>
                       <ol className="space-y-1">
                         {c.urls.map((u: any, i: number) => (
-                          <li
-                            key={`${typeof u === 'string' ? u : u.url}-${i}`}
-                            className="text-xs text-zinc-300 truncate leading-5"
-                          >
+                          <li key={`${typeof u === 'string' ? u : u.url}-${i}`} className="text-xs truncate leading-5">
                             <a
                               href={typeof u === 'string' ? u : u.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="hover:text-zinc-100 transition-colors"
+                              className="transition-colors hover:underline"
+                              style={{ color: 'var(--nd-blue)' }}
                             >
                               {i + 1}. {typeof u === 'string' ? u : u.url}
                             </a>
                             {typeof u === 'object' && u.citation_count > 0 && (
-                              <span className="ml-2 text-zinc-600">
-                                ({u.citation_count} cites · {u.primary_model})
+                              <span className="ml-2" style={{ color: 'var(--nd-text-muted)' }}>
+                                ({u.citation_count} cites &middot; {u.primary_model})
                               </span>
                             )}
                           </li>
@@ -669,39 +613,23 @@ export default function CompetitorReportsPanel({
           </div>
 
           {/* Growth Trend Chart */}
-          <div className={cn(CARD_CLASS, 'p-4 md:p-5')}>
+          <div className={cn(CARD_CLASS, 'p-4 md:p-5')} style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
             <div className="flex items-center gap-2 mb-3">
-              <LineChart className="h-4 w-4 text-cyan-300" />
-              <h3 className="text-sm font-semibold text-white">Competitor Growth Trend</h3>
+              <LineChart className="h-4 w-4" style={{ color: 'var(--nd-teal)' }} />
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Competitor Growth Trend</h3>
             </div>
             {trendHistory.length < 2 ? (
-              <p className="text-zinc-500 text-sm">Not enough trend data yet.</p>
+              <p className="text-sm" style={{ color: 'var(--nd-text-muted)' }}>Not enough trend data yet.</p>
             ) : (
               <>
-                <div className="overflow-x-auto rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-2">
-                  <svg
-                    viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-                    className="w-full min-w-[720px] h-[220px]"
-                  >
+                <div className="overflow-x-auto rounded-xl border p-2" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+                  <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full min-w-[720px] h-[220px]">
                     {!hiddenSeries['Your Brand'] && (
-                      <path
-                        d={linePath(trendData.brand)}
-                        fill="none"
-                        stroke={TREND_COLORS[0]}
-                        strokeWidth={2.4}
-                        strokeLinecap="round"
-                      />
+                      <path d={linePath(trendData.brand)} fill="none" stroke={TREND_COLORS[0]} strokeWidth={2.4} strokeLinecap="round" />
                     )}
                     {Object.entries(trendData.competitorMap).map(([name, vals], i) =>
                       hiddenSeries[name] ? null : (
-                        <path
-                          key={name}
-                          d={linePath(vals)}
-                          fill="none"
-                          stroke={TREND_COLORS[(i + 1) % TREND_COLORS.length]}
-                          strokeWidth={2}
-                          strokeLinecap="round"
-                        />
+                        <path key={name} d={linePath(vals)} fill="none" stroke={TREND_COLORS[(i + 1) % TREND_COLORS.length]} strokeWidth={2} strokeLinecap="round" />
                       ),
                     )}
                   </svg>
@@ -709,12 +637,8 @@ export default function CompetitorReportsPanel({
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button
                     onClick={() => toggleSeries('Your Brand')}
-                    className={cn(
-                      'px-2 py-1 rounded-full border text-xs transition-colors',
-                      hiddenSeries['Your Brand']
-                        ? 'text-zinc-500 border-zinc-700'
-                        : 'text-zinc-200 border-zinc-600 bg-zinc-900/40',
-                    )}
+                    className="px-2 py-1 rounded-full border text-xs transition-colors"
+                    style={hiddenSeries['Your Brand'] ? { color: 'var(--nd-text-muted)', borderColor: 'var(--nd-border)' } : { color: 'var(--nd-text-primary)', borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}
                   >
                     Your Brand
                   </button>
@@ -722,18 +646,14 @@ export default function CompetitorReportsPanel({
                     <button
                       key={name}
                       onClick={() => toggleSeries(name)}
-                      className={cn(
-                        'px-2 py-1 rounded-full border text-xs transition-colors',
-                        hiddenSeries[name]
-                          ? 'text-zinc-500 border-zinc-700'
-                          : 'text-zinc-200 border-zinc-600 bg-zinc-900/40',
-                      )}
+                      className="px-2 py-1 rounded-full border text-xs transition-colors"
+                      style={hiddenSeries[name] ? { color: 'var(--nd-text-muted)', borderColor: 'var(--nd-border)' } : { color: 'var(--nd-text-primary)', borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}
                     >
                       {name}
                     </button>
                   ))}
                 </div>
-                <div className="mt-2 text-[11px] text-zinc-500">
+                <div className="mt-2 text-[11px]" style={{ color: 'var(--nd-text-muted)' }}>
                   Dates: {trendData.labels.join(', ')}
                 </div>
               </>
@@ -741,35 +661,27 @@ export default function CompetitorReportsPanel({
           </div>
 
           {/* Export row */}
-          <div className={cn(CARD_CLASS, 'p-4 md:p-5 flex items-center justify-between gap-3 flex-wrap')}>
+          <div className={cn(CARD_CLASS, 'p-4 md:p-5 flex items-center justify-between gap-3 flex-wrap')} style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
             <div>
-              <h3 className="text-sm font-semibold text-white">Download Full Report</h3>
-              <p className="text-xs text-zinc-500 mt-1">
-                Export this report as PDF or CSV for stakeholder sharing.
-              </p>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Download Full Report</h3>
+              <p className="text-xs mt-1" style={{ color: 'var(--nd-text-muted)' }}>Export this report as PDF or CSV for stakeholder sharing.</p>
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => {
-                  const url = buildExportUrl('pdf')
-                  if (url) window.open(url, '_blank')
-                }}
+                onClick={() => { const url = buildExportUrl('pdf'); if (url) window.open(url, '_blank') }}
                 disabled={!jobId}
-                className="px-3 py-2 rounded-lg border border-zinc-700/60 bg-zinc-900/60 text-zinc-200 hover:bg-zinc-800/70 text-sm inline-flex items-center gap-2 disabled:opacity-50"
+                className="px-3 py-2 rounded-lg border text-sm inline-flex items-center gap-2 disabled:opacity-50 transition-colors"
+                style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)', color: 'var(--nd-text-primary)' }}
               >
-                <Download className="h-4 w-4" />
-                Download PDF
+                <Download className="h-4 w-4" /> Download PDF
               </button>
               <button
-                onClick={() => {
-                  const url = buildExportUrl('csv')
-                  if (url) window.open(url, '_blank')
-                }}
+                onClick={() => { const url = buildExportUrl('csv'); if (url) window.open(url, '_blank') }}
                 disabled={!jobId}
-                className="px-3 py-2 rounded-lg border border-zinc-700/60 bg-zinc-900/60 text-zinc-200 hover:bg-zinc-800/70 text-sm inline-flex items-center gap-2 disabled:opacity-50"
+                className="px-3 py-2 rounded-lg border text-sm inline-flex items-center gap-2 disabled:opacity-50 transition-colors"
+                style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)', color: 'var(--nd-text-primary)' }}
               >
-                <Download className="h-4 w-4" />
-                Download CSV
+                <Download className="h-4 w-4" /> Download CSV
               </button>
             </div>
           </div>
