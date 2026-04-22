@@ -240,7 +240,7 @@ Extract the brand overview. Remember: null or [] is always better than a guess."
             task_name="brand_overview_v3",
             input_data={"prompt": prompt},
             provider="claude",
-            options={"model": "claude-3-haiku-20240307", "temperature": 0.1, "max_tokens": 2048}
+            options={"model": "claude-haiku-4-5-20251001", "temperature": 0.1, "max_tokens": 2048}
         )
         if not response.success:
             logger.warning(f"Claude failed for stage2: {response.error}. Falling back to GPT-4o.")
@@ -357,7 +357,7 @@ Generate exactly 30 highly specific, AEO-optimised topic clusters rooted in this
             task_name="brand_topics_v2",
             input_data={"prompt": prompt},
             provider="claude",
-            options={"model": "claude-3-haiku-20240307", "temperature": 0.4, "max_tokens": 4096}
+            options={"model": "claude-haiku-4-5-20251001", "temperature": 0.4, "max_tokens": 4096}
         )
         if not response.success:
             logger.warning(f"Claude failed for stage3: {response.error}. Falling back to GPT-4o.")
@@ -462,7 +462,7 @@ Generate exactly 15 prompts, all about: {topic_name}
                 task_name="brand_prompts_v3",
                 input_data={"prompt": prompt_text},
                 provider="claude",
-                options={"model": "claude-3-haiku-20240307", "temperature": 0.5, "max_tokens": 3000}
+                options={"model": "claude-haiku-4-5-20251001", "temperature": 0.5, "max_tokens": 3000}
             )
             if not res.success:
                 logger.warning(f"Claude failed for topic '{topic_name}': {res.error}. Falling back to GPT-4o.")
@@ -923,7 +923,7 @@ Generate exactly 15 prompts, all about: {topic_name}
                     provider=provider,
                     options={
                         "model": "gpt-4o" if provider == "openai" else (
-                            "gemini-2.0-flash" if provider == "gemini" else "claude-3-haiku-20240307"
+                            "gemini-2.0-flash" if provider == "gemini" else "claude-haiku-4-5-20251001"
                         ),
                         "temperature": 0.3,
                         "max_tokens": 1400,  # extra headroom for answer + JSON line
@@ -1245,7 +1245,7 @@ Generate exactly 15 prompts, all about: {topic_name}
                             "model": (
                                 "gpt-4o" if provider == "openai"
                                 else "gemini-1.5-flash" if provider == "gemini"
-                                else "claude-3-haiku-20240307"
+                                else "claude-haiku-4-5-20251001"
                             ),
                             "temperature": 0.3,
                             "max_tokens": 1200,

@@ -15,7 +15,7 @@ class LlmSimulatorModule:
         self.providers = {
             'openai': 'gpt-4o',
             'gemini': 'gemini-2.0-flash',
-            'claude': 'claude-3-haiku-20240307'
+            'claude': 'claude-haiku-4-5-20251001'
         }
         self.insights = MultiModelInsights()
 

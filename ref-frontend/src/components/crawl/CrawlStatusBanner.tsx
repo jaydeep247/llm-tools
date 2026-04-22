@@ -550,7 +550,8 @@ export function CrawlStatusBanner({
                 setStatus('running')
                 onResume()
               }}
-              className="text-[12px] font-semibold text-black bg-amber-400 border border-amber-300 hover:bg-amber-300 px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+              className="text-[12px] font-semibold px-3.5 py-1.5 rounded-lg transition-opacity cursor-pointer hover:opacity-90"
+              style={{ background: 'var(--nd-purple)', color: '#ffffff', border: 'none' }}
             >
               Continue crawl
             </button>

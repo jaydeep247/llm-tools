@@ -25,7 +25,7 @@ logger = logging.getLogger("module_c.c7")
 TARGET_MODELS = {
     "openai":  {"task": "aeo_simulate_answer_generation", "model": "gpt-4o"},
     "gemini":  {"task": "aeo_simulate_answer_generation", "model": "gemini-2.0-flash"},
-    "claude":  {"task": "aeo_simulate_answer_generation", "model": "claude-3-haiku-20240307"},
+    "claude":  {"task": "aeo_simulate_answer_generation", "model": "claude-haiku-4-5-20251001"},
 }
 
 

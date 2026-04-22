@@ -73,7 +73,7 @@ export class GeoContentService {
   private repo = new GeoContentRepository();
 
   /**
-   * Generate a GEO-optimized article via Claude Sonnet and persist it.
+   * Generate a GEO-optimized article via Claude Haiku and persist it.
    */
   async generate(
     userId: string,
@@ -91,7 +91,7 @@ export class GeoContentService {
     const client = new Anthropic({ apiKey });
 
     const message = await client.messages.create({
-      model: 'claude-3-haiku-20240307',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 4096,
       temperature: 0.1,
       system: GEO_SYSTEM_PROMPT,

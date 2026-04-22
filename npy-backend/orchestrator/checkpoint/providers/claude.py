@@ -50,7 +50,7 @@ class ClaudeProvider(BaseProvider):
 
     async def execute(self, task_name: str, input_data: Dict[str, Any], options: Dict[str, Any] = None) -> TaskResponse:
         options = options or {}
-        model = options.get("model", "claude-3-haiku-20240307")
+        model = options.get("model", "claude-haiku-4-5-20251001")
 
         try:
             raw_messages = input_data.get("messages")

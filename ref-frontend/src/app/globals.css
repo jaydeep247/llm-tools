@@ -156,12 +156,18 @@ select {
 }
 
 /*
- * ── Prevent dark body from bleeding through on scroll/overscroll ──
- * The .nexus-dashboard wrapper uses min-h-screen but the <body> is dark.
- * This pseudo-element creates a full-viewport light backdrop behind the
- * dashboard content so overscroll never reveals the dark body.
- * Landing page is NOT affected — only applies when .nexus-dashboard exists.
+ * ── Prevent dark body/html from bleeding through on dashboard routes ──
+ * The <html> has class="dark" for the landing page, which makes the body
+ * background dark (#09090B). On dashboard routes, .nexus-dashboard is
+ * server-rendered so :has() matches from the very first paint.
+ * Landing page is NOT affected — it never contains .nexus-dashboard.
  */
+html:has(.nexus-dashboard),
+body:has(.nexus-dashboard) {
+  background-color: #F8F8FC !important;
+}
+
+/* Secondary safety net: fixed backdrop behind dashboard content */
 .nexus-dashboard::before {
   content: '';
   position: fixed;
