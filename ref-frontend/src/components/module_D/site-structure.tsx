@@ -1592,9 +1592,9 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                   className={cn(
                     'rounded-full border-0 shadow-lg shadow-fuchsia-950/30',
                     'text-[11px] font-extrabold uppercase tracking-wider',
-                    'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300',
+                    'bg-linear-to-r from-purple-500 via-pink-500 to-amber-300',
                     'text-black hover:opacity-95 hover:shadow-xl',
-                    'h-auto min-h-[34px] px-3 py-1.5',
+                    'h-auto min-h-8.5 px-3 py-1.5',
                     'gap-1.5',
                   )}
                 >
@@ -1658,13 +1658,13 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                            <TooltipTrigger asChild>
                              <button
                                type="button"
-                               className="absolute top-2 right-2 text-white/40 hover:text-white/80 transition-colors"
+                               className="absolute top-2 right-2 text-(--nd-text-muted) hover:text-(--nd-text-primary) transition-colors"
                                aria-label="Difficulty help"
                              >
                                <Info className="h-3.5 w-3.5" />
                              </button>
                            </TooltipTrigger>
-                           <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                           <TooltipContent side="top" align="end" className="max-w-64 bg-white border border-(--nd-border) text-(--nd-text-primary) text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
                              <div className="space-y-1.5">
                                <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.difficulty_score.meaning}</div>
                                <div><span className="font-semibold">Improve: </span>{seoMetricHelp.difficulty_score.improve}</div>
@@ -1687,13 +1687,13 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                            <TooltipTrigger asChild>
                              <button
                                type="button"
-                               className="absolute top-2 right-2 text-white/40 hover:text-white/80 transition-colors"
+                               className="absolute top-2 right-2 text-(--nd-text-muted) hover:text-(--nd-text-primary) transition-colors"
                                aria-label="Feasibility help"
                              >
                                <Info className="h-3.5 w-3.5" />
                              </button>
                            </TooltipTrigger>
-                           <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                           <TooltipContent side="top" align="end" className="max-w-64 bg-white border border-(--nd-border) text-(--nd-text-primary) text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
                              <div className="space-y-1.5">
                                <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.ai_generation_feasibility.meaning}</div>
                                <div><span className="font-semibold">Improve: </span>{seoMetricHelp.ai_generation_feasibility.improve}</div>
@@ -1717,13 +1717,13 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              className="absolute top-2 right-2  hover:text-zinc-200/80 transition-colors"
+                              className="absolute top-2 right-2  hover:text-(--nd-text-primary) transition-colors"
                               aria-label="Complexity help"
                             >
                               <Info className="h-3.5 w-3.5" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                          <TooltipContent side="top" align="end" className="max-w-64 bg-white border border-(--nd-border) text-(--nd-text-primary) text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
                             <div className="space-y-1.5">
                               <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.complexity_level.meaning}</div>
                               <div><span className="font-semibold">Improve: </span>{seoMetricHelp.complexity_level.improve}</div>
@@ -1756,11 +1756,11 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                               {seoMetricHelp?.score && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button type="button" className=" hover:text-zinc-200/80 transition-colors" aria-label="Score help">
+                                    <button type="button" className=" hover:text-(--nd-text-primary) transition-colors" aria-label="Score help">
                                       <Info className="h-3 w-3" />
                                     </button>
                                   </TooltipTrigger>
-                                  <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                                  <TooltipContent side="top" align="end" className="max-w-64 bg-white border border-(--nd-border) text-(--nd-text-primary) text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
                                     <div className="space-y-1.5">
                                       <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.score.meaning}</div>
                                       <div><span className="font-semibold">Improve: </span>{seoMetricHelp.score.improve}</div>
@@ -1776,11 +1776,11 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                               {seoMetricHelp?.relevance_score && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button type="button" className=" hover:text-zinc-200/80 transition-colors" aria-label="Relevance help">
+                                    <button type="button" className=" hover:text-(--nd-text-primary) transition-colors" aria-label="Relevance help">
                                       <Info className="h-3 w-3" />
                                     </button>
                                   </TooltipTrigger>
-                                  <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                                  <TooltipContent side="top" align="end" className="max-w-64 bg-white border border-(--nd-border) text-(--nd-text-primary) text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
                                     <div className="space-y-1.5">
                                       <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.relevance_score.meaning}</div>
                                       <div><span className="font-semibold">Improve: </span>{seoMetricHelp.relevance_score.improve}</div>
@@ -1796,11 +1796,11 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                               {seoMetricHelp?.diversity_score && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button type="button" className=" hover:text-zinc-200/80 transition-colors" aria-label="Diversity help">
+                                    <button type="button" className=" hover:text-(--nd-text-primary) transition-colors" aria-label="Diversity help">
                                       <Info className="h-3 w-3" />
                                     </button>
                                   </TooltipTrigger>
-                                  <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                                  <TooltipContent side="top" align="end" className="max-w-64 bg-white border border-(--nd-border) text-(--nd-text-primary) text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
                                     <div className="space-y-1.5">
                                       <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.diversity_score.meaning}</div>
                                       <div><span className="font-semibold">Improve: </span>{seoMetricHelp.diversity_score.improve}</div>
@@ -1816,11 +1816,11 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                               {seoMetricHelp?.prompt_count && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button type="button" className=" hover:text-zinc-200/80 transition-colors" aria-label="Prompt count help">
+                                    <button type="button" className=" hover:text-(--nd-text-primary) transition-colors" aria-label="Prompt count help">
                                       <Info className="h-3 w-3" />
                                     </button>
                                   </TooltipTrigger>
-                                  <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                                  <TooltipContent side="top" align="end" className="max-w-64 bg-white border border-(--nd-border) text-(--nd-text-primary) text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
                                     <div className="space-y-1.5">
                                       <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.prompt_count.meaning}</div>
                                       <div><span className="font-semibold">Improve: </span>{seoMetricHelp.prompt_count.improve}</div>
@@ -1836,11 +1836,11 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                               {seoMetricHelp?.difficulty_score && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button type="button" className=" hover:text-zinc-200/80 transition-colors" aria-label="Difficulty help">
+                                    <button type="button" className=" hover:text-(--nd-text-primary) transition-colors" aria-label="Difficulty help">
                                       <Info className="h-3 w-3" />
                                     </button>
                                   </TooltipTrigger>
-                                  <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                                  <TooltipContent side="top" align="end" className="max-w-64 bg-white border border-(--nd-border) text-(--nd-text-primary) text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
                                     <div className="space-y-1.5">
                                       <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.difficulty_score.meaning}</div>
                                       <div><span className="font-semibold">Improve: </span>{seoMetricHelp.difficulty_score.improve}</div>
@@ -1856,11 +1856,11 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                               {seoMetricHelp?.ai_generation_feasibility && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button type="button" className=" hover:text-zinc-200/80 transition-colors" aria-label="Feasibility help">
+                                    <button type="button" className=" hover:text-(--nd-text-primary) transition-colors" aria-label="Feasibility help">
                                       <Info className="h-3 w-3" />
                                     </button>
                                   </TooltipTrigger>
-                                  <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                                  <TooltipContent side="top" align="end" className="max-w-64 bg-white border border-(--nd-border) text-(--nd-text-primary) text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
                                     <div className="space-y-1.5">
                                       <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.ai_generation_feasibility.meaning}</div>
                                       <div><span className="font-semibold">Improve: </span>{seoMetricHelp.ai_generation_feasibility.improve}</div>
@@ -1876,11 +1876,11 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
                               {seoMetricHelp?.complexity_level && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button type="button" className=" hover:text-zinc-200/80 transition-colors" aria-label="Complexity help">
+                                    <button type="button" className=" hover:text-(--nd-text-primary) transition-colors" aria-label="Complexity help">
                                       <Info className="h-3 w-3" />
                                     </button>
                                   </TooltipTrigger>
-                                  <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                                  <TooltipContent side="top" align="end" className="max-w-64 bg-white border border-(--nd-border) text-(--nd-text-primary) text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
                                     <div className="space-y-1.5">
                                       <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.complexity_level.meaning}</div>
                                       <div><span className="font-semibold">Improve: </span>{seoMetricHelp.complexity_level.improve}</div>

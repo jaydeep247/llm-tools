@@ -78,9 +78,9 @@ export function SessionSidebar({ activeSection = 'crawler', onSectionChange, isO
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="bg-white/10 backdrop-blur-2xl border-r border-white/20 h-full flex flex-col">
+        <div className="bg-white border-r border-(--nd-border) h-full flex flex-col">
           {/* Logo Section */}
-          <div className="flex items-center justify-between px-4 sm:px-5 md:px-6 h-12 sm:h-14 md:h-16 border-b border-white/20 shrink-0">
+          <div className="flex items-center justify-between px-4 sm:px-5 md:px-6 h-12 sm:h-14 md:h-16 border-b border-(--nd-border) shrink-0">
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center">
                 <Image 
@@ -91,13 +91,13 @@ export function SessionSidebar({ activeSection = 'crawler', onSectionChange, isO
                   className="w-full h-full object-contain"
                 />
               </div>
-              <h1 className="text-base sm:text-lg font-bold text-white">Contentlytics</h1>
+              <h1 className="text-base sm:text-lg font-bold text-(--nd-text-primary)">Contentlytics</h1>
             </div>
             <Button
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="md:hidden text-white hover:bg-white/20 rounded-lg transition-all duration-300 h-8 w-8"
+              className="md:hidden text-(--nd-text-secondary) hover:bg-(--nd-bg) rounded-lg transition-all duration-300 h-8 w-8"
             >
               <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
@@ -119,20 +119,20 @@ export function SessionSidebar({ activeSection = 'crawler', onSectionChange, isO
                   className={cn(
                     'group relative w-full flex items-center gap-2.5 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg md:rounded-xl transition-all duration-300 cursor-pointer',
                     isActive
-                      ? 'bg-white/75 backdrop-blur-md shadow-lg'
-                      : 'hover:bg-white/5'
+                      ? 'bg-(--nd-purple-subtle)'
+                      : 'hover:bg-(--nd-bg)'
                   )}
                 >
                   <Icon 
                     className={cn(
                       'h-4 w-4 sm:h-5 sm:w-5 shrink-0 transition-colors',
-                      isActive ? 'text-slate-900' : 'text-white/70 group-hover:text-white/90'
+                      isActive ? 'text-(--nd-purple)' : 'text-(--nd-text-muted) group-hover:text-(--nd-text-primary)'
                     )} 
                   />
                   <span 
                     className={cn(
                       'text-xs sm:text-sm font-medium transition-colors',
-                      isActive ? 'text-slate-900 font-semibold' : 'text-white/70 group-hover:text-white/90'
+                      isActive ? 'text-(--nd-purple) font-semibold' : 'text-(--nd-text-secondary) group-hover:text-(--nd-text-primary)'
                     )}
                   >
                     {item.label}

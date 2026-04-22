@@ -637,7 +637,7 @@ export default function SentimentTrackingSection({ jobId, projectId, sentimentDa
       </Card >
 
       {/* Insights Panel */}
-      < Card className="rounded-xl border p-6 bg-zinc-800/50 border-zinc-800" >
+      < Card className="rounded-xl border p-6 bg-(--nd-bg) border-(--nd-border)" >
         <div className="space-y-2">
           <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-blue-400" />

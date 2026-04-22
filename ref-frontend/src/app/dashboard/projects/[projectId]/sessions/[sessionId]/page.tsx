@@ -1075,13 +1075,13 @@ export default function SessionDetailPage() {
       >
         <div className="p-6 space-y-6 sm:space-y-8 animate-fade-in-hero">
           <div className="space-y-2">
-            <div className="h-8 sm:h-10 md:h-12 w-48 sm:w-64 bg-white/5 rounded animate-pulse"></div>
-            <div className="h-4 sm:h-5 w-32 sm:w-48 bg-white/5 rounded animate-pulse"></div>
+            <div className="h-8 sm:h-10 md:h-12 w-48 sm:w-64 bg-(--nd-border) rounded animate-pulse"></div>
+            <div className="h-4 sm:h-5 w-32 sm:w-48 bg-(--nd-border) rounded animate-pulse"></div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-xl p-3 sm:p-4 md:p-5 border border-white/10 bg-[#121212] animate-pulse">
-                <div className="h-20 sm:h-24 bg-white/5 rounded"></div>
+              <div key={i} className="rounded-xl p-3 sm:p-4 md:p-5 border border-(--nd-border) bg-(--nd-bg) animate-pulse">
+                <div className="h-20 sm:h-24 bg-(--nd-border) rounded"></div>
               </div>
             ))}
           </div>

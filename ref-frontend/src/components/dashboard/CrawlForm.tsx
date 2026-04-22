@@ -58,7 +58,7 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Project Selection */}
       <div className="space-y-2">
-        <label htmlFor="project" className="text-white/90 text-sm font-medium flex items-center gap-2">
+        <label htmlFor="project" className="text-(--nd-text-primary) text-sm font-medium flex items-center gap-2">
           <FolderOpen className="h-4 w-4" />
           Select Project
         </label>
@@ -69,19 +69,19 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
           id="project"
           placeholder="Choose a project..."
           triggerStyle={{
-            background: 'rgba(39,39,42,0.5)',
-            borderColor: '#3f3f46',
-            color: projectId ? '#FFFFFF' : '#52525b',
+            background: '#ffffff',
+            borderColor: 'var(--nd-border)',
+            color: projectId ? 'var(--nd-text-primary)' : 'var(--nd-text-muted)',
             borderRadius: 16,
           }}
         >
           {isLoadingProjects ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
-              <span className="ml-2 text-sm text-zinc-500">Loading projects...</span>
+              <Loader2 className="h-4 w-4 animate-spin text-(--nd-text-muted)" />
+              <span className="ml-2 text-sm text-(--nd-text-muted)">Loading projects...</span>
             </div>
           ) : projects.length === 0 ? (
-            <div className="py-4 text-center text-sm text-zinc-500">
+            <div className="py-4 text-center text-sm text-(--nd-text-muted)">
               No projects found. Create one first.
             </div>
           ) : (
@@ -96,7 +96,7 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
 
       {/* URL Input */}
       <div className="space-y-2">
-        <label htmlFor="url" className="text-white/90 text-sm font-medium flex items-center gap-2">
+        <label htmlFor="url" className="text-(--nd-text-primary) text-sm font-medium flex items-center gap-2">
           <Globe className="h-4 w-4" />
           Website URL
         </label>
@@ -107,10 +107,10 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="Enter website URL (e.g., example.com or https://example.com)"
-            className="flex-1 h-10 px-4 text-sm text-white placeholder:text-zinc-600 rounded-2xl border outline-none transition-colors"
-            style={{ background: 'rgba(39,39,42,0.5)', borderColor: '#3f3f46' }}
-            onFocus={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)' }}
-            onBlur={(e) => { e.currentTarget.style.background = 'rgba(39,39,42,0.5)' }}
+            className="flex-1 h-10 px-4 text-sm text-(--nd-text-primary) placeholder:text-(--nd-text-muted) rounded-2xl border outline-none transition-colors"
+            style={{ background: '#ffffff', borderColor: 'var(--nd-border)' }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--nd-purple)' }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--nd-border)' }}
             disabled={loading}
             required
           />
@@ -157,25 +157,25 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
       </div>
 
       {/* Run Crawl Option */}
-      <div className="flex items-center space-x-2 rounded-2xl p-4 bg-zinc-800/40 border border-zinc-800 hover:bg-zinc-800/50 transition-all">
+      <div className="flex items-center space-x-2 rounded-2xl p-4 bg-(--nd-bg) border border-(--nd-border) hover:bg-white transition-all">
         <NdSwitch
           id="runCrawl"
           checked={runCrawl}
           onCheckedChange={setRunCrawl}
           disabled={loading}
         />
-        <label htmlFor="runCrawl" className="text-white/90 cursor-pointer flex-1 text-sm font-medium">
+        <label htmlFor="runCrawl" className="text-(--nd-text-primary) cursor-pointer flex-1 text-sm font-medium">
           🕷️ Run Crawl (Analyze multiple pages)
         </label>
       </div>
 
       {/* Advanced Options */}
       {runCrawl && (
-        <div className="space-y-4 rounded-2xl p-4 bg-zinc-800/40 border border-zinc-800">
+        <div className="space-y-4 rounded-2xl p-4 bg-(--nd-bg) border border-(--nd-border)">
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center justify-between w-full text-white/90 hover:text-white transition-colors"
+            className="flex items-center justify-between w-full text-(--nd-text-secondary) hover:text-(--nd-text-primary) transition-colors"
           >
             <span className="text-sm font-medium">Advanced Options</span>
             {showAdvanced ? (
@@ -186,10 +186,10 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
           </button>
 
           {showAdvanced && (
-            <div className="space-y-4 pt-4 border-t border-zinc-800">
+            <div className="space-y-4 pt-4 border-t border-(--nd-border)">
               {/* Allow Subdomains */}
               <div className="flex items-center justify-between">
-                <label htmlFor="allowSubdomains" className="text-white/80 text-sm cursor-pointer">
+                <label htmlFor="allowSubdomains" className="text-(--nd-text-secondary) text-sm cursor-pointer">
                   Allow Subdomains
                 </label>
                 <NdSwitch
@@ -203,10 +203,10 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
               {/* Run Audits */}
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <label htmlFor="runAudits" className="text-white/80 text-sm cursor-pointer">
+                  <label htmlFor="runAudits" className="text-(--nd-text-secondary) text-sm cursor-pointer">
                     🔍 Run Performance Audits (Optional)
                   </label>
-                  <p className="text-[10px] text-white/50">
+                  <p className="text-[10px] text-(--nd-text-muted)">
                     Lighthouse audits with Core Web Vitals (LCP, TBT, CLS)
                   </p>
                 </div>
@@ -220,8 +220,8 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
 
               {/* Audit Device (only show if runAudits is enabled) */}
               {runAudits && (
-                <div className="space-y-2 pl-4 border-l-2 border-zinc-700">
-                  <label htmlFor="auditDevice" className="text-white/80 text-sm">
+                <div className="space-y-2 pl-4 border-l-2 border-(--nd-border)">
+                  <label htmlFor="auditDevice" className="text-(--nd-text-secondary) text-sm">
                     Audit Device
                   </label>
                   <NdSelect
@@ -230,9 +230,9 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
                     disabled={loading}
                     id="auditDevice"
                     triggerStyle={{
-                      background: 'rgba(39,39,42,0.5)',
-                      borderColor: '#3f3f46',
-                      color: '#FFFFFF',
+                      background: '#ffffff',
+                      borderColor: 'var(--nd-border)',
+                      color: 'var(--nd-text-primary)',
                     }}
                   >
                     <NdSelectItem value="desktop">Desktop</NdSelectItem>
@@ -243,7 +243,7 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
 
               {/* Capture Link Details */}
               <div className="flex items-center justify-between">
-                <label htmlFor="captureLinkDetails" className="text-white/80 text-sm cursor-pointer">
+                <label htmlFor="captureLinkDetails" className="text-(--nd-text-secondary) text-sm cursor-pointer">
                   Capture Link Details
                 </label>
                 <NdSwitch
@@ -260,13 +260,13 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
 
       {/* Loading Progress */}
       {loading && (
-        <div className="rounded-2xl p-4 bg-zinc-800/40 border border-zinc-800">
-          <div className="flex items-center gap-3 text-zinc-400 text-sm">
+        <div className="rounded-2xl p-4 bg-(--nd-bg) border border-(--nd-border)">
+          <div className="flex items-center gap-3 text-(--nd-text-muted) text-sm">
             <Loader2 className="h-5 w-5 animate-spin" />
             <span>Fetching data. Please wait...</span>
           </div>
-          <div className="mt-3 h-1 bg-zinc-800/50 rounded-full overflow-hidden">
-            <div className="h-full bg-white/60 rounded-full animate-progress-bar" />
+          <div className="mt-3 h-1 bg-(--nd-border) rounded-full overflow-hidden">
+            <div className="h-full bg-(--nd-purple) rounded-full animate-progress-bar" />
           </div>
         </div>
       )}

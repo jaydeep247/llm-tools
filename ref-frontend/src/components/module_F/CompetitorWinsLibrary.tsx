@@ -731,9 +731,9 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
               className={cn(
                 'rounded-full border-0 shadow-lg shadow-fuchsia-950/30',
                 'text-sm font-extrabold uppercase tracking-wider sm:text-base',
-                'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300',
+                'bg-linear-to-r from-purple-500 via-pink-500 to-amber-300',
                 'text-black hover:opacity-95 hover:shadow-xl',
-                'h-auto min-h-[48px] px-6 py-3 sm:min-h-[52px] sm:px-8 sm:py-3.5',
+                'h-auto min-h-12 px-6 py-3 sm:min-h-13 sm:px-8 sm:py-3.5',
                 'gap-2.5',
               )}
             >
@@ -823,7 +823,7 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
             />
           }
         >
-          <ScrollArea className="h-[400px] pr-4 -mr-2">
+          <ScrollArea className="h-100 pr-4 -mr-2">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4">
                 {competitorBreakdown.map((row) => (
                 <div key={row.competitor} className="group rounded-2xl p-5 transition-all duration-300 overflow-hidden" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}

@@ -439,7 +439,7 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
               {/* Progress bar */}
               <div className="w-full bg-(--nd-border) rounded-full h-2.5 overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all duration-700"
+                  className="h-full bg-linear-to-r from-amber-500 to-amber-400 rounded-full transition-all duration-700"
                   style={{
                     width: `${Math.min(
                       100,
@@ -497,7 +497,7 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
                       <span className="text-xs text-(--nd-text-muted)">
                         {EVENT_TYPE_LABEL[ann.type] ?? ann.type}
                       </span>
-                      <span className="text-xs text-(--nd-text-secondary) ml-auto truncate max-w-[200px]">
+                      <span className="text-xs text-(--nd-text-secondary) ml-auto truncate max-w-50">
                         {ann.label}
                       </span>
                     </div>
@@ -559,7 +559,7 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ background: EVENT_TYPE_COLOR[ann.type] ?? '#F59E0B' }} />
                       <span className="text-xs text-(--nd-text-muted)">{ann.date}</span>
                       <span className="text-xs text-(--nd-text-muted)">{EVENT_TYPE_LABEL[ann.type] ?? ann.type}</span>
-                      <span className="text-xs text-(--nd-text-secondary) ml-auto truncate max-w-[200px]">{ann.label}</span>
+                      <span className="text-xs text-(--nd-text-secondary) ml-auto truncate max-w-50">{ann.label}</span>
                     </div>
                   ))}
                 </div>
@@ -788,7 +788,7 @@ export function CorrelationPanel({ projectId }: CorrelationPanelProps) {
                       <span className="text-xs text-(--nd-text-muted)">
                         {EVENT_TYPE_LABEL[ann.type] ?? ann.type}
                       </span>
-                      <span className="text-xs text-(--nd-text-secondary) ml-auto truncate max-w-[200px]">
+                      <span className="text-xs text-(--nd-text-secondary) ml-auto truncate max-w-50">
                         {ann.label}
                       </span>
                     </div>

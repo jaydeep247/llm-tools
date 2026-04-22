@@ -119,7 +119,7 @@ export function PromptSourceURLsComponent({
     <SectionCard
       title="Brand Mentions - Source URLs"
       description={`${totalResults} discovered source URLs from ${promptTexts.length} prompt queries`}
-      className="bg-[#111113] overflow-hidden"
+      className="bg-white overflow-hidden"
       actionSlot={
         isLoading && (
           <div className="flex items-center gap-2 text-xs text-blue-400">
@@ -137,16 +137,16 @@ export function PromptSourceURLsComponent({
           return (
             <div
               key={`${group.query}-${idx}`}
-              className="border border-zinc-800/50 rounded-lg overflow-hidden"
+              className="border border-(--nd-border) rounded-lg overflow-hidden"
             >
               <button
                 onClick={() =>
                   setExpandedPrompt(isExpanded ? null : group.query)
                 }
-                className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-zinc-800/20 transition-colors"
+                className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-(--nd-bg) transition-colors"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-zinc-200 leading-snug line-clamp-2">
+                  <p className="text-xs text-(--nd-text-secondary) leading-snug line-clamp-2">
                     {group.query}
                   </p>
                   <div className="flex items-center gap-2 mt-1.5 flex-wrap">
@@ -168,28 +168,28 @@ export function PromptSourceURLsComponent({
                           <Check className="w-2.5 h-2.5" />
                           {group.results.length} sources
                         </span>
-                        <span className="text-[9px] text-zinc-600">
+                        <span className="text-[9px] text-(--nd-text-muted)">
                           {group.results.length} unique domains
                         </span>
                       </>
                     ) : (
-                      <span className="text-[9px] text-zinc-600">No sources found</span>
+                      <span className="text-[9px] text-(--nd-text-muted)">No sources found</span>
                     )}
                   </div>
                 </div>
 
                 {isExpanded ? (
-                  <ChevronUp className="w-4 h-4 text-zinc-600 shrink-0 mt-0.5" />
+                  <ChevronUp className="w-4 h-4 text-(--nd-text-muted) shrink-0 mt-0.5" />
                 ) : (
-                  <ChevronDown className="w-4 h-4 text-zinc-600 shrink-0 mt-0.5" />
+                  <ChevronDown className="w-4 h-4 text-(--nd-text-muted) shrink-0 mt-0.5" />
                 )}
               </button>
 
               {isExpanded && (
-                <div className="border-t border-zinc-800/40 px-4 pb-3 pt-3 space-y-2 max-h-96 overflow-y-auto">
+                <div className="border-t border-(--nd-border) px-4 pb-3 pt-3 space-y-2 max-h-96 overflow-y-auto">
                   {group.isLoading ? (
                     <div className="flex justify-center py-4">
-                      <Loader2 className="w-4 h-4 text-zinc-600 animate-spin" />
+                      <Loader2 className="w-4 h-4 text-(--nd-text-muted) animate-spin" />
                     </div>
                   ) : isError ? (
                     <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
@@ -204,33 +204,33 @@ export function PromptSourceURLsComponent({
                           href={result.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-start gap-2.5 p-3 rounded-lg bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800 hover:border-zinc-700 transition-all group/link"
+                          className="flex items-start gap-2.5 p-3 rounded-lg bg-white hover:bg-(--nd-bg) border border-(--nd-border) hover:border-(--nd-border-hover) transition-all group/link"
                         >
                           <div className="mt-0.5 shrink-0">
-                            <Globe className="w-3.5 h-3.5 text-zinc-500 group-hover/link:text-blue-400 transition-colors" />
+                            <Globe className="w-3.5 h-3.5 text-(--nd-text-muted) group-hover/link:text-blue-400 transition-colors" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1">
-                                <p className="text-[11px] font-semibold text-zinc-200 group-hover/link:text-blue-300 transition-colors line-clamp-2">
+                                <p className="text-[11px] font-semibold text-(--nd-text-secondary) group-hover/link:text-blue-300 transition-colors line-clamp-2">
                                   {result.title}
                                 </p>
-                                <p className="text-[10px] text-zinc-500 font-mono mt-0.5 truncate group-hover/link:text-zinc-400 transition-colors">
+                                <p className="text-[10px] text-(--nd-text-muted) font-mono mt-0.5 truncate group-hover/link:text-(--nd-text-muted) transition-colors">
                                   {result.url}
                                 </p>
                               </div>
-                              <ExternalLink className="w-3 h-3 text-zinc-600 group-hover/link:text-blue-400 shrink-0 mt-0.5 transition-colors" />
+                              <ExternalLink className="w-3 h-3 text-(--nd-text-muted) group-hover/link:text-blue-400 shrink-0 mt-0.5 transition-colors" />
                             </div>
                             {result.snippet && (
-                              <p className="text-[9px] text-zinc-600 mt-1.5 line-clamp-1">
+                              <p className="text-[9px] text-(--nd-text-muted) mt-1.5 line-clamp-1">
                                 {result.snippet}
                               </p>
                             )}
                             <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[8px] font-bold uppercase tracking-tighter text-zinc-600 px-1.5 py-0.5 rounded bg-zinc-800/50">
+                              <span className="text-[8px] font-bold uppercase tracking-tighter text-(--nd-text-muted) px-1.5 py-0.5 rounded bg-(--nd-border)">
                                 Rank #{result.rank}
                               </span>
-                              <span className="text-[8px] text-zinc-600 bg-zinc-800/40 px-1.5 py-0.5 rounded">
+                              <span className="text-[8px] text-(--nd-text-muted) bg-(--nd-bg) px-1.5 py-0.5 rounded">
                                 {result.source_domain}
                               </span>
                             </div>
@@ -240,7 +240,7 @@ export function PromptSourceURLsComponent({
                     </div>
                   ) : (
                     <div className="text-center py-4">
-                      <p className="text-[11px] text-zinc-600">No sources found for this query</p>
+                      <p className="text-[11px] text-(--nd-text-muted)">No sources found for this query</p>
                     </div>
                   )}
                 </div>

@@ -54,6 +54,61 @@ class BrandPipeline:
                     return json.loads(text[start:end + 1])
                 except Exception:
                     pass
+        # 4. Truncation recovery: the response was cut off mid-JSON.
+        # Walk bracket depth to find the furthest balanced close position.
+        for start_ch, open_ch, close_ch in (("{" , "{", "}"), ("[", "[", "]")):
+            start = text.find(start_ch)
+            if start == -1:
+                continue
+            depth = 0
+            in_str = False
+            esc = False
+            last_valid_end = -1
+            for i, ch in enumerate(text[start:], start=start):
+                if esc:
+                    esc = False
+                    continue
+                if ch == "\\" and in_str:
+                    esc = True
+                    continue
+                if ch == '"':
+                    in_str = not in_str
+                    continue
+                if in_str:
+                    continue
+                if ch == open_ch:
+                    depth += 1
+                elif ch == close_ch:
+                    depth -= 1
+                    if depth == 0:
+                        last_valid_end = i
+                        break
+            # If truncated (depth > 0), close open brackets/strings and retry
+            if depth > 0:
+                fragment = text[start:]
+                # Close any open string
+                if in_str:
+                    fragment += '"'
+                # Close open brackets/objects in LIFO order
+                stack = []
+                d2, in_s2, es2 = 0, False, False
+                for ch in fragment:
+                    if es2:
+                        es2 = False; continue
+                    if ch == "\\" and in_s2:
+                        es2 = True; continue
+                    if ch == '"':
+                        in_s2 = not in_s2; continue
+                    if in_s2: continue
+                    if ch in ('{', '['):
+                        stack.append('}' if ch == '{' else ']')
+                    elif ch in ('}', ']'):
+                        if stack: stack.pop()
+                closing = ''.join(reversed(stack))
+                try:
+                    return json.loads(fragment + closing)
+                except Exception:
+                    pass
         return None
 
     @staticmethod
@@ -310,7 +365,7 @@ Generate exactly 30 highly specific, AEO-optimised topic clusters rooted in this
                 task_name="brand_topics_v2",
                 input_data={"prompt": prompt},
                 provider="openai",
-                options={"model": "gpt-4o", "temperature": 0.4, "response_format": {"type": "json_object"}}
+                options={"model": "gpt-4o", "temperature": 0.4, "response_format": {"type": "json_object"}, "max_tokens": 4096}
             )
         
         if not response.success:

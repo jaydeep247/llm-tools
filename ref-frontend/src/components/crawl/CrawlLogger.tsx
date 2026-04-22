@@ -12,9 +12,9 @@ interface CrawlLoggerProps {
 
 export function CrawlLogger({ logs, isCrawling }: CrawlLoggerProps) {
   return (
-    <div className="rounded-lg border border-zinc-700 bg-zinc-800 overflow-hidden h-full flex flex-col">
-      <div className="bg-zinc-800/50 px-4 py-3 border-b border-zinc-800 shrink-0">
-        <h3 className="text-base sm:text-lg font-semibold text-white">📝 Live Logs</h3>
+    <div className="rounded-lg border border-(--nd-border) bg-white overflow-hidden h-full flex flex-col">
+      <div className="bg-(--nd-bg) px-4 py-3 border-b border-(--nd-border) shrink-0">
+        <h3 className="text-base sm:text-lg font-semibold text-(--nd-text-primary)">📝 Live Logs</h3>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-2 font-mono text-xs sm:text-sm">
         {logs.length === 0 ? (
@@ -23,7 +23,7 @@ export function CrawlLogger({ logs, isCrawling }: CrawlLoggerProps) {
           </div>
         ) : (
           logs.slice(-100).reverse().map((log, idx) => (
-            <div key={idx} className="flex gap-2 text-zinc-200 hover:bg-zinc-800/50 p-1 rounded transition-colors">
+            <div key={idx} className="flex gap-2 text-(--nd-text-secondary) hover:bg-(--nd-bg) p-1 rounded transition-colors">
               <span className="text-blue-400 shrink-0 font-semibold">{log.timestamp}</span>
               <span className="flex-1 break-words">{log.message}</span>
             </div>

@@ -599,9 +599,9 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
               className={cn(
                 'rounded-full border-0 shadow-lg shadow-fuchsia-950/30',
                 'text-sm font-extrabold uppercase tracking-wider sm:text-base',
-                'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300',
+                'bg-linear-to-r from-purple-500 via-pink-500 to-amber-300',
                 'text-black hover:opacity-95 hover:shadow-xl',
-                'h-auto min-h-[48px] px-6 py-3 sm:min-h-[52px] sm:px-8 sm:py-3.5',
+                'h-auto min-h-12 px-6 py-3 sm:min-h-13 sm:px-8 sm:py-3.5',
                 'gap-2.5',
               )}
             >
@@ -795,7 +795,7 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
             </div>
           </div>
 
-          <div className="h-[400px] w-full rounded-3xl p-6" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' }}>
+          <div className="h-100 w-full rounded-3xl p-6" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' }}>
             
             <ResponsiveContainer width="100%" height="100%">
               {activeTab === 'visibility' ? (
@@ -972,7 +972,7 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
                           {m.visibilityDelta > 0 ? <TrendingUp className="w-4 h-4 text-emerald-600" /> : <TrendingDown className="w-4 h-4 text-rose-600" />}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm font-bold truncate max-w-[120px]" style={{ color: 'var(--nd-text-primary)' }}>{m.name}</div>
+                          <div className="text-sm font-bold truncate max-w-30" style={{ color: 'var(--nd-text-primary)' }}>{m.name}</div>
                           <div className="text-[11px] font-bold uppercase tracking-tighter" style={{ color: 'var(--nd-text-muted)' }}>Score: {m.currentVisibility.toFixed(1)}</div>
                         </div>
                       </div>
@@ -1008,7 +1008,7 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
                             <Zap className="w-4 h-4" style={{ color: 'var(--nd-text-muted)' }} />}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm font-bold truncate max-w-[120px]" style={{ color: 'var(--nd-text-primary)' }}>{c.name}</div>
+                            <div className="text-sm font-bold truncate max-w-30" style={{ color: 'var(--nd-text-primary)' }}>{c.name}</div>
                             <div className="text-[11px] font-bold uppercase tracking-tighter" style={{ color: 'var(--nd-text-muted)' }}>{c.status}</div>
                           </div>
                         </div>
@@ -1041,7 +1041,7 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
                         onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--nd-border)')}
                       >
                         <div className="flex items-center justify-between mb-3">
-                          <span className="text-sm font-bold truncate max-w-[140px]" style={{ color: 'var(--nd-text-primary)' }}>{comp}</span>
+                          <span className="text-sm font-bold truncate max-w-35" style={{ color: 'var(--nd-text-primary)' }}>{comp}</span>
                           <span className="text-[9px] font-bold uppercase" style={{ color: 'var(--nd-text-muted)' }}>{models.length} Models</span>
                         </div>
                         <div className="flex flex-wrap gap-1.5">

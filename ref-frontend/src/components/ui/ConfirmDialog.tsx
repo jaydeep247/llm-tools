@@ -53,7 +53,7 @@ export function ConfirmDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="bg-[#111113] border-zinc-800 text-white max-w-md">
+      <AlertDialogContent className="bg-white border-(--nd-border) text-(--nd-text-primary) max-w-md">
         <AlertDialogHeader>
           <div className="flex items-start gap-3">
             {destructive && (
@@ -64,7 +64,7 @@ export function ConfirmDialog({
             <div>
               <AlertDialogTitle className="text-base font-semibold text-white">{title}</AlertDialogTitle>
               {description && (
-                <AlertDialogDescription className="mt-1.5 text-sm text-zinc-400">
+                <AlertDialogDescription className="mt-1.5 text-sm text-(--nd-text-muted)">
                   {description}
                 </AlertDialogDescription>
               )}
@@ -76,7 +76,7 @@ export function ConfirmDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isLoading}
-            className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white cursor-pointer"
+            className="border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) hover:text-(--nd-text-primary) cursor-pointer"
           >
             {cancelLabel}
           </Button>

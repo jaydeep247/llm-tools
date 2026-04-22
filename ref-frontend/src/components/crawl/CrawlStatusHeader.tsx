@@ -30,7 +30,7 @@ export function CrawlStatusHeader({
       case 'cancelled':
         return 'bg-rose-500/20 text-rose-400 border-rose-400/50'
       case 'pending':
-        return 'bg-zinc-700 text-zinc-300 border-zinc-600'
+        return 'bg-(--nd-bg) text-(--nd-text-muted) border-(--nd-border)'
       default:
         return 'bg-slate-500/20 text-slate-400 border-slate-400/50'
     }
@@ -52,10 +52,10 @@ export function CrawlStatusHeader({
   }
 
   return (
-    <div className="rounded-lg p-3 sm:p-4 border border-zinc-700 bg-zinc-800">
+    <div className="rounded-lg p-3 sm:p-4 border border-(--nd-border) bg-white">
       <div className="flex items-center justify-between mb-3 sm:mb-4">
         <div className="flex items-center gap-2">
-          <h2 className="text-base sm:text-lg font-bold text-white">🕷️ Crawling Status</h2>
+          <h2 className="text-base sm:text-lg font-bold text-(--nd-text-primary)">🕷️ Crawling Status</h2>
           <div className="flex items-center gap-1.5">
             <div
               className={`h-1.5 w-1.5 rounded-full ${
@@ -90,7 +90,7 @@ export function CrawlStatusHeader({
           <div className="text-xl sm:text-2xl md:text-3xl font-bold text-blue-400 mb-1">
             {pageCount}
           </div>
-          <div className="text-[10px] sm:text-xs text-zinc-400 uppercase tracking-wider">
+          <div className="text-[10px] sm:text-xs text-(--nd-text-muted) uppercase tracking-wider">
             Pages Discovered
           </div>
         </div>
@@ -99,22 +99,22 @@ export function CrawlStatusHeader({
           <div
             className={`text-xl sm:text-2xl md:text-3xl font-bold mb-1 ${
               isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing'
-                ? 'text-zinc-300 animate-pulse'
-                : crawlStatus === 'completed' ? 'text-blue-400' : 'text-white'
+                ? 'text-(--nd-text-muted) animate-pulse'
+                : crawlStatus === 'completed' ? 'text-blue-400' : 'text-(--nd-text-primary)'
             }`}
           >
             {duration}
           </div>
-          <div className="text-[10px] sm:text-xs text-zinc-400 uppercase tracking-wider">Duration</div>
+          <div className="text-[10px] sm:text-xs text-(--nd-text-muted) uppercase tracking-wider">Duration</div>
         </div>
 
         <div className="text-center">
           <div className={`text-xl sm:text-2xl md:text-3xl font-bold mb-1 ${
-            crawlStatus === 'completed' ? 'text-blue-400' : 'text-white'
+            crawlStatus === 'completed' ? 'text-blue-400' : 'text-(--nd-text-primary)'
           }`}>
             {itemsPerSecond}
           </div>
-          <div className="text-[10px] sm:text-xs text-zinc-400 uppercase tracking-wider">Items/Sec</div>
+          <div className="text-[10px] sm:text-xs text-(--nd-text-muted) uppercase tracking-wider">Items/Sec</div>
         </div>
       </div>
     </div>

@@ -6,9 +6,9 @@ interface DiscoveredPagesProps {
 
 export function DiscoveredPages({ pages }: DiscoveredPagesProps) {
   return (
-    <div className="rounded-lg border border-zinc-700 bg-zinc-800 overflow-hidden h-full flex flex-col">
-      <div className="bg-zinc-800/50 px-4 py-3 border-b border-zinc-800 shrink-0">
-        <h3 className="text-base sm:text-lg font-semibold text-white">📄 Discovered Pages</h3>
+    <div className="rounded-lg border border-(--nd-border) bg-white overflow-hidden h-full flex flex-col">
+      <div className="bg-(--nd-bg) px-4 py-3 border-b border-(--nd-border) shrink-0">
+        <h3 className="text-base sm:text-lg font-semibold text-(--nd-text-primary)">📄 Discovered Pages</h3>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-1">
         {pages.length === 0 ? (
@@ -17,7 +17,7 @@ export function DiscoveredPages({ pages }: DiscoveredPagesProps) {
           </div>
         ) : (
           pages.slice().reverse().map((page, idx) => (
-            <div key={idx} className="hover:bg-zinc-800/50 p-2 rounded transition-colors">
+            <div key={idx} className="hover:bg-(--nd-bg) p-2 rounded transition-colors">
               <a
                 href={page}
                 target="_blank"

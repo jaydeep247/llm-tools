@@ -183,12 +183,12 @@ export default function PerceptionSources({
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div className="text-center w-full">
-          <h2 className="text-xl font-semibold text-white">Perception Sources</h2>
-          <p className="text-sm text-zinc-400 mt-1">Websites cited in perception analysis responses</p>
+          <h2 className="text-xl font-semibold text-(--nd-text-primary)">Perception Sources</h2>
+          <p className="text-sm text-(--nd-text-muted) mt-1">Websites cited in perception analysis responses</p>
         </div>
         <Button
           variant="outline"
-          className="shrink-0 border-zinc-700 bg-zinc-900/50 text-zinc-200 hover:bg-zinc-800"
+          className="shrink-0 border-(--nd-border) bg-white text-(--nd-text-secondary) hover:bg-(--nd-bg)"
           onClick={handleExportCsv}
           disabled={!canQuery || exportRows.length === 0}
         >
@@ -197,18 +197,18 @@ export default function PerceptionSources({
         </Button>
       </div>
 
-      <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden">
-        <div className="p-4 border-b border-zinc-800">
+      <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
+        <div className="p-4 border-b border-(--nd-border)">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
             <div className="space-y-1">
-              <p className="text-xs font-medium text-zinc-400">Search domains</p>
+              <p className="text-xs font-medium text-(--nd-text-secondary)">Search domains</p>
               <div className="relative">
-                <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-(--nd-text-muted) absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search sources..."
-                  className="w-full h-10 pl-9 pr-3 rounded-lg border border-zinc-700 bg-zinc-900/50 text-sm text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-600"
+                  className="w-full h-10 pl-9 pr-3 rounded-lg border border-(--nd-border) bg-white text-sm text-(--nd-text-primary) placeholder:text-(--nd-text-muted) focus:outline-none focus:ring-1 focus:ring-(--nd-purple)"
                 />
               </div>
             </div>
@@ -234,19 +234,19 @@ export default function PerceptionSources({
           </div>
         </div>
 
-        <div className="px-4 py-3 text-sm text-zinc-400 border-b border-zinc-800">
+        <div className="px-4 py-3 text-sm text-(--nd-text-muted) border-b border-(--nd-border)">
           {filteredData.length} domains ({totalUrls} URLs) found
-          <span className="ml-2 text-zinc-500">• {totalResponses} responses</span>
+          <span className="ml-2 text-(--nd-text-muted)">• {totalResponses} responses</span>
         </div>
 
-        <div className="p-3 space-y-2 max-h-[520px] overflow-y-auto">
+        <div className="p-3 space-y-2 max-h-130 overflow-y-auto">
           {!canQuery && (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-sm text-zinc-400">
+            <div className="rounded-xl border border-(--nd-border) bg-(--nd-bg) p-4 text-sm text-(--nd-text-muted)">
               Perception sources require a valid job and domain context.
             </div>
           )}
           {canQuery && (isLoading || isFetching) && (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-sm text-zinc-400">
+            <div className="rounded-xl border border-(--nd-border) bg-(--nd-bg) p-4 text-sm text-(--nd-text-muted)">
               Loading sources...
             </div>
           )}
@@ -256,25 +256,27 @@ export default function PerceptionSources({
             </div>
           )}
           {canQuery && !isLoading && !isFetching && filteredData.length === 0 && (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-sm text-zinc-400">
+            <div className="rounded-xl border border-(--nd-border) bg-(--nd-bg) p-4 text-sm text-(--nd-text-muted)">
               No source citations found for the selected filters.
             </div>
           )}
           {filteredData.map((item) => {
             const isExpanded = expandedDomain === item.domain
             return (
-              <div key={item.domain} className="rounded-xl border border-zinc-800 bg-zinc-900/30 overflow-hidden">
-                <button
-                  type="button"
+              <div key={item.domain} className="rounded-xl border border-(--nd-border) bg-white overflow-hidden">
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setExpandedDomain(isExpanded ? null : item.domain)}
-                  className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-zinc-800/40 transition-colors"
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setExpandedDomain(isExpanded ? null : item.domain) }}
+                  className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-(--nd-bg) transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
                     <ChevronDown
-                      className={cn('w-4 h-4 text-zinc-500 transition-transform', isExpanded && 'rotate-180')}
+                      className={cn('w-4 h-4 text-(--nd-text-muted) transition-transform', isExpanded && 'rotate-180')}
                     />
-                    <span className="text-sm font-medium text-zinc-100">{item.domain}</span>
-                    <span className="text-xs text-zinc-500">({item.totalUrls} URLs)</span>
+                    <span className="text-sm font-medium text-(--nd-text-primary)">{item.domain}</span>
+                    <span className="text-xs text-(--nd-text-muted)">({item.totalUrls} URLs)</span>
                   </div>
                   <button
                     type="button"
@@ -282,18 +284,18 @@ export default function PerceptionSources({
                       e.stopPropagation()
                       setResponsesPanelDomain(item.domain)
                     }}
-                    className="text-xs font-medium text-zinc-300 hover:text-white underline-offset-2 hover:underline cursor-pointer"
+                    className="text-xs font-medium text-(--nd-text-secondary) hover:text-(--nd-text-primary) underline-offset-2 hover:underline cursor-pointer"
                   >
                     {item.responses} responses
                   </button>
-                </button>
+                </div>
 
                 {isExpanded && (
                   <div className="px-4 pb-3 space-y-1">
                     {item.urls.map((source) => (
                       <div
                         key={source.url}
-                        className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-zinc-800/40"
+                        className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-(--nd-bg)"
                       >
                         <a
                           href={source.url}
@@ -308,7 +310,7 @@ export default function PerceptionSources({
                         <button
                           type="button"
                           onClick={() => setResponsesPanelDomain(item.domain)}
-                          className="text-[11px] text-zinc-400 shrink-0 hover:text-zinc-200 cursor-pointer"
+                          className="text-[11px] text-(--nd-text-muted) shrink-0 hover:text-(--nd-text-secondary) cursor-pointer"
                         >
                           ({source.responses} responses)
                         </button>
@@ -323,16 +325,16 @@ export default function PerceptionSources({
       </div>
 
       {responsesPanelDomain && (
-        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-start justify-center p-6">
-          <div className="w-full max-w-5xl max-h-[88vh] rounded-xl border border-zinc-700 bg-[#111113] overflow-hidden shadow-2xl">
-            <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-zinc-100">
+        <div className="fixed inset-0 z-70 bg-black/60 backdrop-blur-sm flex items-start justify-center p-6">
+          <div className="w-full max-w-5xl max-h-[88vh] rounded-xl border border-(--nd-border) bg-white overflow-hidden shadow-xl">
+            <div className="px-4 py-3 border-b border-(--nd-border) flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-(--nd-text-primary)">
                 Perception responses that cited {responsesPanelDomain}
               </h3>
               <button
                 type="button"
                 onClick={() => setResponsesPanelDomain(null)}
-                className="text-zinc-400 hover:text-white cursor-pointer"
+                className="text-(--nd-text-muted) hover:text-(--nd-text-primary) cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
@@ -340,36 +342,36 @@ export default function PerceptionSources({
             </div>
 
             <div className="overflow-auto max-h-[76vh]">
-              <table className="w-full min-w-[920px]">
-                <thead className="bg-zinc-900/60 border-b border-zinc-800">
+              <table className="w-full min-w-230">
+                <thead className="bg-(--nd-bg) border-b border-(--nd-border)">
                   <tr>
-                    <th className="text-left text-xs font-semibold text-zinc-400 px-4 py-3">Prompt</th>
-                    <th className="text-left text-xs font-semibold text-zinc-400 px-4 py-3 w-[170px]">Property</th>
-                    <th className="text-left text-xs font-semibold text-zinc-400 px-4 py-3 w-[140px]">LLM</th>
-                    <th className="text-left text-xs font-semibold text-zinc-400 px-4 py-3 w-[120px]">Score</th>
+                    <th className="text-left text-xs font-semibold text-(--nd-text-muted) px-4 py-3">Prompt</th>
+                    <th className="text-left text-xs font-semibold text-(--nd-text-muted) px-4 py-3 w-42.5">Property</th>
+                    <th className="text-left text-xs font-semibold text-(--nd-text-muted) px-4 py-3 w-35">LLM</th>
+                    <th className="text-left text-xs font-semibold text-(--nd-text-muted) px-4 py-3 w-30">Score</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800">
+                <tbody className="divide-y divide-(--nd-border)">
                   {isResponsesFetching && (
                     <tr>
-                      <td className="px-4 py-3 text-xs text-zinc-400" colSpan={4}>
+                      <td className="px-4 py-3 text-xs text-(--nd-text-muted)" colSpan={4}>
                         Loading responses...
                       </td>
                     </tr>
                   )}
                   {!isResponsesFetching && responseRows.length === 0 && (
                     <tr>
-                      <td className="px-4 py-3 text-xs text-zinc-400" colSpan={4}>
+                      <td className="px-4 py-3 text-xs text-(--nd-text-muted)" colSpan={4}>
                         No responses found for this source.
                       </td>
                     </tr>
                   )}
                   {responseRows.map((row, idx) => (
-                    <tr key={`${row.llm}-${idx}`} className="hover:bg-zinc-800/30">
-                      <td className="px-4 py-3 text-xs text-zinc-300">{row.prompt}</td>
-                      <td className="px-4 py-3 text-xs text-zinc-300">{row.property}</td>
+                    <tr key={`${row.llm}-${idx}`} className="hover:bg-(--nd-bg)">
+                      <td className="px-4 py-3 text-xs text-(--nd-text-secondary)">{row.prompt}</td>
+                      <td className="px-4 py-3 text-xs text-(--nd-text-secondary)">{row.property}</td>
                       <td className="px-4 py-3">
-                        <span className="text-[11px] px-2 py-1 rounded bg-zinc-800 text-zinc-300">{row.llm}</span>
+                        <span className="text-[11px] px-2 py-1 rounded bg-(--nd-bg) border border-(--nd-border) text-(--nd-text-secondary)">{row.llm}</span>
                       </td>
                       <td className="px-4 py-3">
                         <span
@@ -408,12 +410,12 @@ function FilterSelect({
 }) {
   return (
     <div className="space-y-1">
-      <p className="text-xs font-medium text-zinc-400">{label}</p>
+      <p className="text-xs font-medium text-(--nd-text-secondary)">{label}</p>
       <div className="relative">
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full h-10 appearance-none rounded-lg border border-zinc-700 bg-zinc-900/50 px-3 pr-8 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-zinc-600"
+          className="w-full h-10 appearance-none rounded-lg border border-(--nd-border) bg-white px-3 pr-8 text-sm text-(--nd-text-primary) focus:outline-none focus:ring-1 focus:ring-(--nd-purple)"
         >
           {options.map((option) => (
             <option key={option} value={option}>
@@ -421,7 +423,7 @@ function FilterSelect({
             </option>
           ))}
         </select>
-        <ChevronDown className="w-4 h-4 text-zinc-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <ChevronDown className="w-4 h-4 text-(--nd-text-muted) absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
       </div>
     </div>
   )

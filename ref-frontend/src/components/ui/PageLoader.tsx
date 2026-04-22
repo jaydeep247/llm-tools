@@ -146,15 +146,15 @@ export function ScoreCardSkeleton({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800 animate-pulse',
+        'bg-(--nd-bg) rounded-2xl p-5 border border-(--nd-border) animate-pulse',
         className,
       )}
     >
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 rounded-xl bg-zinc-800" />
-        <div className="h-4 w-24 bg-zinc-800 rounded" />
+        <div className="w-10 h-10 rounded-xl bg-(--nd-border)" />
+        <div className="h-4 w-24 bg-(--nd-border) rounded" />
       </div>
-      <div className="h-12 w-20 bg-zinc-800 rounded mt-4" />
+      <div className="h-12 w-20 bg-(--nd-border) rounded mt-4" />
     </div>
   );
 }
@@ -166,8 +166,8 @@ export function ProjectDetailSkeleton({ className }: { className?: string }) {
   return (
     <div className={cn('space-y-6 sm:space-y-8 animate-pulse', className)}>
       <div className="space-y-2">
-        <div className="h-8 sm:h-10 md:h-12 w-48 sm:w-64 bg-zinc-800/40 rounded" />
-        <div className="h-4 sm:h-5 w-32 sm:w-48 bg-zinc-800/40 rounded" />
+        <div className="h-8 sm:h-10 md:h-12 w-48 sm:w-64 bg-(--nd-border) rounded" />
+        <div className="h-4 sm:h-5 w-32 sm:w-48 bg-(--nd-border) rounded" />
       </div>
       <StatCardGridSkeleton count={2} />
       <SectionCardSkeleton rows={5} />
@@ -182,7 +182,7 @@ export function TableRowSkeleton({ cols = 4, className }: { cols?: number; class
   return (
     <div
       className={cn(
-        'flex items-center gap-4 px-4 py-3 border-b border-zinc-800 animate-pulse',
+        'flex items-center gap-4 px-4 py-3 border-b border-(--nd-border) animate-pulse',
         className,
       )}
     >
@@ -190,7 +190,7 @@ export function TableRowSkeleton({ cols = 4, className }: { cols?: number; class
         <div
           key={i}
           className={cn(
-            'h-3.5 rounded bg-zinc-800',
+            'h-3.5 rounded bg-(--nd-border)',
             i === 0 ? 'flex-2' : 'flex-1',
             i === cols - 1 && 'w-16 flex-none',
           )}

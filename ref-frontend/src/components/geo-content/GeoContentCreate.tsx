@@ -101,7 +101,7 @@ export function GeoContentCreate({ jobId: propJobId, inSession, onSuccess }: { j
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-6 animate-fade-in-hero">
+      <div className="flex flex-col items-center justify-center min-h-100 gap-6 animate-fade-in-hero">
         <div className="relative">
           <div className="w-16 h-16 rounded-full border-4 border-(--nd-purple)/20 border-t-(--nd-purple) animate-spin" />
           <Sparkles className="absolute inset-0 m-auto h-6 w-6 text-(--nd-purple)" />
@@ -236,7 +236,7 @@ export function GeoContentCreate({ jobId: propJobId, inSession, onSuccess }: { j
             <Select value={targetPrompt} onValueChange={setTargetPrompt}>
               <SelectTrigger
                 id="geo-target-prompt"
-                className="bg-(--nd-bg) border-(--nd-border) text-(--nd-text-primary) data-[placeholder]:text-(--nd-text-muted)"
+                className="bg-(--nd-bg) border-(--nd-border) text-(--nd-text-primary) data-placeholder:text-(--nd-text-muted)"
               >
                 <SelectValue placeholder="No prompt selected" />
               </SelectTrigger>

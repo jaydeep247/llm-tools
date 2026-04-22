@@ -41,7 +41,7 @@ function PresencePill({ mentioned }: { mentioned: boolean }) {
 
 function RankPill({ rank, outOf }: { rank: number | null; outOf: number }) {
   if (rank === null || outOf === 0) {
-    return <span className="text-[10px] text-zinc-400">—</span>
+    return <span className="text-[10px] text-(--nd-text-muted)">—</span>
   }
   const isFirst = rank === 1
   const color = isFirst ? 'text-amber-600 bg-amber-50 border-amber-200' : 'text-zinc-600 bg-zinc-50 border-zinc-200'
@@ -56,7 +56,7 @@ function RankPill({ rank, outOf }: { rank: number | null; outOf: number }) {
 function SentimentIcon({ sentiment }: { sentiment: string }) {
   if (sentiment === 'positive') return <TrendingUp className="w-3 h-3 text-emerald-600" />
   if (sentiment === 'negative') return <TrendingDown className="w-3 h-3 text-red-500" />
-  return <Minus className="w-3 h-3 text-zinc-400" />
+  return <Minus className="w-3 h-3 text-(--nd-text-muted)" />
 }
 
 // ─── Per-provider row inside a prompt card ───────────────────────────────────
@@ -98,21 +98,21 @@ function ProviderRow({
             )}
           </>
         ) : (
-          <span className="text-[10px] text-zinc-400 italic">no data</span>
+          <span className="text-[10px] text-(--nd-text-muted) italic">no data</span>
         )}
       </div>
 
       {/* Mentioned brands row */}
       {analysis?.all_mentioned_brands && analysis.all_mentioned_brands.length > 0 && (
         <div className="flex items-start gap-1.5 flex-wrap">
-          <span className="text-[10px] text-zinc-400 shrink-0 mt-0.5">Brands:</span>
+          <span className="text-[10px] text-(--nd-text-muted) shrink-0 mt-0.5">Brands:</span>
           {analysis.all_mentioned_brands.map((b, i) => (
             <span
               key={i}
               className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] bg-white border border-zinc-200 text-zinc-600"
             >
               {b.name}
-              {b.count > 1 && <span className="text-zinc-400">×{b.count}</span>}
+              {b.count > 1 && <span className="text-(--nd-text-muted)">×{b.count}</span>}
             </span>
           ))}
         </div>
@@ -123,7 +123,7 @@ function ProviderRow({
         <div className="pt-1 border-t border-white/60">
           <button
             onClick={() => setShowResponse(v => !v)}
-            className="text-[10px] text-zinc-400 hover:text-zinc-600 underline underline-offset-2"
+            className="text-[10px] text-(--nd-text-muted) hover:text-zinc-600 underline underline-offset-2"
           >
             {showResponse ? 'Hide response' : 'View full response'}
           </button>
@@ -174,7 +174,7 @@ function PromptResultCard({ result, index }: { result: PromptResult; index: numb
         onClick={() => setExpanded(v => !v)}
         className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-zinc-50 transition-colors"
       >
-        <span className="text-[11px] font-medium text-zinc-400 mt-0.5 shrink-0 w-5 text-right">
+        <span className="text-[11px] font-medium text-(--nd-text-muted) mt-0.5 shrink-0 w-5 text-right">
           {index + 1}
         </span>
 
@@ -200,21 +200,21 @@ function PromptResultCard({ result, index }: { result: PromptResult; index: numb
                     )}
                   </>
                 ) : (
-                  <span className="text-[10px] text-zinc-400">—</span>
+                  <span className="text-[10px] text-(--nd-text-muted)">—</span>
                 )}
               </span>
             ))}
 
             {/* Overall presence indicator */}
             {!anyMentioned && (
-              <span className="text-[10px] text-zinc-400 italic ml-1">Not mentioned by any model</span>
+              <span className="text-[10px] text-(--nd-text-muted) italic ml-1">Not mentioned by any model</span>
             )}
           </div>
         </div>
 
         {expanded
-          ? <ChevronUp className="w-4 h-4 text-zinc-400 shrink-0 mt-1" />
-          : <ChevronDown className="w-4 h-4 text-zinc-400 shrink-0 mt-1" />
+          ? <ChevronUp className="w-4 h-4 text-(--nd-text-muted) shrink-0 mt-1" />
+          : <ChevronDown className="w-4 h-4 text-(--nd-text-muted) shrink-0 mt-1" />
         }
       </button>
 
@@ -255,17 +255,17 @@ function AggregateSummary({ agg, brandName }: { agg: AggregateStats; brandName: 
     <div className="grid grid-cols-2 gap-2 mb-4">
       {/* Brand presence */}
       <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
-        <div className="text-[10px] text-zinc-400 uppercase tracking-wide mb-1">Brand Presence</div>
+        <div className="text-[10px] text-(--nd-text-muted) uppercase tracking-wide mb-1">Brand Presence</div>
         <div className="flex items-baseline gap-1">
           <span className="text-xl font-bold text-zinc-800">{agg.brand_presence_count}</span>
-          <span className="text-[11px] text-zinc-400">/ {agg.brand_presence_total} responses</span>
+          <span className="text-[11px] text-(--nd-text-muted)">/ {agg.brand_presence_total} responses</span>
         </div>
         <div className="text-[10px] text-zinc-500 mt-0.5">{agg.brand_presence_rate}% presence rate</div>
       </div>
 
       {/* Average rank */}
       <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
-        <div className="text-[10px] text-zinc-400 uppercase tracking-wide mb-1">Avg Rank (when present)</div>
+        <div className="text-[10px] text-(--nd-text-muted) uppercase tracking-wide mb-1">Avg Rank (when present)</div>
         <div className="flex items-baseline gap-1">
           <span className="text-xl font-bold text-zinc-800">
             {agg.avg_rank !== null ? `#${agg.avg_rank}` : '—'}
@@ -283,11 +283,11 @@ function AggregateSummary({ agg, brandName }: { agg: AggregateStats; brandName: 
 
       {/* Competitors presence */}
       <div className="col-span-2 rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
-        <div className="text-[10px] text-zinc-400 uppercase tracking-wide mb-1.5 flex items-center gap-1">
+        <div className="text-[10px] text-(--nd-text-muted) uppercase tracking-wide mb-1.5 flex items-center gap-1">
           <Users className="w-3 h-3" /> Brands mentioned across all responses
         </div>
         {agg.all_brand_mentions.length === 0 ? (
-          <span className="text-[11px] text-zinc-400 italic">No brands detected</span>
+          <span className="text-[11px] text-(--nd-text-muted) italic">No brands detected</span>
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {agg.all_brand_mentions.map((b, i) => {
@@ -302,7 +302,7 @@ function AggregateSummary({ agg, brandName }: { agg: AggregateStats; brandName: 
                   }`}
                 >
                   {b.name}
-                  <span className={`text-[10px] ${isBrand ? 'text-orange-400' : 'text-zinc-400'}`}>×{b.count}</span>
+                  <span className={`text-[10px] ${isBrand ? 'text-orange-400' : 'text-(--nd-text-muted)'}`}>×{b.count}</span>
                 </span>
               )
             })}
@@ -342,7 +342,7 @@ function ProviderSummaryCards({ results }: { results: PromptResult[] }) {
         return (
           <div key={provider} className={`rounded-xl border ${meta.border} ${meta.bg} px-3 py-2.5`}>
             <div className={`text-[10px] font-bold uppercase tracking-wide ${meta.color} mb-1.5`}>{meta.label}</div>
-            <div className="text-lg font-bold text-zinc-800">{s.mentioned}<span className="text-[11px] font-normal text-zinc-400">/{s.total}</span></div>
+            <div className="text-lg font-bold text-zinc-800">{s.mentioned}<span className="text-[11px] font-normal text-(--nd-text-muted)">/{s.total}</span></div>
             <div className="text-[10px] text-zinc-500 space-y-0.5">
               <div>prompts present ({rate}%)</div>
               <div>avg rank: {s.avgRank !== null ? `#${s.avgRank}` : '—'}</div>

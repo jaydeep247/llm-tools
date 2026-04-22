@@ -67,7 +67,7 @@ export default function CompetitorLandscapeSection({ jobId, landscapeData: initi
     if (!landscapeData) {
         return (
             <AnalysisEmptyState
-                icon={<Target className="w-8 h-8 text-zinc-400" />}
+                icon={<Target className="w-8 h-8 text-(--nd-text-muted)" />}
                 title="Competitor Landscape"
                 description="Analyze your domain authority and backlink profile relative to the market."
                 onRunAnalysis={handleRunAnalysis}

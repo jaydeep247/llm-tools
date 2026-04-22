@@ -276,7 +276,7 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
   if (effectiveLoading) {
     return (
       <div className="flex w-full items-center justify-center p-10 text-center">
-        <div className="text-sm text-zinc-300">Loading pages...</div>
+        <div className="text-sm text-(--nd-text-secondary)">Loading pages...</div>
       </div>
     )
   }
@@ -287,7 +287,7 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
         <div className="text-sm text-red-400">Error: {error}</div>
         <button
           onClick={loadData}
-          className="rounded-md border border-zinc-700 bg-zinc-800/50 px-4 py-2 text-xs font-medium text-white transition hover:bg-zinc-800"
+          className="rounded-md border border-(--nd-border) bg-(--nd-bg) px-4 py-2 text-xs font-medium text-(--nd-text-primary) transition hover:bg-white"
         >
           Retry
         </button>
@@ -297,36 +297,36 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-zinc-800 bg-black/40 px-6 py-4">
-        <h2 className="flex items-center gap-2 text-xl font-semibold text-white">
+      <div className="flex items-center gap-2 border-b border-(--nd-border) bg-(--nd-bg) px-6 py-4">
+        <h2 className="flex items-center gap-2 text-xl font-semibold text-(--nd-text-primary)">
           <span>🔍</span>
           <span>Audit Checker</span>
         </h2>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 border-b border-zinc-800 bg-black/40 px-6 py-4">
+      <div className="flex flex-wrap items-center gap-4 border-b border-(--nd-border) bg-(--nd-bg) px-6 py-4">
         <div className="min-w-70 flex-1">
           <input
             type="text"
             placeholder="Search by URL..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-md border border-zinc-700 bg-black/60 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            className="w-full rounded-md border border-(--nd-border) bg-white px-3 py-2 text-sm text-(--nd-text-primary) placeholder:text-(--nd-text-muted) focus:border-(--nd-purple) focus:outline-none focus:ring-1 focus:ring-(--nd-purple)"
           />
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 bg-black/40">
-        <div className="flex h-full min-w-70 max-w-sm flex-[0_0_340px] flex-col overflow-hidden border-r border-zinc-800 bg-black/30">
-          <div className="flex shrink-0 items-center justify-between border-b border-zinc-800 bg-black/40 px-5 py-3">
-            <h3 className="text-sm font-semibold text-white">
+      <div className="flex min-h-0 flex-1 bg-(--nd-bg)">
+        <div className="flex h-full min-w-70 max-w-sm flex-[0_0_340px] flex-col overflow-hidden border-r border-(--nd-border) bg-(--nd-bg)">
+          <div className="flex shrink-0 items-center justify-between border-b border-(--nd-border) bg-(--nd-bg) px-5 py-3">
+            <h3 className="text-sm font-semibold text-(--nd-text-primary)">
               URLs ({filteredData.length})
             </h3>
           </div>
 
           <div className="flex-1 overflow-y-auto p-3">
             {currentPageData.length === 0 ? (
-              <div className="px-4 py-6 text-center text-xs text-zinc-400">
+              <div className="px-4 py-6 text-center text-xs text-(--nd-text-muted)">
                 {!sessionId ? 'No session selected' : 'No URLs found'}
               </div>
             ) : (
@@ -358,7 +358,7 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
                       ? 'border-amber-400/50'
                       : statusVariant === 'error'
                         ? 'border-rose-500/50'
-                        : 'border-zinc-800'
+                        : 'border-(--nd-border)'
 
                 return (
                   <button
@@ -369,8 +369,8 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
                       'mb-2 w-full rounded-md border px-3 py-2 text-left text-xs transition-colors',
                       'wrap-break-word',
                       isSelected
-                        ? 'border-indigo-400 bg-indigo-500/30 text-white'
-                        : `bg-zinc-800/50 text-slate-100 hover:bg-zinc-800 ${borderClass}`,
+                        ? 'border-(--nd-purple) bg-(--nd-purple-subtle) text-(--nd-purple)'
+                        : `bg-(--nd-bg) text-(--nd-text-secondary) hover:bg-(--nd-bg) ${borderClass}`,
                     ].join(' ')}
                   >
                     <div className="mb-1 flex items-center gap-2">
@@ -392,12 +392,12 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
           </div>
 
           {totalPages > 1 && (
-            <div className="flex shrink-0 items-center justify-between border-t border-zinc-800 bg-black/40 px-5 py-3 text-xs text-white">
+            <div className="flex shrink-0 items-center justify-between border-t border-(--nd-border) bg-(--nd-bg) px-5 py-3 text-xs text-(--nd-text-primary)">
               <button
                 type="button"
                 onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                className="rounded border border-zinc-700 px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded border border-(--nd-border) px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Previous
               </button>
@@ -408,7 +408,7 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
                 type="button"
                 onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
-                className="rounded border border-zinc-700 px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded border border-(--nd-border) px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Next
               </button>
@@ -416,8 +416,8 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
           )}
         </div>
 
-        <div className="flex h-full flex-1 flex-col overflow-hidden bg-black/20">
-          <div className="flex shrink-0 items-center border-b border-zinc-800 bg-black/40 px-6 py-4">
+        <div className="flex h-full flex-1 flex-col overflow-hidden bg-(--nd-bg)">
+          <div className="flex shrink-0 items-center border-b border-(--nd-border) bg-(--nd-bg) px-6 py-4">
             <button
               type="button"
               onClick={handleCheckAudit}
@@ -455,13 +455,13 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
                     </div>
                     <div className="flex flex-wrap gap-4 text-xs">
                       <div>
-                        <span className="text-zinc-400">Checked: </span>
-                        <span className="font-semibold text-white">
+                        <span className="text-(--nd-text-muted)">Checked: </span>
+                        <span className="font-semibold text-(--nd-text-primary)">
                           {auditData.summary.totalChecked}
                         </span>
                       </div>
                       <div>
-                        <span className="text-zinc-400">Total issues: </span>
+                        <span className="text-(--nd-text-muted)">Total issues: </span>
                         <span className="font-semibold text-rose-400">
                           {auditData.summary.total301Redirects +
                             auditData.summary.total302Redirects +
@@ -556,7 +556,7 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
                       key={key}
                       className={[
                         'rounded-lg border p-4 transition',
-                        hasIssues ? cardClasses : 'border-zinc-800 bg-black/40',
+                        hasIssues ? cardClasses : 'border-(--nd-border) bg-(--nd-bg)',
                       ].join(' ')}
                     >
                       <button
@@ -572,7 +572,7 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
                       >
                         <div className="flex flex-1 items-center gap-3">
                           <span className="text-lg">{icon}</span>
-                          <span className="text-sm font-medium text-white">
+                          <span className="text-sm font-medium text-(--nd-text-primary)">
                             {title}
                           </span>
                         </div>
@@ -594,7 +594,7 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
                               : '✓ Done'}
                           </span>
                           {hasIssues && (
-                            <span className="text-[10px] text-zinc-400">
+                            <span className="text-[10px] text-(--nd-text-muted)">
                               {isExpanded ? '▼' : '▶'}
                             </span>
                           )}
@@ -602,11 +602,11 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
                       </button>
 
                       {hasIssues && isExpanded && (
-                        <div className="mt-4 max-h-96 space-y-2 overflow-y-auto border-t border-zinc-800 pt-3 text-xs text-white">
+                        <div className="mt-4 max-h-96 space-y-2 overflow-y-auto border-t border-(--nd-border) pt-3 text-xs text-(--nd-text-primary)">
                           {matchingResults.map((result, idx) => (
                             <div
                               key={idx}
-                              className="space-y-3 rounded-md border border-zinc-800/50 bg-black/40 p-3"
+                              className="space-y-3 rounded-md border border-(--nd-border) bg-(--nd-bg) p-3"
                             >
                               <div className="rounded-md border border-indigo-400/40 bg-indigo-500/10 p-2">
                                 <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-300">
@@ -634,12 +634,12 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
                                         ? '302'
                                         : '307'}
                                   </div>
-                                  <div className="wrap-break-word text-zinc-200">
+                                  <div className="wrap-break-word text-(--nd-text-secondary)">
                                     Final URL: {result.finalUrl || 'N/A'}
                                   </div>
                                   {result.redirectChain &&
                                     result.redirectChain.length > 0 && (
-                                      <div className="mt-1 text-[10px] text-zinc-400">
+                                      <div className="mt-1 text-[10px] text-(--nd-text-muted)">
                                         Chain:{' '}
                                         {result.redirectChain
                                           .filter(
@@ -668,7 +668,7 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
                                     {result.redirectChain.map((hop, hopIdx) => (
                                       <div
                                         key={hopIdx}
-                                        className="wrap-break-word text-zinc-200"
+                                        className="wrap-break-word text-(--nd-text-secondary)"
                                       >
                                         {hopIdx + 1}. {hop.url}{' '}
                                         {hop.redirectType && `(${hop.redirectType})`}{' '}
@@ -709,10 +709,10 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
                                   >
                                     🎯 Final URL Status
                                   </div>
-                                  <div className="wrap-break-word text-zinc-200">
+                                  <div className="wrap-break-word text-(--nd-text-secondary)">
                                     {result.finalUrl || 'N/A'}
                                   </div>
-                                  <div className="text-[11px] text-zinc-300">
+                                  <div className="text-[11px] text-(--nd-text-secondary)">
                                     Status Code:{' '}
                                     <span
                                       className={
@@ -733,7 +733,7 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
                                   <div className="text-[10px] font-semibold uppercase tracking-wide text-rose-300">
                                     ❌ Broken Redirect
                                   </div>
-                                  <div className="wrap-break-word text-zinc-200">
+                                  <div className="wrap-break-word text-(--nd-text-secondary)">
                                     Final URL: {result.finalUrl || 'N/A'}
                                   </div>
                                   <div className="text-[11px] text-rose-200">
@@ -749,10 +749,10 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
                                     🔗 Canonical Alignment:{' '}
                                     {result.canonicalAlignment?.toUpperCase()}
                                   </div>
-                                  <div className="wrap-break-word text-zinc-200">
+                                  <div className="wrap-break-word text-(--nd-text-secondary)">
                                     Final URL: {result.finalUrl || 'N/A'}
                                   </div>
-                                  <div className="wrap-break-word text-zinc-200">
+                                  <div className="wrap-break-word text-(--nd-text-secondary)">
                                     Canonical:{' '}
                                     {result.canonicalUrl || 'Not found'}
                                   </div>
@@ -769,12 +769,12 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
                       )}
 
                       {hasIssues && !isExpanded && matchingResults.length > 0 && (
-                        <div className="mt-3 rounded-md bg-black/40 px-3 py-2 text-[11px] text-zinc-300">
+                        <div className="mt-3 rounded-md bg-(--nd-bg) px-3 py-2 text-[11px] text-(--nd-text-secondary)">
                           <div className="wrap-break-word">
                             {matchingResults[0].originalUrl}
                           </div>
                           {matchingResults.length > 1 && (
-                            <div className="mt-1 italic text-zinc-400">
+                            <div className="mt-1 italic text-(--nd-text-muted)">
                               +{matchingResults.length - 1} more... (Click to expand)
                             </div>
                           )}
@@ -787,7 +787,7 @@ export default function AuditChecker({ sessionId, jobId, pages }: AuditCheckerPr
             )}
 
             {!auditData && !checkError && !checking && (
-              <div className="flex h-full items-center justify-center text-sm text-zinc-400">
+              <div className="flex h-full items-center justify-center text-sm text-(--nd-text-muted)">
                 Click "Check audit" to analyze redirects
               </div>
             )}

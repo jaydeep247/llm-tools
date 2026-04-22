@@ -161,7 +161,7 @@ function EngineHeader({ deltaClass, summary }: { deltaClass: DeltaClass; summary
   const Icon = cfg.icon
 
   return (
-    <div className="relative overflow-hidden rounded-[2rem] p-8 mb-8" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+    <div className="relative overflow-hidden rounded-4xl p-8 mb-8" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
       <div className="flex flex-col md:flex-row items-center gap-8">
         {/* Icon */}
         <div className="shrink-0">
@@ -600,7 +600,7 @@ function ActionQueue({
               {/* CXO Brief Special View */}
               {activeRole === 'cxo' && moat4.role_output && (
                 <div className="space-y-8 animate-in fade-in duration-700">
-                  <div className="relative overflow-hidden rounded-[2rem] border border-amber-200 bg-amber-50 p-8 shadow-sm">
+                  <div className="relative overflow-hidden rounded-4xl border border-amber-200 bg-amber-50 p-8 shadow-sm">
                     <div className="absolute top-0 right-0 p-6 opacity-10">
                       <Trophy className="w-24 h-24 text-amber-500" />
                     </div>
@@ -711,7 +711,7 @@ function TierGroup({
       </div>
       
       {actions.length === 0 ? (
-        <div className="flex items-center gap-4 py-6 px-6 rounded-[1.5rem] border border-dashed transition-all" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
+        <div className="flex items-center gap-4 py-6 px-6 rounded-3xl border border-dashed transition-all" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
           <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200">
             <CheckCheck className="w-5 h-5 text-emerald-600" />
           </div>
@@ -841,7 +841,7 @@ function SourcesPanel({ sourceAnalysis }: { sourceAnalysis?: ModuleFSourceAnalys
             <div key={i} className="group py-6 first:pt-0 last:pb-0 transition-all duration-300">
               <div className="flex flex-col lg:flex-row gap-8 items-start">
                 {/* Competitor Identity */}
-                <div className="w-full lg:w-[260px] space-y-3 shrink-0">
+                <div className="w-full lg:w-65 space-y-3 shrink-0">
                   <div className="flex items-center gap-3">
                     <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
                     <span className="text-base font-bold tracking-tight transition-colors" style={{ color: 'var(--nd-text-primary)' }}>
@@ -866,7 +866,7 @@ function SourcesPanel({ sourceAnalysis }: { sourceAnalysis?: ModuleFSourceAnalys
                     { l: 'Trust',     v: src.credibility_score,            c: 'violet', i: ShieldCheck },
                   ].map(m => (
                     <div key={m.l} className={cn(
-                      'relative overflow-hidden flex flex-col gap-1.5 p-3 rounded-xl border min-w-[120px] transition-all group/metric',
+                      'relative overflow-hidden flex flex-col gap-1.5 p-3 rounded-xl border min-w-30 transition-all group/metric',
                       m.c === 'amber' ? 'bg-amber-50 border-amber-200' :
                       m.c === 'cyan'  ? 'bg-cyan-50 border-cyan-200' :
                       'bg-violet-50 border-violet-200'
@@ -909,7 +909,7 @@ function SourcesPanel({ sourceAnalysis }: { sourceAnalysis?: ModuleFSourceAnalys
                             <div className="group/domain flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all cursor-default" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
                               <Globe className="w-3.5 h-3.5" style={{ color: 'var(--nd-text-muted)' }} />
                               <span className="text-xs font-mono tracking-tight" style={{ color: 'var(--nd-text-secondary)' }}>{cf.domain}</span>
-                              <div className="h-4 w-[1px] mx-1" style={{ background: 'var(--nd-border)' }} />
+                              <div className="h-4 w-px mx-1" style={{ background: 'var(--nd-border)' }} />
                               <span className="text-[11px] font-bold tracking-tighter" style={{ color: 'var(--nd-text-muted)' }}>×{cf.count}</span>
                             </div>
                           </TooltipTrigger>
@@ -1097,11 +1097,11 @@ export function CompetitorRecommendations({
   if (isLoading) {
     return (
       <div className="space-y-8 animate-pulse">
-        <div className="h-64 rounded-[2rem]" style={{ background: 'var(--nd-border)' }} />
+        <div className="h-64 rounded-4xl" style={{ background: 'var(--nd-border)' }} />
         <div className="grid grid-cols-4 gap-4">
           {[1, 2, 3, 4].map(i => <div key={i} className="h-32 rounded-2xl" style={{ background: 'var(--nd-border)' }} />)}
         </div>
-        <div className="h-96 rounded-[2rem]" style={{ background: 'var(--nd-border)' }} />
+        <div className="h-96 rounded-4xl" style={{ background: 'var(--nd-border)' }} />
       </div>
     )
   }

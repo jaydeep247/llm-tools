@@ -750,7 +750,7 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
                   </div>
                 </div>
 
-                <ScrollArea className="h-[600px] pr-4 -mr-2">
+                <ScrollArea className="h-150 pr-4 -mr-2">
                   <div className="space-y-3 pb-4">
                     {filteredOpportunities.map((o, idx) => {
                       const isMissing = o.rank === null || (o.rank ?? 0) > 3

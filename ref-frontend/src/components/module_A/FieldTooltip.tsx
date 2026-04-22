@@ -17,7 +17,7 @@ export function FieldTooltip({ description }: FieldTooltipProps) {
           <span
             role="button"
             tabIndex={0}
-            className="inline-flex items-center justify-center text-zinc-500 hover:text-zinc-200 transition-colors focus:outline-none shrink-0 cursor-help"
+            className="inline-flex items-center justify-center text-(--nd-text-muted) hover:text-(--nd-text-primary) transition-colors focus:outline-none shrink-0 cursor-help"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
             aria-label="Field description"
@@ -34,8 +34,8 @@ export function FieldTooltip({ description }: FieldTooltipProps) {
             style={{ animationDuration: '110ms' }}
             className={[
               'z-50 max-w-57.5 w-max relative',
-              'bg-zinc-800 border border-zinc-700/60',
-              'text-zinc-100 text-[11px] leading-relaxed',
+              'bg-white border border-(--nd-border)',
+              'text-(--nd-text-primary) text-[11px] leading-relaxed',
               /* large radius = iMessage pill look */
               'rounded-2xl px-3 py-2.5 shadow-2xl',
               'origin-[--radix-tooltip-content-transform-origin]',

@@ -75,7 +75,7 @@ function ResponseContent({ text }: { text: string }) {
               href={href}
               target="_blank"
               rel="noreferrer"
-              className="text-sky-500 hover:text-sky-400 underline underline-offset-2 break-words"
+              className="text-sky-500 hover:text-sky-400 underline underline-offset-2 wrap-break-word"
             >
               {children}
             </a>
@@ -342,10 +342,10 @@ export default function PerceptionAnalysis({
 
       <div className="bg-white border border-(--nd-border) rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[1000px]">
+          <table className="w-full text-left border-collapse min-w-250">
             <thead>
               <tr className="border-b border-(--nd-border) bg-(--nd-bg)">
-                <th className="py-4 px-6 text-[11px] font-bold uppercase tracking-widest text-(--nd-text-muted) w-[150px]">Property</th>
+                <th className="py-4 px-6 text-[11px] font-bold uppercase tracking-widest text-(--nd-text-muted) w-37.5">Property</th>
                 <th className="py-4 px-6 text-[11px] font-bold uppercase tracking-widest text-(--nd-text-muted)">Prompt</th>
                 <th className="py-4 px-4 text-center">
                   <div className="flex flex-col items-center gap-1.5">
@@ -365,8 +365,8 @@ export default function PerceptionAnalysis({
                     <span className="text-[10px] font-bold uppercase tracking-wider text-(--nd-text-muted)">Claude</span>
                   </div>
                 </th>
-                <th className="py-4 px-6 text-[11px] font-bold uppercase tracking-widest text-(--nd-text-muted) w-[120px]">Added</th>
-                <th className="py-4 px-6 w-[60px]"></th>
+                <th className="py-4 px-6 text-[11px] font-bold uppercase tracking-widest text-(--nd-text-muted) w-30">Added</th>
+                <th className="py-4 px-6 w-15"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-(--nd-border)">
@@ -462,7 +462,7 @@ export default function PerceptionAnalysis({
                             <div className="flex items-center justify-between mb-3">
                               <p className="text-sm font-semibold text-(--nd-text-primary)">Historical Score Trends</p>
                               <Select value={timeRange} onValueChange={(value) => setTimeRange(value as TimeRangeKey)}>
-                                <SelectTrigger className="h-8 w-[150px] border-(--nd-border) bg-white text-xs text-(--nd-text-secondary)">
+                                <SelectTrigger className="h-8 w-37.5 border-(--nd-border) bg-white text-xs text-(--nd-text-secondary)">
                                   <SelectValue placeholder="Select range" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-white border-(--nd-border) text-(--nd-text-primary)">
@@ -557,7 +557,7 @@ export default function PerceptionAnalysis({
       </div>
 
       {selectedInsight && (
-        <div className="fixed inset-0 z-[80] bg-black/65 backdrop-blur-sm flex items-start justify-center p-4 sm:p-6">
+        <div className="fixed inset-0 z-80 bg-black/65 backdrop-blur-sm flex items-start justify-center p-4 sm:p-6">
           <div className="w-full max-w-3xl max-h-[90vh] rounded-xl border border-(--nd-border) bg-white overflow-hidden shadow-2xl">
             <div className="px-4 py-3 border-b border-(--nd-border) flex items-start justify-between gap-3">
               <div>

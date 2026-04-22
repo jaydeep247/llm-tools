@@ -160,7 +160,7 @@ function EmptyLosses() {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
       <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--nd-positive-bg)', border: '1px solid var(--nd-border)' }}>
-        <Trophy className="h-5 w-5 text-[var(--nd-positive-text)]" />
+        <Trophy className="h-5 w-5 text-(--nd-positive-text)" />
       </div>
       <p className="text-sm" style={{ color: 'var(--nd-text-secondary)' }}>No losses this period. Maintain your current content and schema schedule.</p>
     </div>
@@ -173,12 +173,12 @@ function EmptyLosses() {
 function FixChip({ fix, onNavigate }: { fix: WLFix; onNavigate?: (tab: string) => void }) {
   const [expanded, setExpanded] = useState(false)
   return (
-    <div className="mt-2 rounded-xl border border-rose-200 bg-[var(--nd-negative-bg)] overflow-hidden">
+    <div className="mt-2 rounded-xl border border-rose-200 bg-(--nd-negative-bg) overflow-hidden">
       <button
         onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v) }}
         className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-rose-100 transition-colors"
       >
-        <span className="text-xs font-bold text-[var(--nd-negative-text)] uppercase tracking-wide flex-1">
+        <span className="text-xs font-bold text-(--nd-negative-text) uppercase tracking-wide flex-1">
           Recommended Fix
         </span>
         <ChevronDown className={cn('h-4 w-4 text-rose-500 transition-transform', expanded && 'rotate-180')} />
@@ -190,7 +190,7 @@ function FixChip({ fix, onNavigate }: { fix: WLFix; onNavigate?: (tab: string) =
           <div className="flex items-center gap-2 flex-wrap">
             <span className={cn(
               'px-2 py-0.5 rounded-full text-xs font-bold uppercase',
-              fix.impact === 'HIGH' ? 'bg-[var(--nd-negative-bg)] text-[var(--nd-negative-text)] border border-rose-200' :
+              fix.impact === 'HIGH' ? 'bg-(--nd-negative-bg) text-(--nd-negative-text) border border-rose-200' :
               fix.impact === 'MEDIUM' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
               'bg-zinc-100 text-zinc-600 border border-zinc-200',
             )}>
@@ -198,9 +198,9 @@ function FixChip({ fix, onNavigate }: { fix: WLFix; onNavigate?: (tab: string) =
             </span>
             <span className={cn(
               'px-2 py-0.5 rounded-full text-xs font-bold uppercase',
-              fix.effort === 'LOW' ? 'bg-[var(--nd-positive-bg)] text-[var(--nd-positive-text)] border border-emerald-200' :
+              fix.effort === 'LOW' ? 'bg-(--nd-positive-bg) text-(--nd-positive-text) border border-emerald-200' :
               fix.effort === 'MEDIUM' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-              'bg-[var(--nd-negative-bg)] text-[var(--nd-negative-text)] border border-rose-200',
+              'bg-(--nd-negative-bg) text-(--nd-negative-text) border border-rose-200',
             )}>
               Effort: {fix.effort}
             </span>
@@ -254,15 +254,15 @@ function WinRow({
         'group rounded-xl border px-4 py-3 cursor-pointer transition-all duration-200',
         dimmed
           ? 'opacity-40'
-          : 'border-emerald-200 bg-[var(--nd-positive-bg)] hover:border-emerald-300 hover:bg-emerald-100',
+          : 'border-emerald-200 bg-(--nd-positive-bg) hover:border-emerald-300 hover:bg-emerald-100',
       )}
       style={dimmed ? { border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' } : undefined}
       onClick={handleClick}
       title={`This metric improved by ${row.delta > 0 ? '+' : ''}${formatValue(row.delta)} compared to the previous ${periodLabel}.`}
     >
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 w-7 h-7 rounded-lg bg-[var(--nd-positive-bg)] border border-emerald-200 flex items-center justify-center shrink-0">
-          <TrendingUp className="h-3.5 w-3.5 text-[var(--nd-positive-text)]" />
+        <div className="mt-0.5 w-7 h-7 rounded-lg bg-(--nd-positive-bg) border border-emerald-200 flex items-center justify-center shrink-0">
+          <TrendingUp className="h-3.5 w-3.5 text-(--nd-positive-text)" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -274,10 +274,10 @@ function WinRow({
           <div className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--nd-text-secondary)' }}>
             <span>{formatValue(row.prev)}</span>
             <ChevronRight className="h-3 w-3" style={{ color: 'var(--nd-text-secondary)' }} />
-            <span className="text-[var(--nd-positive-text)] font-bold">{formatValue(row.current)}</span>
+            <span className="text-(--nd-positive-text) font-bold">{formatValue(row.current)}</span>
           </div>
         </div>
-        <span className="shrink-0 px-2.5 py-1 rounded-full bg-[var(--nd-positive-bg)] text-[var(--nd-positive-text)] border border-emerald-200 text-sm font-bold">
+        <span className="shrink-0 px-2.5 py-1 rounded-full bg-(--nd-positive-bg) text-(--nd-positive-text) border border-emerald-200 text-sm font-bold">
           +{formatValue(row.delta)}
         </span>
       </div>
@@ -306,7 +306,7 @@ function LossRow({
         'rounded-xl border transition-all duration-200',
         dimmed
           ? 'opacity-40'
-          : 'border-rose-200 bg-[var(--nd-negative-bg)] hover:border-rose-300 hover:bg-rose-100',
+          : 'border-rose-200 bg-(--nd-negative-bg) hover:border-rose-300 hover:bg-rose-100',
       )}
       style={dimmed ? { border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' } : undefined}
     >
@@ -315,8 +315,8 @@ function LossRow({
         onClick={() => setExpanded((v) => !v)}
       >
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 w-7 h-7 rounded-lg bg-[var(--nd-negative-bg)] border border-rose-200 flex items-center justify-center shrink-0">
-            <TrendingDown className="h-3.5 w-3.5 text-[var(--nd-negative-text)]" />
+          <div className="mt-0.5 w-7 h-7 rounded-lg bg-(--nd-negative-bg) border border-rose-200 flex items-center justify-center shrink-0">
+            <TrendingDown className="h-3.5 w-3.5 text-(--nd-negative-text)" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -328,18 +328,18 @@ function LossRow({
             <div className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--nd-text-secondary)' }}>
               <span>{formatValue(row.prev)}</span>
               <ChevronRight className="h-3 w-3" style={{ color: 'var(--nd-text-secondary)' }} />
-              <span className="text-[var(--nd-negative-text)] font-bold">{formatValue(row.current)}</span>
+              <span className="text-(--nd-negative-text) font-bold">{formatValue(row.current)}</span>
             </div>
             {/* Collapsed fix preview */}
             {!expanded && row.fix && (
-              <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[var(--nd-negative-bg)] border border-rose-200">
-                <span className="text-xs font-bold uppercase tracking-wide text-[var(--nd-negative-text)]">Fix</span>
+              <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-(--nd-negative-bg) border border-rose-200">
+                <span className="text-xs font-bold uppercase tracking-wide text-(--nd-negative-text)">Fix</span>
                 <span className="text-xs font-bold truncate max-w-50" style={{ color: 'var(--nd-text-secondary)' }}>{row.fix.title}</span>
               </div>
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="px-2.5 py-1 rounded-full bg-[var(--nd-negative-bg)] text-[var(--nd-negative-text)] border border-rose-200 text-sm font-bold">
+            <span className="px-2.5 py-1 rounded-full bg-(--nd-negative-bg) text-(--nd-negative-text) border border-rose-200 text-sm font-bold">
               {formatValue(row.delta)}
             </span>
             {row.fix && (

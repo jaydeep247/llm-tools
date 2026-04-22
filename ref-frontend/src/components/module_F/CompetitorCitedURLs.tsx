@@ -610,7 +610,7 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
                       <div className="space-y-2">
                         {(activeRow.citation_frequency ?? []).slice(0, 3).map((freq, i) => (
                           <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg border" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
-                            <span className="text-xs truncate max-w-[120px]" style={{ color: 'var(--nd-text-secondary)' }} title={freq.domain}>{freq.domain}</span>
+                            <span className="text-xs truncate max-w-30" style={{ color: 'var(--nd-text-secondary)' }} title={freq.domain}>{freq.domain}</span>
                             <Badge className="text-[9px] h-4" style={{ background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)', border: '1px solid var(--nd-purple)' }}>{freq.count}</Badge>
                           </div>
                         ))}
@@ -645,7 +645,7 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
                   </div>
                 </div>
 
-                <ScrollArea className="h-[600px] pr-4 -mr-2">
+                <ScrollArea className="h-150 pr-4 -mr-2">
                   <div className="space-y-3 pb-4">
                     {filteredCitations.map((citation, idx) => (
                       <div key={idx} className="group relative border rounded-xl p-4 transition-all duration-200 hover:shadow-sm" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>

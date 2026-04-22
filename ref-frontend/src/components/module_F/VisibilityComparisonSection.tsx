@@ -18,18 +18,22 @@ import {
   Loader2, Percent, Swords,
   ChevronDown, ChevronUp, Gauge,
   Star, MessageSquare, Zap, Trophy, Target, Globe,
-  Search, Activity, ExternalLink, AlertCircle, Check
+  Search, Activity, ExternalLink, AlertCircle, Check,
+  ChevronRight, ArrowLeft
 } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { ModuleFAskAiChatShell } from '@/components/module_F/ModuleFAskAiChatShell'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useSearchBrandMentionsMutation } from '@/store/api/brandMentionsApi'
 import {
   useGetOnboardingDataQuery,
   type PromptResult,
   type AggregateStats,
+  type ProviderResult,
 } from '@/store/api/brandOnboardingApi'
 
 interface VisibilityComparisonSectionProps {
@@ -316,234 +320,264 @@ function OBModelBenchmarkMatrix({
 
 type OBProviders = 'openai' | 'gemini' | 'claude'
 const OB_PROVIDERS: OBProviders[] = ['openai', 'gemini', 'claude']
-const OB_PROVIDER_CFG: Record<OBProviders, { label: string; color: string; bg: string; border: string }> = {
-  openai: { label: 'GPT',    color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-  gemini: { label: 'Gemini', color: 'text-blue-700',    bg: 'bg-blue-50',    border: 'border-blue-200'   },
-  claude: { label: 'Claude', color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200'  },
+const OB_PROVIDER_CFG: Record<OBProviders, { label: string; dotColor: string; bg: string; border: string; textColor: string }> = {
+  openai: { label: 'ChatGPT', dotColor: '#10b981', bg: '#f0fdf4', border: '#bbf7d0', textColor: '#065f46' },
+  gemini: { label: 'Gemini',  dotColor: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe', textColor: '#1d4ed8' },
+  claude: { label: 'Claude',  dotColor: '#f59e0b', bg: '#fffbeb', border: '#fde68a', textColor: '#92400e' },
 }
 
 function OBPresenceBadge({ mentioned }: { mentioned: boolean }) {
   return mentioned ? (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
       Present
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-gray-50 text-gray-500 border border-gray-200">
-      <span className="w-1.5 h-1.5 rounded-full bg-gray-300 inline-block" />
-      Absent
-    </span>
-  )
-}
-
-function OBRankBadge({ rank, outOf }: { rank: number | null; outOf: number }) {
-  if (rank == null) return <span className="text-[10px] font-mono" style={{ color: 'var(--nd-text-muted)' }}>—</span>
-  return (
-    <span className={cn(
-      'inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold font-mono border',
-      rank === 1
-        ? 'text-amber-700 bg-amber-50 border-amber-200'
-        : 'text-gray-600 bg-gray-50 border-gray-200',
-    )}>
-      #{rank}{outOf ? `/${outOf}` : ''}
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border border-gray-200 bg-gray-50 text-gray-500">
+      <span className="w-2 h-2 rounded-full bg-gray-300 inline-block" />
+      Not Present
     </span>
   )
 }
 
 function OBSentimentBadge({ sentiment }: { sentiment: string }) {
-  const cls: Record<string, string> = {
-    positive: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-    negative: 'text-red-700 bg-red-50 border-red-200',
-    neutral:  'text-gray-600 bg-gray-50 border-gray-200',
+  if (!sentiment || sentiment === 'not_mentioned') return null
+  const cfg: Record<string, string> = {
+    positive: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    negative: 'bg-red-50 text-red-700 border-red-200',
+    neutral:  'bg-gray-50 text-gray-600 border-gray-200',
   }
-  const sym: Record<string, string> = { positive: '↑', negative: '↓', neutral: '~' }
   return (
-    <span className={cn('inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium border capitalize', cls[sentiment] ?? cls.neutral)}>
-      {sym[sentiment] ?? '~'} {sentiment}
+    <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border capitalize', cfg[sentiment] ?? cfg.neutral)}>
+      {sentiment}
     </span>
   )
 }
 
-function OBProviderCell({
-  provider,
-  result,
+// Compact provider cell for the prompt results table
+function OBTableProviderCell({
+  providerResult,
+  onOpen,
 }: {
-  provider: OBProviders
-  result: { response: string; analysis: PromptResult['results']['openai']['analysis']; error: string | null } | undefined
+  providerResult: ProviderResult | undefined
+  onOpen: () => void
 }) {
-  const [showResp, setShowResp] = useState(false)
-  const cfg = OB_PROVIDER_CFG[provider]
-  const a = result?.analysis
+  const a = providerResult?.analysis
+
+  let dotColor = '#d1d5db'
+  let statusText = '—'
+  let statusColorClass = 'text-gray-400'
+  let rankText: string | null = null
+  let sentimentText: string | null = null
+  let sentimentColorClass = ''
+
+  if (!providerResult) {
+    statusText = '—'
+  } else if (providerResult.error || !a) {
+    dotColor = '#9ca3af'
+    statusText = 'No response'
+    statusColorClass = 'text-gray-400'
+  } else if (!a.brand_mentioned && (!a.all_mentioned_brands || a.all_mentioned_brands.length === 0)) {
+    dotColor = '#ef4444'
+    statusText = 'Absent'
+    statusColorClass = 'text-gray-700'
+    if (a.brand_rank != null) rankText = `Rank: ${a.brand_rank}/${a.brand_rank_out_of}`
+    else rankText = `Rank: —/${a.brand_rank_out_of || ''}`
+  } else if (!a.brand_mentioned) {
+    dotColor = '#9ca3af'
+    statusText = 'No brands'
+    statusColorClass = 'text-gray-500'
+  } else {
+    dotColor = '#10b981'
+    statusText = 'Present'
+    statusColorClass = 'text-gray-800 font-semibold'
+    rankText = `Rank: ${a.brand_rank != null ? `${a.brand_rank}/${a.brand_rank_out_of}` : `—/${a.brand_rank_out_of || ''}`}`
+    if (a.sentiment && a.sentiment !== 'not_mentioned') {
+      sentimentText = a.sentiment.charAt(0).toUpperCase() + a.sentiment.slice(1)
+      sentimentColorClass = a.sentiment === 'positive' ? 'text-emerald-600' : a.sentiment === 'negative' ? 'text-red-500' : 'text-gray-400'
+    }
+  }
+
+  const hasResponse = !!providerResult?.response
+
   return (
-    <div className={cn('rounded-lg border p-2.5 space-y-1.5', cfg.border, cfg.bg)}>
-      <div className="flex items-center justify-between gap-1">
-        <span className={cn('text-[9px] font-bold uppercase tracking-widest', cfg.color)}>{cfg.label}</span>
-        {!a && (
-          <span className="text-[9px]" style={{ color: 'var(--nd-text-muted)' }}>{result?.error ? 'Error' : '—'}</span>
-        )}
-      </div>
-      {a && (
-        <>
-          <div className="flex flex-wrap gap-1">
-            <OBPresenceBadge mentioned={a.brand_mentioned} />
-            {a.brand_mentioned && <OBRankBadge rank={a.brand_rank} outOf={a.brand_rank_out_of} />}
-            {a.brand_mentioned && <OBSentimentBadge sentiment={a.sentiment} />}
-          </div>
-          {a.brand_mentioned && a.all_mentioned_brands && a.all_mentioned_brands.length > 0 && (
-            <div className="flex flex-wrap gap-1 pt-0.5">
-              {a.all_mentioned_brands.slice(0, 5).map((b, i) => (
-                <span key={i} className="px-1 py-0.5 text-[8px] rounded border" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-muted)' }}>
-                  {b.name}
-                </span>
-              ))}
-            </div>
-          )}
-        </>
+    <div className="relative group rounded-lg border px-3 py-2.5 text-center" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', width: '140px', minWidth: '140px', minHeight: '80px' }}>
+      {/* Link icon top-right */}
+      {hasResponse && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onOpen() }}
+          className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+          title="View response"
+        >
+          <ExternalLink className="w-3 h-3" style={{ color: 'var(--nd-purple)' }} />
+        </button>
       )}
-      {result?.response && (
-        <>
-          <button
-            onClick={() => setShowResp(!showResp)}
-            className="text-[8px] underline transition-colors"
-            style={{ color: 'var(--nd-text-muted)' }}
-          >
-            {showResp ? 'hide response' : 'view response'}
-          </button>
-          {showResp && (
-            <div className="mt-1 p-1.5 rounded max-h-28 overflow-y-auto" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
-              <p className="text-[8px] whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>{result.response}</p>
-            </div>
-          )}
-        </>
+      <div className="flex items-center justify-center gap-1.5 mb-1">
+        <span className="w-2 h-2 rounded-full shrink-0 inline-block" style={{ background: dotColor }} />
+        <span className={cn('text-xs', statusColorClass)}>{statusText}</span>
+      </div>
+      {rankText && (
+        <div className="text-xs" style={{ color: 'var(--nd-text-muted)' }}>{rankText}</div>
+      )}
+      {sentimentText && (
+        <div className={cn('text-xs font-medium mt-0.5', sentimentColorClass)}>{sentimentText}</div>
       )}
     </div>
   )
 }
 
-function OBPromptRow({ result, index }: { result: PromptResult; index: number }) {
-  const [expanded, setExpanded] = useState(false)
-  const [sourcesFetched, setSourcesFetched] = useState(false)
-  const [searchBrandMentions, { data: searchData, isLoading: isSearching, error }] = useSearchBrandMentionsMutation()
+// Light-mode markdown renderer for the response popup
+function LightMarkdown({ content }: { content: string }) {
+  return (
+    <div className={cn(
+      'text-sm text-gray-800 leading-relaxed',
+      '[&_p]:mb-3 [&_p:last-child]:mb-0',
+      '[&_strong]:font-semibold [&_strong]:text-gray-900',
+      '[&_em]:text-gray-600',
+      '[&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1',
+      '[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-1',
+      '[&_li]:text-gray-700',
+      '[&_h1]:text-lg [&_h1]:font-bold [&_h1]:text-gray-900 [&_h1]:mt-4 [&_h1]:mb-2',
+      '[&_h2]:text-base [&_h2]:font-bold [&_h2]:text-gray-900 [&_h2]:mt-4 [&_h2]:mb-2',
+      '[&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-gray-800 [&_h3]:mt-3 [&_h3]:mb-1',
+      '[&_hr]:my-4 [&_hr]:border-gray-200',
+      '[&_a]:text-blue-600 [&_a]:underline hover:[&_a]:text-blue-800',
+      '[&_blockquote]:border-l-2 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:text-gray-500 [&_blockquote]:my-3',
+    )}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+    </div>
+  )
+}
+
+// Prompt detail modal
+function OBPromptDetailModal({
+  result,
+  provider,
+  open,
+  onClose,
+}: {
+  result: PromptResult | null
+  provider: OBProviders
+  open: boolean
+  onClose: () => void
+}) {
+  const [searchBrandMentions, { data: searchData, isLoading: isSearching }] = useSearchBrandMentionsMutation()
+  const prevKeyRef = useRef<string | null>(null)
+
+  const modalKey = result ? `${result.prompt}-${provider}` : null
 
   useEffect(() => {
-    if (expanded && !sourcesFetched && !isSearching && !searchData) {
-      setSourcesFetched(true)
+    if (!open || !result || !modalKey) return
+    if (modalKey !== prevKeyRef.current) {
+      prevKeyRef.current = modalKey
       searchBrandMentions({ query: result.prompt, num: 10 })
     }
-  }, [expanded, sourcesFetched, isSearching, searchData, searchBrandMentions, result.prompt])
+  }, [open, result, modalKey, searchBrandMentions])
 
-  const mentionedCount = OB_PROVIDERS.filter((p) => result.results?.[p]?.analysis?.brand_mentioned).length
-  const ranks = OB_PROVIDERS
-    .map((p) => result.results?.[p]?.analysis?.brand_rank)
-    .filter((r): r is number => r != null)
-  const avgRank = ranks.length ? (ranks.reduce((a, b) => a + b, 0) / ranks.length).toFixed(1) : null
+  if (!result) return null
+
+  const cfg = OB_PROVIDER_CFG[provider]
+  const pr = result.results[provider]
+  const a = pr?.analysis
+
   return (
-    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--nd-border)' }}>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors"
-        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--nd-bg)')}
-        onMouseLeave={(e) => (e.currentTarget.style.background = '')}
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+      <DialogContent
+        className="w-[calc(100vw-2rem)] max-w-4xl max-h-[85vh] overflow-hidden flex flex-col bg-white p-0 gap-0"
+        style={{ border: '1px solid #e5e7eb' }}
       >
-        <span className="text-[10px] font-mono pt-0.5 shrink-0 w-5" style={{ color: 'var(--nd-text-muted)' }}>{index + 1}</span>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs leading-snug" style={{ color: 'var(--nd-text-primary)' }}>{result.prompt}</p>
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            {OB_PROVIDERS.map((p) => {
-              const a = result.results?.[p]?.analysis
-              const cfg = OB_PROVIDER_CFG[p]
-              return (
-                <span key={p} className={cn('inline-flex items-center gap-0.5 text-[9px] font-bold', cfg.color)}>
-                  {cfg.label}
-                  <span className={a?.brand_mentioned ? 'text-emerald-600' : 'text-gray-400'}>
-                    {a ? (a.brand_mentioned ? ' ✓' : ' ✗') : ' –'}
-                  </span>
-                </span>
-              )
-            })}
-            {mentionedCount > 0 && (
-              <span className="text-[9px]" style={{ color: 'var(--nd-text-muted)' }}>
-                {mentionedCount}/3 models{avgRank ? ` · avg #${avgRank}` : ''}
-              </span>
-            )}
+        <DialogTitle className="sr-only">Response from {cfg.label}</DialogTitle>
+        {/* Modal header */}
+        <div className="flex items-start justify-between px-6 py-5 border-b border-gray-200 shrink-0">
+          <div className="pr-6">
+            <h2 className="text-base font-bold text-gray-900">Response from {cfg.label}</h2>
+            <p className="text-sm text-gray-500 mt-1 leading-snug">
+              Prompt: {result.prompt}
+            </p>
           </div>
         </div>
-        {expanded
-          ? <ChevronUp className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: 'var(--nd-text-muted)' }} />
-          : <ChevronDown className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: 'var(--nd-text-muted)' }} />
-        }
-      </button>
-      {expanded && (
-        <div className="px-4 pb-4 pt-3 space-y-4" style={{ borderTop: '1px solid var(--nd-border)' }}>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {OB_PROVIDERS.map((p) => (
-              <OBProviderCell key={p} provider={p} result={result.results?.[p]} />
-            ))}
-          </div>
 
-          {/* Sources Section */}
-          <div className="pt-3" style={{ borderTop: '1px solid var(--nd-border)' }}>
-            <h4 className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--nd-text-muted)' }}>
-              Source URLs
-            </h4>
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          {/* Response body */}
+          {pr?.response ? (
+            <LightMarkdown content={pr.response} />
+          ) : (
+            <div className="py-8 text-center text-sm text-gray-400 rounded-lg border border-gray-200 bg-gray-50">
+              No response from {cfg.label}
+            </div>
+          )}
+
+          {/* Sources and Citations */}
+          <div className="pt-2 border-t border-gray-200">
+            <h3 className="text-sm font-bold text-gray-900 mb-3">
+              Sources and Citations{searchData?.results?.length ? ` (${searchData.results.length})` : ''}
+            </h3>
             {isSearching ? (
-              <div className="flex justify-center py-4">
-                <Loader2 className="w-4 h-4 text-zinc-600 animate-spin" />
+              <div className="flex items-center gap-2 py-1">
+                <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                <span className="text-sm text-gray-400">Loading sources…</span>
               </div>
-            ) : error ? (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-red-700">Failed to fetch sources</p>
-              </div>
-            ) : searchData?.results && searchData.results.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            ) : searchData?.results?.length ? (
+              <div className="space-y-1.5">
                 {searchData.results.map((r, i) => (
                   <a
                     key={`${r.url}-${i}`}
                     href={r.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-start gap-2.5 p-2.5 rounded-lg border transition-all group/link"
-                    style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--nd-border-hover)' }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--nd-border)' }}
+                    className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline"
                   >
-                    <div className="mt-0.5 shrink-0">
-                      <Globe className="w-3.5 h-3.5 transition-colors" style={{ color: 'var(--nd-text-muted)' }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <p className="text-[11px] font-semibold line-clamp-2 transition-colors" style={{ color: 'var(--nd-text-primary)' }}>
-                            {r.title}
-                          </p>
-                          <p className="text-[10px] font-mono mt-0.5 truncate transition-colors" style={{ color: 'var(--nd-text-muted)' }}>
-                            {r.url}
-                          </p>
-                        </div>
-                        <ExternalLink className="w-3 h-3 shrink-0 mt-0.5 transition-colors" style={{ color: 'var(--nd-text-muted)' }} />
-                      </div>
-                      <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[8px] font-bold uppercase tracking-tighter px-1.5 py-0.5 rounded" style={{ color: 'var(--nd-text-muted)', background: 'var(--nd-border)' }}>
-                          Rank #{r.rank}
-                        </span>
-                        <span className="text-[8px] px-1.5 py-0.5 rounded" style={{ color: 'var(--nd-text-muted)', background: 'var(--nd-border)' }}>
-                          {r.source_domain}
-                        </span>
-                      </div>
-                    </div>
+                    <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{r.url}</span>
                   </a>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-4">
-                <p className="text-xs" style={{ color: 'var(--nd-text-muted)' }}>No sources found for this query</p>
-              </div>
+              <p className="text-sm text-gray-400">No sources found for this prompt.</p>
             )}
           </div>
+
+          {/* Analysis Results */}
+          {a && (
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="text-sm font-bold text-gray-900 mb-3">Analysis Results</h3>
+              <div className="flex flex-wrap gap-6">
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xs font-medium text-gray-400 mb-1">Brand Presence</div>
+                    <OBPresenceBadge mentioned={a.brand_mentioned} />
+                  </div>
+                  {a.sentiment && a.sentiment !== 'not_mentioned' && (
+                    <div>
+                      <div className="text-xs font-medium text-gray-400 mb-1">Sentiment</div>
+                      <OBSentimentBadge sentiment={a.sentiment} />
+                    </div>
+                  )}
+                  {a.brand_rank != null && (
+                    <div>
+                      <div className="text-xs font-medium text-gray-400 mb-1">Rank</div>
+                      <span className="text-sm font-bold font-mono text-gray-900">
+                        {a.brand_rank} / {a.brand_rank_out_of}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {a.all_mentioned_brands?.length > 0 && (
+                  <div>
+                    <div className="text-xs font-medium text-gray-400 mb-1">Mentioned Brands</div>
+                    <p className="text-sm text-gray-600">
+                      {a.all_mentioned_brands.slice(0, 8).map((b) => b.name).join(', ')}
+                      {a.all_mentioned_brands.length > 8 ? ` +${a.all_mentioned_brands.length - 8}` : ''}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -552,7 +586,13 @@ function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
     skip: !jobId,
     refetchOnMountOrArgChange: true,
   })
+
+  const [viewMode, setViewMode] = useState<'topics' | 'prompts'>('topics')
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
+  const [modalResult, setModalResult] = useState<PromptResult | null>(null)
+  const [modalProvider, setModalProvider] = useState<OBProviders>('openai')
+  const [modalOpen, setModalOpen] = useState(false)
+  const [showMoreBrands, setShowMoreBrands] = useState(false)
 
   const results: PromptResult[] = data?.prompt_results ?? []
   const aggregate: AggregateStats | undefined = data?.aggregate
@@ -561,7 +601,7 @@ function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
   const topicMap = useMemo<Record<string, PromptResult[]>>(() => {
     const map: Record<string, PromptResult[]> = {}
     for (const r of results) {
-      const key = r.topic || 'General'
+      const key = r.topic ?? 'General'
       if (!map[key]) map[key] = []
       map[key].push(r)
     }
@@ -571,11 +611,11 @@ function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
   const topicList = useMemo(() => {
     return Object.entries(topicMap).map(([topic, prompts]) => {
       const totalResps = prompts.reduce(
-        (acc, p) => acc + OB_PROVIDERS.filter((pr) => p.results?.[pr]?.analysis != null).length,
+        (acc, p) => acc + OB_PROVIDERS.filter((pr) => p.results[pr]?.analysis != null).length,
         0,
       )
       const mentionedResps = prompts.reduce(
-        (acc, p) => acc + OB_PROVIDERS.filter((pr) => p.results?.[pr]?.analysis?.brand_mentioned).length,
+        (acc, p) => acc + OB_PROVIDERS.filter((pr) => p.results[pr]?.analysis?.brand_mentioned).length,
         0,
       )
       const rate = totalResps ? Math.round((mentionedResps / totalResps) * 100) : 0
@@ -583,16 +623,34 @@ function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
     })
   }, [topicMap])
 
+  const allMentionedBrands = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const r of results) {
+      for (const p of OB_PROVIDERS) {
+        for (const b of r.results[p]?.analysis?.all_mentioned_brands ?? []) {
+          counts[b.name] = (counts[b.name] ?? 0) + 1
+        }
+      }
+    }
+    const total = results.length * OB_PROVIDERS.length || 1
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count, pct: Math.round((count / total) * 100) }))
+  }, [results])
+
   const displayedPrompts = useMemo(
     () => (selectedTopic ? topicMap[selectedTopic] ?? [] : results),
     [selectedTopic, results, topicMap],
   )
 
+  const visibleBrands = showMoreBrands ? allMentionedBrands : allMentionedBrands.slice(0, 8)
+  const maxBrandCount = allMentionedBrands[0]?.count ?? 1
+
   if (!jobId || isLoading || results.length === 0) return null
 
   const presenceRate = aggregate?.brand_presence_rate ?? 0
   const presenceCount = aggregate?.brand_presence_count ?? 0
-  const totalResps = aggregate?.total_responses ?? 0
+  const totalRespsCount = aggregate?.total_responses ?? 0
   const positivePct = presenceCount
     ? Math.round(((aggregate?.positive_mentions ?? 0) / presenceCount) * 100)
     : 0
@@ -600,136 +658,243 @@ function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
     ? Math.round(((aggregate?.negative_mentions ?? 0) / presenceCount) * 100)
     : 0
 
+  const openModal = (r: PromptResult, p?: OBProviders) => {
+    const resolved = p ?? OB_PROVIDERS.find((pr) => r.results[pr]?.response) ?? 'openai'
+    setModalResult(r)
+    setModalProvider(resolved)
+    setModalOpen(true)
+  }
+
   return (
-    <div className="space-y-5">
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {([
-          {
-            label: 'Brand Presence',
-            value: `${presenceRate}%`,
-            sub: `${presenceCount} of ${totalResps} responses`,
-            color: 'text-blue-700',
-            bar: presenceRate,
-            barColor: 'bg-blue-600',
-          },
-          {
-            label: 'Average Rank',
-            value: aggregate?.avg_rank != null ? `#${aggregate.avg_rank}` : '—',
-            sub: 'across all models',
-            color: 'text-violet-700',
-            bar: null as number | null,
-            barColor: '',
-          },
-          {
-            label: 'Positive Mentions',
-            value: `${positivePct}%`,
-            sub: `${aggregate?.positive_mentions ?? 0} of ${presenceCount}`,
-            color: 'text-emerald-700',
-            bar: positivePct,
-            barColor: 'bg-emerald-600',
-          },
-          {
-            label: 'Negative Mentions',
-            value: `${negativePct}%`,
-            sub: `${aggregate?.negative_mentions ?? 0} of ${presenceCount}`,
-            color: 'text-red-700',
-            bar: negativePct,
-            barColor: 'bg-red-600',
-          },
-        ] as const).map(({ label, value, sub, color, bar, barColor }) => (
-          <div key={label} className="rounded-xl p-4" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' }}>
-            <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--nd-text-muted)' }}>{label}</div>
-            <div className={cn('text-2xl font-bold font-mono', color)}>{value}</div>
-            <div className="text-[11px] mt-0.5" style={{ color: 'var(--nd-text-muted)' }}>{sub}</div>
-            {bar !== null && (
-              <div className="mt-3 h-1 rounded-full overflow-hidden" style={{ background: 'var(--nd-border)' }}>
-                <div className={cn('h-full rounded-full', barColor)} style={{ width: `${bar}%` }} />
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+    <>
+      <OBPromptDetailModal
+        result={modalResult}
+        provider={modalProvider}
+        open={modalOpen}
+        onClose={() => { setModalOpen(false); setModalResult(null) }}
+      />
 
-      {/* Brand presence by topic */}
-      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
-        <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--nd-border)' }}>
-          <span className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Brand Presence by Topic</span>
-          <span className="text-[11px]" style={{ color: 'var(--nd-text-muted)' }}>
-            {topicList.length} topics · {results.length} prompts
-          </span>
-        </div>
-        <div className="max-h-80 overflow-y-auto">
-          {topicList.length === 0 ? (
-              <p className="px-4 py-6 text-center text-xs" style={{ color: 'var(--nd-text-muted)' }}>No topic data</p>
-          ) : (
-            topicList.map(({ topic, rate, promptCount }) => (
-              <button
-                key={topic}
-                onClick={() => setSelectedTopic(selectedTopic === topic ? null : topic)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
-                style={{
-                  background: selectedTopic === topic ? 'var(--nd-bg)' : undefined,
-                  borderBottom: '1px solid var(--nd-border)',
-                }}
-                onMouseEnter={(e) => { if (selectedTopic !== topic) (e.currentTarget as HTMLButtonElement).style.background = 'var(--nd-bg)' }}
-                onMouseLeave={(e) => { if (selectedTopic !== topic) (e.currentTarget as HTMLButtonElement).style.background = '' }}
-              >
-                <span className="flex-1 text-xs truncate" style={{ color: 'var(--nd-text-secondary)' }}>{topic}</span>
-                <span className="text-[11px] shrink-0" style={{ color: 'var(--nd-text-muted)' }}>{promptCount} prompts</span>
-                <div className="w-20 shrink-0 flex items-center gap-1.5">
-                  <div className="flex-1 h-1 rounded-full" style={{ background: 'var(--nd-border)' }}>
-                    <div
-                      className={cn(
-                        'h-full rounded-full',
-                        rate >= 50 ? 'bg-emerald-600' : rate >= 25 ? 'bg-amber-600' : 'bg-gray-400',
-                      )}
-                      style={{ width: `${rate}%` }}
-                    />
-                  </div>
-                  <span className={cn(
-                    'text-[11px] font-bold w-7 text-right',
-                    rate >= 50 ? 'text-emerald-700' : rate >= 25 ? 'text-amber-700' : '',
-                  )} style={rate < 25 ? { color: 'var(--nd-text-muted)' } : {}}>
-                    {rate}%
-                  </span>
+      <div className="space-y-5">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {([
+            {
+              label: 'Brand Presence',
+              value: `${presenceRate}%`,
+              sub: `${presenceCount} of ${totalRespsCount} responses`,
+              color: 'text-blue-700',
+              bar: presenceRate,
+              barColor: 'bg-blue-600',
+            },
+            {
+              label: 'Average Rank',
+              value: aggregate?.avg_rank != null ? `#${aggregate.avg_rank}` : '—',
+              sub: 'across all models',
+              color: 'text-violet-700',
+              bar: null as number | null,
+              barColor: '',
+            },
+            {
+              label: 'Positive Mentions',
+              value: `${positivePct}%`,
+              sub: `${aggregate?.positive_mentions ?? 0} of ${presenceCount}`,
+              color: 'text-emerald-700',
+              bar: positivePct,
+              barColor: 'bg-emerald-600',
+            },
+            {
+              label: 'Negative Mentions',
+              value: `${negativePct}%`,
+              sub: `${aggregate?.negative_mentions ?? 0} of ${presenceCount}`,
+              color: 'text-red-700',
+              bar: negativePct,
+              barColor: 'bg-red-600',
+            },
+          ] as const).map(({ label, value, sub, color, bar, barColor }) => (
+            <div key={label} className="rounded-xl p-4" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' }}>
+              <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--nd-text-muted)' }}>{label}</div>
+              <div className={cn('text-2xl font-bold font-mono', color)}>{value}</div>
+              <div className="text-xs mt-1" style={{ color: 'var(--nd-text-secondary)' }}>{sub}</div>
+              {bar !== null && (
+                <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--nd-border)' }}>
+                  <div className={cn('h-full rounded-full', barColor)} style={{ width: `${bar}%` }} />
                 </div>
-                {selectedTopic === topic
-                  ? <ChevronUp className="w-3 h-3 shrink-0" style={{ color: 'var(--nd-text-muted)' }} />
-                  : <ChevronDown className="w-3 h-3 shrink-0" style={{ color: 'var(--nd-text-muted)' }} />
-                }
-              </button>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Prompt results table */}
-      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
-        <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--nd-border)' }}>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>
-              {selectedTopic ? `Topic: ${selectedTopic}` : 'All Prompts'}
-            </span>
-            <span className="text-[10px]" style={{ color: 'var(--nd-text-muted)' }}>({displayedPrompts.length})</span>
-          </div>
-          {selectedTopic && (
-            <button
-              onClick={() => setSelectedTopic(null)}
-              className="text-[10px] px-2 py-1 rounded transition-colors"
-              style={{ color: 'var(--nd-text-muted)', border: '1px solid var(--nd-border)' }}
-            >
-              Show all
-            </button>
-          )}
-        </div>
-        <div className="p-3 space-y-2">
-          {displayedPrompts.map((r, i) => (
-            <OBPromptRow key={`${r.prompt}-${i}`} result={r} index={i} />
+              )}
+            </div>
           ))}
         </div>
+
+        {/* Topic List View */}
+        {viewMode === 'topics' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Left: Brand Presence by Topic */}
+            <div className="lg:col-span-2 rounded-xl overflow-hidden" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+              <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--nd-border)' }}>
+                <div>
+                  <h3 className="text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>Brand Presence by Topic</h3>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--nd-text-muted)' }}>
+                    {results.length} prompts • {topicList.length} topics
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setSelectedTopic(null); setViewMode('prompts') }}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors border"
+                  style={{ color: 'var(--nd-purple)', borderColor: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)' }}
+                >
+                  All Prompts
+                </button>
+              </div>
+              <div>
+                {topicList.length === 0 ? (
+                  <p className="px-5 py-8 text-center text-sm" style={{ color: 'var(--nd-text-muted)' }}>No topic data</p>
+                ) : (
+                  topicList.map(({ topic, rate, promptCount }, idx) => {
+                    const badgeBg = rate >= 50 ? '#f0fdf4' : rate >= 25 ? '#fffbeb' : '#fef2f2'
+                    const badgeBorder = rate >= 50 ? '#bbf7d0' : rate >= 25 ? '#fde68a' : '#fecaca'
+                    const badgeColor = rate >= 50 ? '#065f46' : rate >= 25 ? '#92400e' : '#991b1b'
+                    return (
+                      <button
+                        key={topic}
+                        onClick={() => { setSelectedTopic(topic); setViewMode('prompts') }}
+                        className="w-full flex items-center gap-4 px-5 py-3.5 text-left transition-colors"
+                        style={{ borderBottom: idx < topicList.length - 1 ? '1px solid var(--nd-border)' : undefined }}
+                        onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--nd-bg)')}
+                        onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = '')}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium" style={{ color: 'var(--nd-text-primary)' }}>{topic}</span>
+                        </div>
+                        <span className="text-xs shrink-0 px-2 py-0.5 rounded-full border font-medium" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-secondary)' }}>
+                          {promptCount} prompts
+                        </span>
+                        <span className="text-xs font-bold shrink-0 px-2.5 py-0.5 rounded-full border" style={{ background: badgeBg, borderColor: badgeBorder, color: badgeColor }}>
+                          {rate}%
+                        </span>
+                        <ChevronRight className="w-4 h-4 shrink-0" style={{ color: 'var(--nd-text-muted)' }} />
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Right: Most Mentioned Brands */}
+            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+              <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--nd-border)' }}>
+                <h3 className="text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>Most Mentioned Brands</h3>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--nd-text-muted)' }}>Across all AI responses</p>
+              </div>
+              <div className="p-4 space-y-3">
+                {visibleBrands.length === 0 ? (
+                  <p className="text-sm text-center py-4" style={{ color: 'var(--nd-text-muted)' }}>No brand data yet</p>
+                ) : (
+                  visibleBrands.map(({ name, count, pct }) => (
+                    <div key={name} className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium truncate" style={{ color: 'var(--nd-text-primary)' }}>{name}</span>
+                        <span className="text-xs font-semibold shrink-0 ml-2" style={{ color: 'var(--nd-text-secondary)' }}>{pct}%</span>
+                      </div>
+                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--nd-border)' }}>
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${Math.round((count / maxBrandCount) * 100)}%`, background: 'var(--nd-purple)' }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
+                {allMentionedBrands.length > 8 && (
+                  <button
+                    onClick={() => setShowMoreBrands(!showMoreBrands)}
+                    className="w-full text-sm font-semibold py-2.5 rounded-lg transition-colors border mt-1"
+                    style={{ color: 'var(--nd-text-secondary)', borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}
+                    onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--nd-bg)')}
+                    onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--nd-bg)')}
+                  >
+                    {showMoreBrands ? 'Show less' : `Show ${allMentionedBrands.length - 8} more brands`}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Prompt Table View */}
+        {viewMode === 'prompts' && (
+          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+            {/* Breadcrumb header */}
+            <div className="px-5 py-4 flex items-center gap-2.5" style={{ borderBottom: '1px solid var(--nd-border)' }}>
+              <button
+                onClick={() => setViewMode('topics')}
+                className="flex items-center gap-1.5 text-sm font-medium transition-colors"
+                style={{ color: 'var(--nd-text-secondary)' }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--nd-purple)')}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--nd-text-secondary)')}
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Topics
+              </button>
+              <span style={{ color: 'var(--nd-border)' }}>›</span>
+              <span className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>
+                {selectedTopic ?? 'All Prompts'}
+              </span>
+              <span className="text-xs" style={{ color: 'var(--nd-text-muted)' }}>
+                ({displayedPrompts.length})
+              </span>
+            </div>
+
+            {/* Prompt results table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead>
+                  <tr style={{ background: 'var(--nd-bg)', borderBottom: '1px solid var(--nd-border)' }}>
+                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider w-10" style={{ color: 'var(--nd-text-muted)' }}>#</th>
+                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>Prompt</th>
+                    {OB_PROVIDERS.map((p) => (
+                      <th key={p} className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-center" style={{ color: 'var(--nd-text-muted)', width: '160px', minWidth: '160px' }}>
+                        {OB_PROVIDER_CFG[p].label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayedPrompts.map((r, i) => (
+                    <tr
+                      key={`${r.prompt}-${i}`}
+                      className="cursor-pointer transition-colors"
+                      style={{ borderBottom: '1px solid var(--nd-border)' }}
+                      onClick={() => openModal(r)}
+                      onMouseEnter={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = 'var(--nd-bg)')}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = '')}
+                    >
+                      <td className="px-4 py-4 align-middle">
+                        <span className="text-sm font-mono" style={{ color: 'var(--nd-text-muted)' }}>{i + 1}</span>
+                      </td>
+                      <td className="px-4 py-4 align-middle" style={{ maxWidth: '320px' }}>
+                        <p className="text-sm font-medium leading-snug line-clamp-2" style={{ color: 'var(--nd-text-primary)' }}>{r.prompt}</p>
+                        {r.topic && (
+                          <span className="mt-1 inline-block text-xs px-1.5 py-0.5 rounded" style={{ background: 'var(--nd-bg)', color: 'var(--nd-text-muted)', border: '1px solid var(--nd-border)' }}>
+                            {r.topic}
+                          </span>
+                        )}
+                      </td>
+                      {OB_PROVIDERS.map((p) => (
+                        <td key={p} className="px-3 py-4 align-middle" style={{ width: '160px' }}>
+                          <OBTableProviderCell
+                            providerResult={r.results[p]}
+                            onOpen={() => openModal(r, p)}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </>
   )
 }
 
