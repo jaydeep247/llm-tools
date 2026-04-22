@@ -84,6 +84,16 @@ select {
   --input:               #E8E9EF;
   --ring:                #5347CE;
 
+  /* Sidebar */
+  --sidebar:                 #FFFFFF;
+  --sidebar-foreground:      #1A1D2B;
+  --sidebar-primary:         #5347CE;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent:          #F8F8FC;
+  --sidebar-accent-foreground:#1A1D2B;
+  --sidebar-border:          #E8E9EF;
+  --sidebar-ring:            #5347CE;
+
   /* Palette */
   --nd-bg:           #F8F8FC;
   --nd-sidebar-bg:   #FFFFFF;
@@ -143,6 +153,27 @@ select {
   --nd-progress-fill-high: #1E3A8A;
   --nd-progress-fill-mid:  #4896FE;
   --nd-progress-track:     #E0E7EF;
+}
+
+/*
+ * ── Prevent dark body from bleeding through on scroll/overscroll ──
+ * The .nexus-dashboard wrapper uses min-h-screen but the <body> is dark.
+ * This pseudo-element creates a full-viewport light backdrop behind the
+ * dashboard content so overscroll never reveals the dark body.
+ * Landing page is NOT affected — only applies when .nexus-dashboard exists.
+ */
+.nexus-dashboard::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--nd-bg, #F8F8FC);
+  pointer-events: none;
+}
+
+/* ── Force light-mode skeletons inside dashboard ── */
+.nexus-dashboard [data-slot="skeleton"] {
+  background: #E8E9EF !important;
 }
 
 /* ── Selection color (light theme override) ── */

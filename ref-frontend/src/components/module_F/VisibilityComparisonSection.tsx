@@ -19,7 +19,7 @@ import {
   ChevronDown, ChevronUp, Gauge,
   Star, MessageSquare, Zap, Trophy, Target, Globe,
   Search, Activity, ExternalLink, AlertCircle, Check,
-  ChevronRight, ArrowLeft
+  ChevronRight, ArrowLeft, Plus, X
 } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { Button } from '@/components/ui/button'
@@ -483,18 +483,28 @@ function OBPromptDetailModal({
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
       <DialogContent
-        className="w-[calc(100vw-2rem)] max-w-4xl max-h-[85vh] overflow-hidden flex flex-col bg-white p-0 gap-0"
-        style={{ border: '1px solid #e5e7eb' }}
+        showCloseButton={false}
+        className="w-[calc(100vw-2rem)] max-h-[85vh] overflow-hidden flex flex-col bg-white p-0 gap-0"
+        style={{ border: '1px solid #e5e7eb', maxWidth: '56rem' }}
       >
         <DialogTitle className="sr-only">Response from {cfg.label}</DialogTitle>
         {/* Modal header */}
         <div className="flex items-start justify-between px-6 py-5 border-b border-gray-200 shrink-0">
-          <div className="pr-6">
+          <div className="pr-8 flex-1 min-w-0">
             <h2 className="text-base font-bold text-gray-900">Response from {cfg.label}</h2>
             <p className="text-sm text-gray-500 mt-1 leading-snug">
               Prompt: {result.prompt}
             </p>
           </div>
+          <button
+            onClick={onClose}
+            className="shrink-0 ml-4 w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors"
+            aria-label="Close"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
 
         {/* Scrollable body */}
@@ -587,12 +597,13 @@ function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
     refetchOnMountOrArgChange: true,
   })
 
-  const [viewMode, setViewMode] = useState<'topics' | 'prompts'>('topics')
-  const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<string>('__overview__')
+  const [openTabs, setOpenTabs] = useState<string[]>([])
+  const [addPromptTopic, setAddPromptTopic] = useState<string | null>(null)
+  const [newPromptText, setNewPromptText] = useState('')
   const [modalResult, setModalResult] = useState<PromptResult | null>(null)
   const [modalProvider, setModalProvider] = useState<OBProviders>('openai')
   const [modalOpen, setModalOpen] = useState(false)
-  const [showMoreBrands, setShowMoreBrands] = useState(false)
 
   const results: PromptResult[] = data?.prompt_results ?? []
   const aggregate: AggregateStats | undefined = data?.aggregate
@@ -609,7 +620,15 @@ function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
   }, [results])
 
   const topicList = useMemo(() => {
-    return Object.entries(topicMap).map(([topic, prompts]) => {
+    // Use topics_generated as the canonical list from onboarding so ALL generated topics are shown,
+    // not just the ones the user selected. Fall back to topicMap keys if not available.
+    const allTopics: string[] =
+      data?.topics_generated?.length
+        ? data.topics_generated
+        : Object.keys(topicMap)
+
+    return allTopics.map((topic) => {
+      const prompts = topicMap[topic] ?? []
       const totalResps = prompts.reduce(
         (acc, p) => acc + OB_PROVIDERS.filter((pr) => p.results[pr]?.analysis != null).length,
         0,
@@ -621,7 +640,7 @@ function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
       const rate = totalResps ? Math.round((mentionedResps / totalResps) * 100) : 0
       return { topic, prompts, rate, promptCount: prompts.length }
     })
-  }, [topicMap])
+  }, [topicMap, data?.topics_selected])
 
   const allMentionedBrands = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -638,12 +657,6 @@ function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
       .map(([name, count]) => ({ name, count, pct: Math.round((count / total) * 100) }))
   }, [results])
 
-  const displayedPrompts = useMemo(
-    () => (selectedTopic ? topicMap[selectedTopic] ?? [] : results),
-    [selectedTopic, results, topicMap],
-  )
-
-  const visibleBrands = showMoreBrands ? allMentionedBrands : allMentionedBrands.slice(0, 8)
   const maxBrandCount = allMentionedBrands[0]?.count ?? 1
 
   if (!jobId || isLoading || results.length === 0) return null
@@ -663,6 +676,17 @@ function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
     setModalResult(r)
     setModalProvider(resolved)
     setModalOpen(true)
+  }
+
+  const openTopicTab = (topic: string) => {
+    setOpenTabs((prev) => prev.includes(topic) ? prev : [...prev, topic])
+    setActiveTab(topic)
+  }
+
+  const closeTopicTab = (topic: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setOpenTabs((prev) => prev.filter((t) => t !== topic))
+    setActiveTab((prev) => prev === topic ? '__overview__' : prev)
   }
 
   return (
@@ -724,175 +748,257 @@ function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
           ))}
         </div>
 
-        {/* Topic List View */}
-        {viewMode === 'topics' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Left: Brand Presence by Topic */}
-            <div className="lg:col-span-2 rounded-xl overflow-hidden" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
-              <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--nd-border)' }}>
-                <div>
-                  <h3 className="text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>Brand Presence by Topic</h3>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--nd-text-muted)' }}>
-                    {results.length} prompts • {topicList.length} topics
-                  </p>
-                </div>
+        {/* ── Tab strip ────────────────────────────────────────────── */}
+        <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+          {/* Tab bar */}
+          <div className="flex items-center gap-0 overflow-x-auto" style={{ borderBottom: '1px solid var(--nd-border)', background: 'var(--nd-bg)' }}>
+            {/* Overview tab */}
+            <button
+              onClick={() => setActiveTab('__overview__')}
+              className="flex items-center gap-1.5 px-4 py-3 text-sm font-medium shrink-0 transition-colors border-b-2"
+              style={{
+                borderBottomColor: activeTab === '__overview__' ? 'var(--nd-purple)' : 'transparent',
+                color: activeTab === '__overview__' ? 'var(--nd-purple)' : 'var(--nd-text-secondary)',
+                background: activeTab === '__overview__' ? 'var(--nd-card-bg)' : 'transparent',
+              }}
+            >
+              Overview
+            </button>
+            {/* Open topic tabs */}
+            {openTabs.map((topic) => (
+              <div
+                key={topic}
+                onClick={() => setActiveTab(topic)}
+                className="flex items-center gap-1.5 px-4 py-3 shrink-0 cursor-pointer transition-colors border-b-2 group/tab"
+                style={{
+                  borderBottomColor: activeTab === topic ? 'var(--nd-purple)' : 'transparent',
+                  color: activeTab === topic ? 'var(--nd-purple)' : 'var(--nd-text-secondary)',
+                  background: activeTab === topic ? 'var(--nd-card-bg)' : 'transparent',
+                }}
+              >
+                <span className="text-sm font-medium max-w-40 truncate">{topic}</span>
                 <button
-                  onClick={() => { setSelectedTopic(null); setViewMode('prompts') }}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors border"
-                  style={{ color: 'var(--nd-purple)', borderColor: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)' }}
+                  onClick={(e) => closeTopicTab(topic, e)}
+                  className="ml-1 rounded opacity-50 hover:opacity-100 transition-opacity"
+                  title="Close tab"
                 >
-                  All Prompts
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <div>
-                {topicList.length === 0 ? (
-                  <p className="px-5 py-8 text-center text-sm" style={{ color: 'var(--nd-text-muted)' }}>No topic data</p>
-                ) : (
-                  topicList.map(({ topic, rate, promptCount }, idx) => {
-                    const badgeBg = rate >= 50 ? '#f0fdf4' : rate >= 25 ? '#fffbeb' : '#fef2f2'
-                    const badgeBorder = rate >= 50 ? '#bbf7d0' : rate >= 25 ? '#fde68a' : '#fecaca'
-                    const badgeColor = rate >= 50 ? '#065f46' : rate >= 25 ? '#92400e' : '#991b1b'
-                    return (
-                      <button
-                        key={topic}
-                        onClick={() => { setSelectedTopic(topic); setViewMode('prompts') }}
-                        className="w-full flex items-center gap-4 px-5 py-3.5 text-left transition-colors"
-                        style={{ borderBottom: idx < topicList.length - 1 ? '1px solid var(--nd-border)' : undefined }}
-                        onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--nd-bg)')}
-                        onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = '')}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <span className="text-sm font-medium" style={{ color: 'var(--nd-text-primary)' }}>{topic}</span>
-                        </div>
-                        <span className="text-xs shrink-0 px-2 py-0.5 rounded-full border font-medium" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-secondary)' }}>
-                          {promptCount} prompts
-                        </span>
-                        <span className="text-xs font-bold shrink-0 px-2.5 py-0.5 rounded-full border" style={{ background: badgeBg, borderColor: badgeBorder, color: badgeColor }}>
-                          {rate}%
-                        </span>
-                        <ChevronRight className="w-4 h-4 shrink-0" style={{ color: 'var(--nd-text-muted)' }} />
-                      </button>
-                    )
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* Right: Most Mentioned Brands */}
-            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
-              <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--nd-border)' }}>
-                <h3 className="text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>Most Mentioned Brands</h3>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--nd-text-muted)' }}>Across all AI responses</p>
-              </div>
-              <div className="p-4 space-y-3">
-                {visibleBrands.length === 0 ? (
-                  <p className="text-sm text-center py-4" style={{ color: 'var(--nd-text-muted)' }}>No brand data yet</p>
-                ) : (
-                  visibleBrands.map(({ name, count, pct }) => (
-                    <div key={name} className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium truncate" style={{ color: 'var(--nd-text-primary)' }}>{name}</span>
-                        <span className="text-xs font-semibold shrink-0 ml-2" style={{ color: 'var(--nd-text-secondary)' }}>{pct}%</span>
-                      </div>
-                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--nd-border)' }}>
-                        <div
-                          className="h-full rounded-full"
-                          style={{ width: `${Math.round((count / maxBrandCount) * 100)}%`, background: 'var(--nd-purple)' }}
-                        />
-                      </div>
-                    </div>
-                  ))
-                )}
-                {allMentionedBrands.length > 8 && (
-                  <button
-                    onClick={() => setShowMoreBrands(!showMoreBrands)}
-                    className="w-full text-sm font-semibold py-2.5 rounded-lg transition-colors border mt-1"
-                    style={{ color: 'var(--nd-text-secondary)', borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}
-                    onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--nd-bg)')}
-                    onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--nd-bg)')}
-                  >
-                    {showMoreBrands ? 'Show less' : `Show ${allMentionedBrands.length - 8} more brands`}
-                  </button>
-                )}
-              </div>
-            </div>
+            ))}
           </div>
-        )}
 
-        {/* Prompt Table View */}
-        {viewMode === 'prompts' && (
-          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
-            {/* Breadcrumb header */}
-            <div className="px-5 py-4 flex items-center gap-2.5" style={{ borderBottom: '1px solid var(--nd-border)' }}>
-              <button
-                onClick={() => setViewMode('topics')}
-                className="flex items-center gap-1.5 text-sm font-medium transition-colors"
-                style={{ color: 'var(--nd-text-secondary)' }}
-                onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--nd-purple)')}
-                onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--nd-text-secondary)')}
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Topics
-              </button>
-              <span style={{ color: 'var(--nd-border)' }}>›</span>
-              <span className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>
-                {selectedTopic ?? 'All Prompts'}
-              </span>
-              <span className="text-xs" style={{ color: 'var(--nd-text-muted)' }}>
-                ({displayedPrompts.length})
-              </span>
-            </div>
-
-            {/* Prompt results table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead>
-                  <tr style={{ background: 'var(--nd-bg)', borderBottom: '1px solid var(--nd-border)' }}>
-                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider w-10" style={{ color: 'var(--nd-text-muted)' }}>#</th>
-                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>Prompt</th>
-                    {OB_PROVIDERS.map((p) => (
-                      <th key={p} className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-center" style={{ color: 'var(--nd-text-muted)', width: '160px', minWidth: '160px' }}>
-                        {OB_PROVIDER_CFG[p].label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayedPrompts.map((r, i) => (
-                    <tr
-                      key={`${r.prompt}-${i}`}
-                      className="cursor-pointer transition-colors"
-                      style={{ borderBottom: '1px solid var(--nd-border)' }}
-                      onClick={() => openModal(r)}
-                      onMouseEnter={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = 'var(--nd-bg)')}
-                      onMouseLeave={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = '')}
-                    >
-                      <td className="px-4 py-4 align-middle">
-                        <span className="text-sm font-mono" style={{ color: 'var(--nd-text-muted)' }}>{i + 1}</span>
-                      </td>
-                      <td className="px-4 py-4 align-middle" style={{ maxWidth: '320px' }}>
-                        <p className="text-sm font-medium leading-snug line-clamp-2" style={{ color: 'var(--nd-text-primary)' }}>{r.prompt}</p>
-                        {r.topic && (
-                          <span className="mt-1 inline-block text-xs px-1.5 py-0.5 rounded" style={{ background: 'var(--nd-bg)', color: 'var(--nd-text-muted)', border: '1px solid var(--nd-border)' }}>
-                            {r.topic}
+          {/* ── Overview tab content ── */}
+          {activeTab === '__overview__' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 divide-x" style={{ borderColor: 'var(--nd-border)' }}>
+              {/* Left: Brand Presence by Topic */}
+              <div className="lg:col-span-2">
+                <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--nd-border)' }}>
+                  <div>
+                    <h3 className="text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>Brand Presence by Topic</h3>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--nd-text-muted)' }}>
+                      {results.length} prompts • {topicList.length} topics
+                    </p>
+                  </div>
+                </div>
+                <div className="overflow-y-auto" style={{ maxHeight: '420px' }}>
+                  {topicList.length === 0 ? (
+                    <p className="px-5 py-8 text-center text-sm" style={{ color: 'var(--nd-text-muted)' }}>No topic data</p>
+                  ) : (
+                    topicList.map(({ topic, rate, promptCount }, idx) => {
+                      const badgeBg = rate >= 50 ? '#f0fdf4' : rate >= 25 ? '#fffbeb' : '#fef2f2'
+                      const badgeBorder = rate >= 50 ? '#bbf7d0' : rate >= 25 ? '#fde68a' : '#fecaca'
+                      const badgeColor = rate >= 50 ? '#065f46' : rate >= 25 ? '#92400e' : '#991b1b'
+                      return (
+                        <button
+                          key={topic}
+                          onClick={() => openTopicTab(topic)}
+                          className="w-full flex items-center gap-4 px-5 py-3.5 text-left transition-colors"
+                          style={{ borderBottom: idx < topicList.length - 1 ? '1px solid var(--nd-border)' : undefined }}
+                          onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--nd-bg)')}
+                          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = '')}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-medium" style={{ color: 'var(--nd-text-primary)' }}>{topic}</span>
+                          </div>
+                          <span className="text-xs shrink-0 px-2 py-0.5 rounded-full border font-medium" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-secondary)' }}>
+                            {promptCount} prompts
                           </span>
-                        )}
-                      </td>
-                      {OB_PROVIDERS.map((p) => (
-                        <td key={p} className="px-3 py-4 align-middle" style={{ width: '160px' }}>
-                          <OBTableProviderCell
-                            providerResult={r.results[p]}
-                            onOpen={() => openModal(r, p)}
+                          <span className="text-xs font-bold shrink-0 px-2.5 py-0.5 rounded-full border" style={{ background: badgeBg, borderColor: badgeBorder, color: badgeColor }}>
+                            {rate}%
+                          </span>
+                          <ChevronRight className="w-4 h-4 shrink-0" style={{ color: 'var(--nd-text-muted)' }} />
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Right: Most Mentioned Brands */}
+              <div style={{ borderLeft: '1px solid var(--nd-border)' }}>
+                <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--nd-border)' }}>
+                  <h3 className="text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>Most Mentioned Brands</h3>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--nd-text-muted)' }}>Across all AI responses</p>
+                </div>
+                <div className="p-4 space-y-3 overflow-y-auto" style={{ maxHeight: '420px' }}>
+                  {allMentionedBrands.length === 0 ? (
+                    <p className="text-sm text-center py-4" style={{ color: 'var(--nd-text-muted)' }}>No brand data yet</p>
+                  ) : (
+                    allMentionedBrands.map(({ name, count, pct }) => (
+                      <div key={name} className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium truncate" style={{ color: 'var(--nd-text-primary)' }}>{name}</span>
+                          <span className="text-xs font-semibold shrink-0 ml-2" style={{ color: 'var(--nd-text-secondary)' }}>{pct}%</span>
+                        </div>
+                        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--nd-border)' }}>
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${Math.round((count / maxBrandCount) * 100)}%`, background: 'var(--nd-purple)' }}
                           />
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* ── Topic tab content ── */}
+          {activeTab !== '__overview__' && (() => {
+            const tabPrompts = topicMap[activeTab] ?? []
+            return (
+              <div>
+                {/* Topic tab header with Add Prompt */}
+                <div className="px-5 py-3.5 flex items-center justify-between" style={{ borderBottom: '1px solid var(--nd-border)' }}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>{activeTab}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)', color: 'var(--nd-text-muted)' }}>
+                      {tabPrompts.length} prompts
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => { setAddPromptTopic(activeTab); setNewPromptText('') }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border"
+                    style={{ color: 'var(--nd-purple)', borderColor: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)' }}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Prompt
+                  </button>
+                </div>
+
+                {/* Prompt results table */}
+                <div className="overflow-x-auto">
+                  {tabPrompts.length === 0 ? (
+                    <div className="py-12 text-center">
+                      <p className="text-sm" style={{ color: 'var(--nd-text-muted)' }}>No prompts for this topic yet.</p>
+                      <button
+                        onClick={() => { setAddPromptTopic(activeTab); setNewPromptText('') }}
+                        className="mt-3 flex items-center gap-1.5 mx-auto px-3 py-1.5 rounded-lg text-xs font-semibold border"
+                        style={{ color: 'var(--nd-purple)', borderColor: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)' }}
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add first prompt
+                      </button>
+                    </div>
+                  ) : (
+                    <table className="w-full text-sm text-left">
+                      <thead>
+                        <tr style={{ background: 'var(--nd-bg)', borderBottom: '1px solid var(--nd-border)' }}>
+                          <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider w-10" style={{ color: 'var(--nd-text-muted)' }}>#</th>
+                          <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-muted)' }}>Prompt</th>
+                          {OB_PROVIDERS.map((p) => (
+                            <th key={p} className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-center" style={{ color: 'var(--nd-text-muted)', width: '160px', minWidth: '160px' }}>
+                              {OB_PROVIDER_CFG[p].label}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tabPrompts.map((r, i) => (
+                          <tr
+                            key={`${r.prompt}-${i}`}
+                            className="cursor-pointer transition-colors"
+                            style={{ borderBottom: '1px solid var(--nd-border)' }}
+                            onClick={() => openModal(r)}
+                            onMouseEnter={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = 'var(--nd-bg)')}
+                            onMouseLeave={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = '')}
+                          >
+                            <td className="px-4 py-4 align-middle">
+                              <span className="text-sm font-mono" style={{ color: 'var(--nd-text-muted)' }}>{i + 1}</span>
+                            </td>
+                            <td className="px-4 py-4 align-middle" style={{ maxWidth: '320px' }}>
+                              <p className="text-sm font-medium leading-snug line-clamp-2" style={{ color: 'var(--nd-text-primary)' }}>{r.prompt}</p>
+                            </td>
+                            {OB_PROVIDERS.map((p) => (
+                              <td key={p} className="px-3 py-4 align-middle" style={{ width: '160px' }}>
+                                <OBTableProviderCell
+                                  providerResult={r.results[p]}
+                                  onOpen={() => openModal(r, p)}
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+
+        {/* ── Add Prompt dialog ── */}
+        <Dialog open={!!addPromptTopic} onOpenChange={(v) => { if (!v) setAddPromptTopic(null) }}>
+          <DialogContent
+            showCloseButton={false}
+            className="w-[calc(100vw-2rem)] bg-white p-0 gap-0"
+            style={{ maxWidth: '32rem', border: '1px solid #e5e7eb' }}
+          >
+            <DialogTitle className="sr-only">Add Prompt</DialogTitle>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <div>
+                <h2 className="text-sm font-bold text-gray-900">Add Prompt</h2>
+                <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{addPromptTopic}</p>
+              </div>
+              <button onClick={() => setAddPromptTopic(null)} className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <textarea
+                className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 resize-none focus:outline-none focus:ring-2"
+                style={{ minHeight: '96px', background: '#f9fafb' }}
+                placeholder="e.g. What are the best tools for improving email response time?"
+                value={newPromptText}
+                onChange={(e) => setNewPromptText(e.target.value)}
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setAddPromptTopic(null)}
+                  className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={!newPromptText.trim()}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-40"
+                  style={{ background: 'var(--nd-purple)' }}
+                  onClick={() => {
+                    // TODO: wire to backend save/run endpoint
+                    setAddPromptTopic(null)
+                    setNewPromptText('')
+                  }}
+                >
+                  Add Prompt
+                </button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </>
   )
