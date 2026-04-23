@@ -287,6 +287,7 @@ export interface PerceptionSourceDomain {
   urls: Array<{
     url: string
     responses: number
+    type?: string
   }>
 }
 
@@ -351,6 +352,7 @@ export interface PerceptionSourcesQuery {
     | 'product-comparison'
     | 'product-page'
     | 'research'
+    | 'broken'
 }
 
 export interface PerceptionSourceResponsesQuery {
@@ -373,6 +375,7 @@ export interface PerceptionSourceResponsesQuery {
     | 'product-comparison'
     | 'product-page'
     | 'research'
+    | 'broken'
 }
 
 export interface PerceptionCell {
@@ -479,6 +482,7 @@ export interface PerceptionSourcesOverviewQuery {
     | 'product-comparison'
     | 'product-page'
     | 'research'
+    | 'broken'
 }
 
 export const moduleEApi = baseApi.injectEndpoints({

@@ -119,7 +119,21 @@ export class ModuleEService {
       search?: string;
       llm?: string;
       property?: string;
-      type?: 'all' | 'owned' | 'third-party';
+      type?:
+        | 'all'
+        | 'owned'
+        | 'third-party'
+        | 'article'
+        | 'blog'
+        | 'case-study'
+        | 'forum-community'
+        | 'guide-tutorial'
+        | 'homepage'
+        | 'marketing-listing'
+        | 'product-comparison'
+        | 'product-page'
+        | 'research'
+        | 'broken';
       date_from?: string;
       date_to?: string;
       limit_domains?: number;
@@ -161,7 +175,21 @@ export class ModuleEService {
       customer_root_domain: string;
       llm?: string;
       property?: string;
-      type?: 'all' | 'owned' | 'third-party';
+      type?:
+        | 'all'
+        | 'owned'
+        | 'third-party'
+        | 'article'
+        | 'blog'
+        | 'case-study'
+        | 'forum-community'
+        | 'guide-tutorial'
+        | 'homepage'
+        | 'marketing-listing'
+        | 'product-comparison'
+        | 'product-page'
+        | 'research'
+        | 'broken';
       date_from?: string;
       date_to?: string;
       limit?: number;
@@ -251,7 +279,21 @@ export class ModuleEService {
       customer_root_domain: string;
       llm?: string;
       property?: string;
-      type?: 'all' | 'owned' | 'third-party';
+      type?:
+        | 'all'
+        | 'owned'
+        | 'third-party'
+        | 'article'
+        | 'blog'
+        | 'case-study'
+        | 'forum-community'
+        | 'guide-tutorial'
+        | 'homepage'
+        | 'marketing-listing'
+        | 'product-comparison'
+        | 'product-page'
+        | 'research'
+        | 'broken';
       date_from?: string;
       date_to?: string;
       top_n_domains?: number;

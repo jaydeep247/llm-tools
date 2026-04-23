@@ -12,6 +12,7 @@ import {
 type SourceUrl = {
   url: string
   responses: number
+  type?: string
 }
 
 type SourceDomain = {
@@ -80,6 +81,7 @@ const TYPE_OPTIONS: Array<{
     | 'product-comparison'
     | 'product-page'
     | 'research'
+    | 'broken'
 }> = [
   { label: 'All Types', value: 'all' },
   { label: 'Article', value: 'article' },
@@ -92,6 +94,7 @@ const TYPE_OPTIONS: Array<{
   { label: 'Product comparison', value: 'product-comparison' },
   { label: 'Product page', value: 'product-page' },
   { label: 'Research', value: 'research' },
+  { label: 'Broken/Invalid', value: 'broken' },
 ]
 
 export default function PerceptionSources({
@@ -297,16 +300,26 @@ export default function PerceptionSources({
                         key={source.url}
                         className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-(--nd-bg)"
                       >
-                        <a
-                          href={source.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs text-sky-300 hover:text-sky-200 inline-flex items-center gap-1 truncate"
-                          title={source.url}
-                        >
-                          <ExternalLink className="w-3 h-3 shrink-0" />
-                          <span className="truncate">{source.url}</span>
-                        </a>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <a
+                            href={source.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={cn(
+                              "text-xs inline-flex items-center gap-1 truncate",
+                              source.type === 'broken' ? "text-amber-500 hover:text-amber-400 font-semibold" : "text-sky-300 hover:text-sky-200"
+                            )}
+                            title={source.url}
+                          >
+                            <ExternalLink className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{source.url}</span>
+                          </a>
+                          {source.type === 'broken' && (
+                            <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-[9px] font-bold text-amber-500 uppercase tracking-wider">
+                              Broken/404
+                            </span>
+                          )}
+                        </div>
                         <button
                           type="button"
                           onClick={() => setResponsesPanelDomain(item.domain)}

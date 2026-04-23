@@ -339,6 +339,25 @@ def _write_response(job_id, prompt_id, prompt_text, model, llm_source, text, cit
     })
     return str(res.inserted_id)
 
+from urllib.parse import urlparse
+
+def _is_broken_url(url: str) -> bool:
+    """Detects likely 404/hallucinated URLs without a live network check."""
+    if not url: return True
+    try:
+        parsed = urlparse(url.lower())
+        path = parsed.path
+        domain = parsed.netloc
+        if any(tok in path for tok in ("404", "not-found", "error-404", "page-not-found", "dead-link", "undefined", "null")):
+            return True
+        if any(tok in domain for tok in ("example.com", "placeholder.com", "yourdomain.com", "company.com")):
+            return True
+        if len(path) > 150 and re.search(r'[a-z0-9]{32,}', path):
+            return True
+        return False
+    except:
+        return True
+
 def _write_events(job_id, prompt_id, prompt_text, response_id, model, llm_source, text, citations, cust_domain, brand, comp_domains):
     mongo_manager.connect()
     db  = mongo_manager.db
@@ -366,6 +385,7 @@ def _write_events(job_id, prompt_id, prompt_text, response_id, model, llm_source
             "llm_source": llm_source, "model_version": model,
             "cited_url": url, "raw_cited_url": raw,
             "is_customer_citation": is_cust, "is_competitor_citation": is_comp,
+            "is_broken": _is_broken_url(raw or url),
             "competitor_domain": comp_d if is_comp else None,
             "brand_mention": bool(brand) and brand.lower() in text.lower(),
             "mention_sentiment": _sentiment(text, raw),
